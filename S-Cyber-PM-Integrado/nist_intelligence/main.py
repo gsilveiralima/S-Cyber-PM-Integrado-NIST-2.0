@@ -106,7 +106,12 @@ class NISTPanel(ttk.Frame):
         s.configure('NIST.Info.TLabel', background=BG, foreground=MUTED, font=('Segoe UI', 9))
         s.configure('NIST.TButton', font=('Segoe UI', 10), padding=6)
         s.configure('NIST.Treeview', background=PANEL, fieldbackground=PANEL, foreground='white', rowheight=25)
-        s.configure('NIST.Treeview.Heading', background='#263b52', foreground='white')
+        # Os temas nativos do Windows (vista/xpnative/winnative) ignoram a cor de fundo do
+        # cabeçalho e o desenham claro: nesse caso o texto precisa ser escuro, senão some.
+        if s.theme_use() in ('vista', 'xpnative', 'winnative'):
+            s.configure('NIST.Treeview.Heading', foreground='#101722', font=('Segoe UI', 9, 'bold'))
+        else:
+            s.configure('NIST.Treeview.Heading', background='#263b52', foreground='white')
         s.map('NIST.Treeview', background=[('selected', '#225b82')])
         s.configure('NIST.TNotebook', background=BG)
         s.configure('NIST.TNotebook.Tab', padding=(8, 4))
