@@ -1,0 +1,15 @@
+# Cache de bytecode do Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Saidas temporarias de build do PyInstaller
+*.spec.bak
+
+# Ambiente e build
+.venv/
+build/
+build_exe/
+dist/
+*.db
+.ruff_cache/
