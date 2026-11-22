@@ -76,6 +76,10 @@ Testes automáticos: `py -3 -m unittest discover -s tests -v`, dentro de `S-Cybe
 - **S-Cyber NIST Intelligence** (módulo NIST, `nist_intelligence/` e arquivos relacionados):
   SGT Gabriel Silveira Lima.
 
-A licença Apache 2.0 do arquivo `LICENSE` se aplica ao módulo NIST Intelligence. Os arquivos da
-aplicação original S-Cyber PM continuam sob os termos definidos por seus autores; veja
-`S-Cyber-PM-Integrado/README.md`.
+Todo o conteúdo deste repositório, inclusive os arquivos da aplicação original S-Cyber PM, é
+distribuído sob a **licença Apache 2.0** (arquivo `LICENSE`), com a concordância do MAJ Leonidio Alves
+de Moraes Junior, registrada em 22/11/2026.
+
+O arquivo `S-Cyber-PM-Integrado/README.md` foi preservado sem alterações, para conferência de
+integridade (SHA-256), e ainda traz a restrição de redistribuição do repositório original. Neste
+repositório, essa restrição não se aplica: vale a Apache 2.0 descrita acima.
