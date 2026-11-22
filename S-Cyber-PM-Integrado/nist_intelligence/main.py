@@ -55,11 +55,18 @@ def _br(iso):
 class NISTPanel(ttk.Frame):
     """Painel embutível no Tk raiz do S-Cyber PM."""
 
-    def __init__(self, parent, original_root=None, embedded=False, on_back=None, db_path=core.DB):
-        super().__init__(parent, style='NIST.TFrame')
+    def __init__(self, parent, original_root=None, embedded=False, on_back=None, db_path=core.DB, key=None):
+        # key: chave de 32 bytes derivada do certificado (crypto.derive_key). Abre o banco
+        # antes de criar a janela: se a chave não servir, nada fica pela metade.
+        db = core.connect(db_path, key)
+        try:
+            super().__init__(parent, style='NIST.TFrame')
+        except Exception:
+            db.close()
+            raise
+        self.db = db
         self.embedded = embedded
         self.on_back = on_back
-        self.db = core.connect(db_path)
         self.sei = None
         self.sei_busy = False
         self._closed = False
@@ -232,8 +239,12 @@ class NISTPanel(ttk.Frame):
         self.alert_list = tk.Listbox(right, bg=PANEL, fg=TEXT, height=10, borderwidth=0, highlightthickness=0,
                                      font=('Segoe UI', 9))
         self.alert_list.pack(fill='both', expand=True)
-        nist_Label(f, text='Os dados ficam em SQLite NÃO cifrado em %APPDATA%\\SCyberPM\\nist: '
-                   'não registre conteúdo sigiloso; registre referências.', style='NIST.Info.TLabel').pack(anchor='w', padx=16, pady=4)
+        if self.db.encrypted:
+            aviso = ('Textos do banco cifrados (AES-256-GCM) com chave derivada do certificado do S-Cyber PM. '
+                     'Registre o necessário: quem tiver o certificado e a senha de acesso lê os dados.')
+        else:
+            aviso = 'MODO DE TESTE: banco temporário SEM criptografia. Não registre dados reais.'
+        nist_Label(f, text=aviso, style='NIST.Info.TLabel', wraplength=1100).pack(anchor='w', padx=16, pady=4)
 
     def draw_chart(self):
         if self._closed:
@@ -588,12 +599,12 @@ class NISTPanel(ttk.Frame):
 
     def refresh_risks(self):
         self.clear(self.rtree)
-        for rid, title, p, i, rp, ri, sub, fn, treat, owner, due, status in self.db.execute(
-                'SELECT id,title,likelihood,impact,res_likelihood,res_impact,subcategory,function,treatment,'
-                'owner,due_date,status FROM risks ORDER BY likelihood*impact DESC, id DESC'):
+        for r in core.risks(self.db):
+            p, i, rp, ri = r['likelihood'], r['impact'], r['res_likelihood'], r['res_impact']
             level = core.risk_level(p * i)
-            self.rtree.insert('', 'end', iid=str(rid), tags=(level,), values=(
-                rid, title, p * i, level, (rp * ri) if rp and ri else '—', sub or fn, treat, owner, _br(due), status))
+            self.rtree.insert('', 'end', iid=str(r['id']), tags=(level,), values=(
+                r['id'], r['title'], p * i, level, (rp * ri) if rp and ri else '—', r['subcategory'] or r['function'],
+                r['treatment'], r['owner'], _br(r['due_date']), r['status']))
         self.draw_heat()
 
     def new_risk(self):
@@ -610,11 +621,12 @@ class NISTPanel(ttk.Frame):
         sel = self.rtree.selection()
         if not sel:
             return
-        row = self.db.execute('SELECT title,category,threat,vulnerability,likelihood,impact,function,subcategory,'
-                              'treatment,owner,due_date,status,res_likelihood,res_impact FROM risks WHERE id=?',
-                              (int(sel[0]),)).fetchone()
-        if not row:
+        r = core.risk(self.db, sel[0])
+        if not r:
             return
+        row = [r[k] for k in ('title', 'category', 'threat', 'vulnerability', 'likelihood', 'impact', 'function',
+                              'subcategory', 'treatment', 'owner', 'due_date', 'status', 'res_likelihood',
+                              'res_impact')]
         self._risk_id = int(sel[0])
         self.r_save.configure(text=f'Salvar alterações (#{self._risk_id})')
         for e, v in zip((self.r_title, self.r_category, self.r_threat, self.r_vuln), row[:4], strict=True):
@@ -811,11 +823,11 @@ class NISTPanel(ttk.Frame):
 
     def refresh_evidence(self):
         self.clear(self.etree)
-        for rid, name, digest, size, cust, inc, at in self.db.execute(
-                'SELECT id,file_name,sha256,size,custodian,incident_id,recorded_at FROM evidence ORDER BY id DESC'):
-            self.etree.insert('', 'end', iid=str(rid), values=(
-                rid, name, digest, f'{size / 1024:.1f} KB' if size else '', cust, f'#{inc}' if inc else '',
-                at[:16].replace('T', ' ')))
+        for e in core.evidence_list(self.db):
+            size, inc = e['size'], e['incident_id']
+            self.etree.insert('', 'end', iid=str(e['id']), values=(
+                e['id'], e['file_name'], e['sha256'], f'{size / 1024:.1f} KB' if size else '', e['custodian'],
+                f'#{inc}' if inc else '', e['recorded_at'][:16].replace('T', ' ')))
         self.refresh_custody()
 
     def add_evidence(self):
@@ -875,12 +887,12 @@ class NISTPanel(ttk.Frame):
             messagebox.showinfo('Custódia', 'Selecione uma evidência.', parent=self)
             return
         ev_id, actor = self._ev_id, self.e_cust.get() or self._username()
-        row = self.db.execute('SELECT path FROM evidence WHERE id=?', (ev_id,)).fetchone()
-        path = row[0] if row else ''
+        record = core.evidence(self.db, ev_id)
+        path = record['path'] if record else ''
 
         def done(digest, error):
             # Grava na thread do Tk (o SQLite não é compartilhado entre threads).
-            expected = self.db.execute('SELECT sha256 FROM evidence WHERE id=?', (ev_id,)).fetchone()[0]
+            expected = core.evidence(self.db, ev_id)['sha256']
             if error:
                 core.custody_event(self.db, ev_id, 'Verificação', actor, f'Arquivo indisponível: {error}', expected)
                 messagebox.showwarning('Reverificação', f'Arquivo indisponível: {error}', parent=self)
@@ -914,8 +926,7 @@ class NISTPanel(ttk.Frame):
 
     def refresh_osint(self):
         self.clear(self.otree)
-        for row in self.db.execute('SELECT id,source_url,description,status,created_at FROM osint_indicators '
-                                   'ORDER BY id DESC'):
+        for row in core.osint_list(self.db):
             self.otree.insert('', 'end', iid=str(row[0]), values=(*row[:4], row[4][:16].replace('T', ' ')))
 
     def add_osint(self):
@@ -1113,7 +1124,8 @@ class NISTPanel(ttk.Frame):
     def refresh_header(self):
         state = 'conectada' if self.sei is not None else 'desconectada'
         mode = 'integrado ao S-Cyber PM' if self.embedded else 'MODO DE TESTE (dados temporários)'
-        self.header_status.set(f'v{core.VERSION}  •  Conexão SEI: {state}  •  {mode}')
+        lock = 'banco cifrado' if self.db.encrypted else 'banco SEM criptografia'
+        self.header_status.set(f'v{core.VERSION}  •  Conexão SEI: {state}  •  {lock}  •  {mode}')
 
     def refresh(self):
         for part in (self.refresh_assessment, self.refresh_plan, self.refresh_collect, self.refresh_risks,

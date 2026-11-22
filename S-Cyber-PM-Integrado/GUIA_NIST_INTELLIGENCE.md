@@ -1,4 +1,4 @@
-# Guia do S-Cyber NIST Intelligence v0.4.0
+# Guia do S-Cyber NIST Intelligence v0.5.0
 
 Abra pelo menu ou pela Ribbon **NIST Intelligence** (ou **Ctrl+Shift+N**), depois do login do S-Cyber PM.
 
@@ -27,8 +27,10 @@ Abra pelo menu ou pela Ribbon **NIST Intelligence** (ou **Ctrl+Shift+N**), depoi
 - Risco: P×I de 1 a 9; baixo (1–2), médio (3–4), alto (6–9).
 
 ## Limites
-- O banco fica em `%APPDATA%\SCyberPM\nist\nist.db` e **não é cifrado**. Registre referências, nunca
-  conteúdo sigiloso.
+- O banco fica em `%APPDATA%\SCyberPM\nist\nist.db`. Os textos são cifrados (AES-256-GCM) com uma chave
+  derivada do certificado. Se o certificado for trocado, o banco antigo não abre com o novo: o painel
+  avisa e não apaga nada. Antes de trocar o certificado, exporte os CSVs.
+- No modo de teste (`teste_painel_nist.py`), o banco é temporário e não é cifrado.
 - A coleta técnica avalia somente o computador em que roda.
 - A cadeia de custódia apoia, mas não substitui, o procedimento pericial oficial.
 - As descrições das subcategorias são traduções resumidas; a referência é o NIST CSWP 29.

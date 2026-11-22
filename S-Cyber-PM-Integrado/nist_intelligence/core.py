@@ -24,10 +24,11 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from . import crypto
 from .catalog import (CATEGORIES, FUNCTIONS, MATURITY, SUB_BY_CATEGORY,  # noqa: F401
                       SUBCATEGORIES, TIERS, category_of, function_of)
 
-VERSION = '0.4.0'
+VERSION = '0.5.0'
 
 # Mesma pasta de dados do S-Cyber PM (%APPDATA%\SCyberPM), numa subpasta própria.
 _APPDATA = Path(os.environ.get('APPDATA') or (Path.home() / '.config'))
@@ -52,7 +53,45 @@ ANPD_COMPLEMENT_DAYS = 20   # complementação da comunicação preliminar
 MAX_TEXT = 2000
 GENESIS = '0' * 64
 
-DELETABLE = {'risks', 'osint_indicators'}   # incidentes e evidências: só por encerramento/descarte
+DELETABLE = {'risks', 'osint_indicators'}
+
+# Colunas de texto cifradas em repouso quando há chave do certificado.
+SENSITIVE = {
+    'risks': ('title', 'category', 'threat', 'vulnerability', 'owner'),
+    'incidents': ('title', 'notes'),
+    'incident_log': ('note',),
+    'evidence': ('file_name', 'path', 'description', 'custodian'),
+    'custody_log': ('actor', 'note'),
+    'sub_assessments': ('owner', 'evidence_note', 'action_note'),
+    'osint_indicators': ('source_url', 'description'),
+    'collections': ('host', 'user', 'raw'),
+    'findings': ('detail',),
+}
+
+
+class NistConnection(sqlite3.Connection):
+    """Conexão que cifra (E) e decifra (SQL dec()) os campos sensíveis."""
+    cipher = None
+    encrypted = False      # o banco tem dados cifrados
+
+    def E(self, value):
+        return self.cipher.encrypt(value) if self.cipher else value
+
+    def _dec(self, value):
+        if not crypto.is_encrypted(value):
+            return value
+        if not self.cipher:
+            return crypto.LOCKED
+        try:
+            return self.cipher.decrypt(value)
+        except Exception:
+            return crypto.LOCKED
+
+
+def _sel(table, cols):
+    """Lista de colunas para SELECT, com dec() nas sensíveis."""
+    secret = SENSITIVE.get(table, ())
+    return ','.join(f'dec({c}) AS {c}' if c in secret else c for c in cols.split(','))   # incidentes e evidências: só por encerramento/descarte
 
 
 def now():
@@ -103,12 +142,18 @@ def _add_columns(db, table, columns):
             db.execute(f'ALTER TABLE {table} ADD COLUMN {name} {decl}')
 
 
-def connect(path=DB):
+def connect(path=DB, key=None):
+    """Abre o banco. key = chave de 32 bytes (crypto.derive_key) para cifrar os textos.
+
+    Sem chave, um banco que já tem dados cifrados é recusado: gravar em claro
+    misturaria dados protegidos e desprotegidos."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     _migrate_legacy(path)
-    db = sqlite3.connect(path)
+    db = sqlite3.connect(path, factory=NistConnection)
+    db.create_function('dec', 1, db._dec, deterministic=True)
     db.execute('PRAGMA foreign_keys=ON')
+    db.execute('PRAGMA secure_delete=ON')     # páginas liberadas são sobrescritas com zeros
     db.executescript('''
     CREATE TABLE IF NOT EXISTS risks(id INTEGER PRIMARY KEY, title TEXT NOT NULL,
       category TEXT NOT NULL, likelihood INTEGER NOT NULL CHECK(likelihood BETWEEN 1 AND 3),
@@ -172,8 +217,41 @@ def connect(path=DB):
     # Incidentes da v0.3 (só tinham "status"): leva o status para a fase.
     db.execute("UPDATE incidents SET phase='Encerrado' WHERE status='Encerrado' AND phase='Detecção'")
     db.execute("UPDATE incidents SET phase='Análise' WHERE status='Em análise' AND phase='Detecção'")
+    db.execute('CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT NOT NULL)')
     db.commit()
+    try:
+        _setup_encryption(db, key)
+    except Exception:
+        db.close()
+        raise
     return db
+
+
+def _setup_encryption(db, key):
+    row = db.execute("SELECT v FROM meta WHERE k='key_check'").fetchone()
+    if key is None:
+        if row:
+            raise PermissionError('O banco do NIST Intelligence está cifrado. Abra o painel pelo S-Cyber PM, '
+                                  'depois da validação do certificado.')
+        return
+    cipher = crypto.FieldCipher(key)
+    if row:
+        if not cipher.matches(row[0]):
+            raise PermissionError('O banco do NIST Intelligence foi cifrado com OUTRO certificado e não pode '
+                                  'ser lido com o certificado atual.')
+    else:
+        # Primeira vez com chave: cifra os textos que estavam em claro (v0.4 e anteriores).
+        for table, cols in SENSITIVE.items():
+            pk = 'sub_code' if table == 'sub_assessments' else 'id'
+            for record in db.execute(f'SELECT {pk},{",".join(cols)} FROM {table}').fetchall():
+                values = [cipher.encrypt(v) for v in record[1:]]
+                db.execute(f'UPDATE {table} SET {",".join(c + "=?" for c in cols)} WHERE {pk}=?',
+                           (*values, record[0]))
+        db.execute("INSERT INTO meta(k,v) VALUES('key_check',?)", (cipher.check_token(),))
+        db.commit()
+        db.execute('VACUUM')    # reescreve o arquivo: não sobra texto em claro em páginas livres
+    db.cipher = cipher
+    db.encrypted = True
 
 
 # ============================================================ cadeia de hash
@@ -192,17 +270,19 @@ def _append_chain(db, table, values):
     fields = _CHAINS[table]
     row = db.execute(f'SELECT hash FROM {table} ORDER BY id DESC LIMIT 1').fetchone()
     prev = row[0] if row else GENESIS
+    # O hash é calculado sobre o texto em claro; o banco guarda o texto cifrado.
     digest = _entry_hash(prev, dict(zip(fields, values, strict=True)))
+    stored = [db.E(v) if f in SENSITIVE.get(table, ()) else v for f, v in zip(fields, values, strict=True)]
     cols = ','.join(fields) + ',prev_hash,hash'
     marks = ','.join('?' * (len(fields) + 2))
-    db.execute(f'INSERT INTO {table}({cols}) VALUES({marks})', (*values, prev, digest))
+    db.execute(f'INSERT INTO {table}({cols}) VALUES({marks})', (*stored, prev, digest))
 
 
 def verify_chain(db, table):
     """(True, None) se íntegra; (False, id) com o primeiro registro adulterado."""
     fields = _CHAINS[table]
     prev = GENESIS
-    for row in db.execute(f'SELECT id,{",".join(fields)},prev_hash,hash FROM {table} ORDER BY id'):
+    for row in db.execute(f'SELECT id,{_sel(table, ",".join(fields))},prev_hash,hash FROM {table} ORDER BY id'):
         rid, values, stored_prev, stored = row[0], row[1:-2], row[-2], row[-1]
         if stored_prev != prev or _entry_hash(prev, dict(zip(fields, values, strict=True))) != stored:
             return False, rid
@@ -222,15 +302,15 @@ def save_sub_assessment(db, sub_code, current, target, owner='', due_date='', ev
                   current=excluded.current,target=excluded.target,owner=excluded.owner,
                   due_date=excluded.due_date,evidence_note=excluded.evidence_note,
                   action_note=excluded.action_note,updated_at=excluded.updated_at''',
-               (sub_code, current, target, _text(owner, 'Responsável', False), _date(due_date, 'Prazo'),
-                _text(evidence_note, 'Evidência', False), _text(action_note, 'Ação', False), now()))
+               (sub_code, current, target, db.E(_text(owner, 'Responsável', False)), _date(due_date, 'Prazo'),
+                db.E(_text(evidence_note, 'Evidência', False)), db.E(_text(action_note, 'Ação', False)), now()))
     db.commit()
 
 
 def sub_assessments(db):
     """{sub_code: dict} com o que já foi avaliado."""
-    rows = db.execute('SELECT sub_code,current,target,owner,due_date,evidence_note,action_note,updated_at '
-                      'FROM sub_assessments')
+    rows = db.execute('SELECT ' + _sel('sub_assessments', 'sub_code,current,target,owner,due_date,evidence_note,'
+                                       'action_note,updated_at') + ' FROM sub_assessments')
     keys = ('current', 'target', 'owner', 'due_date', 'evidence_note', 'action_note', 'updated_at')
     return {r[0]: dict(zip(keys, r[1:], strict=True)) for r in rows}
 
@@ -311,9 +391,9 @@ def save_risk(db, title, category, likelihood, impact, function, subcategory='',
         if v is not None and v not in (1, 2, 3):
             raise ValueError('Risco residual deve estar entre 1 e 3.')
         res.append(v)
-    values = (title, category, likelihood, impact, function, subcategory,
-              _text(threat, 'Ameaça', False), _text(vulnerability, 'Vulnerabilidade', False),
-              treatment, _text(owner, 'Responsável', False), _date(due_date, 'Prazo'), res[0], res[1], status)
+    values = (db.E(title), db.E(category), likelihood, impact, function, subcategory,
+              db.E(_text(threat, 'Ameaça', False)), db.E(_text(vulnerability, 'Vulnerabilidade', False)),
+              treatment, db.E(_text(owner, 'Responsável', False)), _date(due_date, 'Prazo'), res[0], res[1], status)
     cols = ('title,category,likelihood,impact,function,subcategory,threat,vulnerability,'
             'treatment,owner,due_date,res_likelihood,res_impact,status')
     if risk_id:
@@ -322,6 +402,21 @@ def save_risk(db, title, category, likelihood, impact, function, subcategory='',
     else:
         db.execute(f'INSERT INTO risks({cols},created_at) VALUES({",".join("?" * 15)})', (*values, now()))
     db.commit()
+
+
+RISK_COLS = ('id,title,category,threat,vulnerability,likelihood,impact,function,subcategory,treatment,owner,'
+             'due_date,res_likelihood,res_impact,status,created_at')
+
+
+def risks(db):
+    """Riscos (dicts, já decifrados), do maior P×I para o menor."""
+    rows = db.execute(f"SELECT {_sel('risks', RISK_COLS)} FROM risks ORDER BY likelihood*impact DESC, id DESC")
+    return [dict(zip(RISK_COLS.split(','), r, strict=True)) for r in rows]
+
+
+def risk(db, risk_id):
+    row = db.execute(f"SELECT {_sel('risks', RISK_COLS)} FROM risks WHERE id=?", (int(risk_id),)).fetchone()
+    return dict(zip(RISK_COLS.split(','), row, strict=True)) if row else None
 
 
 def heat_map(db, residual=False):
@@ -382,7 +477,7 @@ def save_incident(db, title, status_or_phase='Detecção', notes='', severity='M
     status = 'Encerrado' if phase == 'Encerrado' else 'Em análise' if phase != 'Detecção' else 'Pendente'
     cur = db.execute('INSERT INTO incidents(title,status,notes,created_at,severity,phase,personal_data,'
                      'detected_on,anpd_deadline,subcategory) VALUES(?,?,?,?,?,?,?,?,?,?)',
-                     (title, status, notes, now(), severity, phase, int(bool(personal_data)),
+                     (db.E(title), status, db.E(notes), now(), severity, phase, int(bool(personal_data)),
                       detected, deadline, subcategory))
     _append_chain(db, 'incident_log', (cur.lastrowid, now(), phase, notes or 'Incidente registrado'))
     db.commit()
@@ -410,12 +505,13 @@ def mark_anpd_notified(db, incident_id, on_date=''):
 def incidents(db):
     keys = ('id', 'title', 'severity', 'phase', 'personal_data', 'detected_on', 'anpd_deadline',
             'anpd_notified_on', 'subcategory', 'notes', 'created_at')
-    rows = db.execute(f'SELECT {",".join(keys)} FROM incidents ORDER BY id DESC')
+    rows = db.execute(f'SELECT {_sel("incidents", ",".join(keys))} FROM incidents ORDER BY id DESC')
     return [dict(zip(keys, r, strict=True)) for r in rows]
 
 
 def incident_timeline(db, incident_id):
-    return db.execute('SELECT at,phase,note,hash FROM incident_log WHERE incident_id=? ORDER BY id',
+    return db.execute(f"SELECT {_sel('incident_log', 'at,phase,note,hash')} FROM incident_log WHERE incident_id=? "
+                      'ORDER BY id',
                       (int(incident_id),)).fetchall()
 
 
@@ -437,8 +533,8 @@ def save_evidence(db, file_name, digest, path='', size=0, description='', custod
     custodian = _text(custodian, 'Custodiante', required=False) or os.environ.get('USERNAME', '')
     cur = db.execute('INSERT INTO evidence(file_name,sha256,recorded_at,path,size,description,custodian,'
                      'incident_id,source) VALUES(?,?,?,?,?,?,?,?,?)',
-                     (file_name, digest, now(), str(path), int(size),
-                      _text(description, 'Descrição', False), custodian,
+                     (db.E(file_name), digest, now(), db.E(str(path)), int(size),
+                      db.E(_text(description, 'Descrição', False)), db.E(custodian),
                       int(incident_id) if incident_id else None, source))
     _append_chain(db, 'custody_log', (cur.lastrowid, now(), 'Coleta', custodian,
                                       description or 'Registro inicial', digest))
@@ -460,7 +556,7 @@ def custody_event(db, evidence_id, action, actor, note, digest=None):
 def recheck_evidence(db, evidence_id, actor):
     """Recalcula o SHA-256 do arquivo e registra o resultado na custódia.
     Devolve (íntegro: bool|None, mensagem). None = arquivo indisponível."""
-    row = db.execute('SELECT path,sha256 FROM evidence WHERE id=?', (int(evidence_id),)).fetchone()
+    row = db.execute("SELECT dec(path),sha256 FROM evidence WHERE id=?", (int(evidence_id),)).fetchone()
     if not row:
         raise ValueError('Evidência não encontrada')
     path, expected = row
@@ -476,29 +572,44 @@ def recheck_evidence(db, evidence_id, actor):
 
 
 def custody_log(db, evidence_id):
-    return db.execute('SELECT at,action,actor,note,sha256,hash FROM custody_log WHERE evidence_id=? '
-                      'ORDER BY id', (int(evidence_id),)).fetchall()
+    return db.execute(f"SELECT {_sel('custody_log', 'at,action,actor,note,sha256,hash')} FROM custody_log "
+                      'WHERE evidence_id=? ORDER BY id', (int(evidence_id),)).fetchall()
+
+
+EVIDENCE_COLS = 'id,file_name,sha256,size,path,description,custodian,incident_id,source,recorded_at'
+
+
+def evidence_list(db):
+    rows = db.execute(f"SELECT {_sel('evidence', EVIDENCE_COLS)} FROM evidence ORDER BY id DESC")
+    return [dict(zip(EVIDENCE_COLS.split(','), r, strict=True)) for r in rows]
+
+
+def evidence(db, evidence_id):
+    row = db.execute(f"SELECT {_sel('evidence', EVIDENCE_COLS)} FROM evidence WHERE id=?",
+                     (int(evidence_id),)).fetchone()
+    return dict(zip(EVIDENCE_COLS.split(','), row, strict=True)) if row else None
 
 
 # ============================================================ coleta técnica
 def save_collection(db, meta, raw, results):
     raw_text = json.dumps(raw, ensure_ascii=False, sort_keys=True)
     cur = db.execute('INSERT INTO collections(run_at,host,user,admin,raw,sha256) VALUES(?,?,?,?,?,?)',
-                     (now(), meta.get('host', ''), meta.get('user', ''), int(bool(meta.get('admin'))),
-                      raw_text, hashlib.sha256(raw_text.encode('utf-8')).hexdigest()))
+                     (now(), db.E(meta.get('host', '')), db.E(meta.get('user', '')), int(bool(meta.get('admin'))),
+                      db.E(raw_text), hashlib.sha256(raw_text.encode('utf-8')).hexdigest()))
     for r in results:
         db.execute('INSERT INTO findings(collection_id,check_id,title,status,detail,subcategories) '
-                   'VALUES(?,?,?,?,?,?)', (cur.lastrowid, r['id'], r['title'], r['status'], r['detail'],
+                   'VALUES(?,?,?,?,?,?)', (cur.lastrowid, r['id'], r['title'], r['status'], db.E(r['detail']),
                                            ','.join(r['subs'])))
     db.commit()
     return cur.lastrowid
 
 
 def latest_findings(db):
-    row = db.execute('SELECT id,run_at,host,user,admin,sha256 FROM collections ORDER BY id DESC LIMIT 1').fetchone()
+    row = db.execute("SELECT id,run_at,dec(host),dec(user),admin,sha256 FROM collections "
+                     'ORDER BY id DESC LIMIT 1').fetchone()
     if not row:
         return None, []
-    items = db.execute('SELECT check_id,title,status,detail,subcategories FROM findings WHERE collection_id=? '
+    items = db.execute('SELECT check_id,title,status,dec(detail),subcategories FROM findings WHERE collection_id=? '
                        'ORDER BY id', (row[0],)).fetchall()
     return row, items
 
@@ -529,8 +640,13 @@ def save_indicator(db, url, description, status):
     if status not in OSINT_STATUSES:
         raise ValueError('Status inválido')
     db.execute('INSERT INTO osint_indicators(source_url,description,status,created_at) VALUES(?,?,?,?)',
-               (url, description, status, now()))
+               (db.E(url), db.E(description), status, now()))
     db.commit()
+
+
+def osint_list(db):
+    return db.execute("SELECT id,dec(source_url),dec(description),status,created_at FROM osint_indicators "
+                      'ORDER BY id DESC').fetchall()
 
 
 def delete_record(db, table, record_id):
@@ -560,7 +676,7 @@ def alerts(db, today=None):
             if remaining <= 1:
                 out.append((f"Incidente #{inc['id']} com dados pessoais: comunicação à ANPD "
                             f"{anpd_status(inc, today).lower()}", 'alto'))
-    for rid, title, due in db.execute("SELECT id,title,due_date FROM risks WHERE due_date <> '' AND "
+    for rid, title, due in db.execute("SELECT id,dec(title),due_date FROM risks WHERE due_date <> '' AND "
                                       "status IN ('Aberto','Em tratamento')"):
         if due < today.isoformat():
             out.append((f'Risco #{rid} "{title}" com prazo de tratamento vencido ({_br(due)})', 'médio'))
@@ -611,7 +727,7 @@ def export_csv(db, kind, path):
     elif kind in EXPORTS:
         cols, table = EXPORTS[kind]
         header = cols.split(',')
-        rows = db.execute(f'SELECT {cols} FROM {table} ORDER BY 1').fetchall()
+        rows = db.execute(f'SELECT {_sel(table, cols)} FROM {table} ORDER BY 1').fetchall()
     else:
         raise ValueError('Tipo de relatório inválido')
     with Path(path).open('w', encoding='utf-8-sig', newline='') as f:

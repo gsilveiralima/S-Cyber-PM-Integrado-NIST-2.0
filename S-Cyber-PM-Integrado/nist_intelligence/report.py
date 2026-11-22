@@ -76,7 +76,9 @@ def build(db, path, organization='', author=''):
     story += [Paragraph('Relatório de Governança Cibernética — NIST CSF 2.0', st['Title']),
               Paragraph(f'{organization or "Organização"} — emitido em {now}'
                         + (f' por {author}' if author else ''), st['Normal']),
-              Paragraph(f'S-Cyber NIST Intelligence v{core.VERSION}. Avaliação registrada pelos responsáveis; '
+              Paragraph(f'S-Cyber NIST Intelligence v{core.VERSION}'
+                        + (' (base de dados cifrada com o certificado)' if getattr(db, 'encrypted', False) else '')
+                        + '. Avaliação registrada pelos responsáveis; '
                         'a coleta técnica reflete apenas o computador em que foi executada.', st['Small']),
               Spacer(1, 0.4 * cm)]
 
@@ -125,11 +127,11 @@ def build(db, path, organization='', author=''):
                               for r in (1, 2, 3) for p in (1, 2, 3)]))
     story += [heat, Spacer(1, 0.3 * cm)]
     rows, colors_by_row = [['#', 'Risco', 'P×I', 'Residual', 'CSF', 'Tratamento', 'Situação']], {}
-    for n, (rid, title, p, i, rp, ri, sub, fn, treat, status) in enumerate(db.execute(
-            'SELECT id,title,likelihood,impact,res_likelihood,res_impact,subcategory,function,treatment,status '
-            'FROM risks ORDER BY likelihood*impact DESC, id'), start=1):
+    for n, r in enumerate(core.risks(db), start=1):
+        p, i, rp, ri = r['likelihood'], r['impact'], r['res_likelihood'], r['res_impact']
         residual = f'{rp * ri}' if rp and ri else '—'
-        rows.append([rid, title, p * i, residual, sub or fn, treat, status])
+        rows.append([r['id'], r['title'], p * i, residual, r['subcategory'] or r['function'], r['treatment'],
+                     r['status']])
         colors_by_row[n] = LEVEL_COLORS[core.risk_level(p * i)]
     story.append(_table(rows, [0.8 * cm, 6.5 * cm, 1.2 * cm, 1.6 * cm, 1.8 * cm, 2.2 * cm, 2.4 * cm], st,
                         row_colors=colors_by_row) if len(rows) > 1 else Paragraph('Nenhum risco.', st['Normal']))
@@ -152,9 +154,8 @@ def build(db, path, organization='', author=''):
     # 5. Evidências
     story += [Spacer(1, 0.4 * cm), Paragraph('5. Evidências e cadeia de custódia', st['Heading2'])]
     rows = [['#', 'Arquivo', 'SHA-256', 'Custodiante', 'Registro']]
-    for rid, name, digest, cust, at in db.execute('SELECT id,file_name,sha256,custodian,recorded_at FROM evidence '
-                                                  'ORDER BY id'):
-        rows.append([rid, name, digest, cust, at[:16].replace('T', ' ')])
+    for e in reversed(core.evidence_list(db)):
+        rows.append([e['id'], e['file_name'], e['sha256'], e['custodian'], e['recorded_at'][:16].replace('T', ' ')])
     story.append(_table(rows, [0.8 * cm, 4 * cm, 7.2 * cm, 2.5 * cm, 3 * cm], st) if len(rows) > 1
                  else Paragraph('Nenhuma evidência registrada.', st['Normal']))
     ok, bad = core.verify_chain(db, 'custody_log')

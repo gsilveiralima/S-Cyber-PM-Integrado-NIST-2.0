@@ -1,7 +1,7 @@
 # S-Cyber PM Integrado — NIST CSF 2.0
 
 Cópia integrada do **S-Cyber PM** (Cryptography and Digital Certificate Framework) com o módulo
-**S-Cyber NIST Intelligence v0.4.0**, que leva o NIST Cybersecurity Framework 2.0 para dentro da
+**S-Cyber NIST Intelligence v0.5.0**, que leva o NIST Cybersecurity Framework 2.0 para dentro da
 aplicação.
 
 Este projeto de extensão foi apresentado ao Programa de Reconhecimento INOVA (Senac) e tem como base a
@@ -34,6 +34,7 @@ docs/                          changelogs e manifesto de integridade
 - Guarda **evidências** com SHA-256 e cadeia de custódia à prova de adulteração.
 - Registra indícios de **OSINT** defensivo e faz consultas somente leitura ao **SEI**.
 - Gera um **relatório PDF** que pode ser assinado com o certificado do S-Cyber PM e protegido com senha.
+- **Cifra o banco de dados** com uma chave derivada do certificado do S-Cyber PM.
 
 ## Executar (Windows 10/11, Python 3.11+)
 
@@ -58,8 +59,12 @@ Testes automáticos: `py -3 -m unittest discover -s tests -v`, dentro de `S-Cybe
 
 ## Segurança
 
-- O banco do módulo (`%APPDATA%\SCyberPM\nist\nist.db`) **não é cifrado**. Não registre conteúdo
-  sigiloso, pessoal ou policial.
+- Os textos do banco do módulo (`%APPDATA%\SCyberPM\nist\nist.db`) são **cifrados com AES-256-GCM**.
+  A chave deriva do certificado do S-Cyber PM e não fica gravada em lugar nenhum: sem o certificado
+  com a chave privada, o banco não pode ser lido. Números, datas, situações e hashes continuam em claro,
+  porque são usados em prazos e filtros.
+- A proteção vale para o arquivo em disco. Quem abre o S-Cyber PM com o certificado e a senha de
+  acesso lê os dados normalmente. Registre só o necessário.
 - A coleta técnica só lê dados: não altera configurações e não lê senhas.
 - Nenhuma chave privada faz parte deste repositório. O arquivo `.cer` contém apenas a chave pública.
 
