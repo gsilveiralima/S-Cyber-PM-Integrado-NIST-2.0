@@ -766,15 +766,19 @@ def main():
     # gerenciador carrega o matplotlib, que deixaria a inicialização lenta)
     janelas = {}  # uma instância de cada ferramenta por vez
 
-    def abrir_gerenciador_usuarios(_evento=None):
-        janela = janelas.get("usuarios")
+    def _abrir_unica(chave, criar):
+        """Uma instância por ferramenta: se já existe, só traz para a frente."""
+        janela = janelas.get(chave)
         if janela is not None and janela.winfo_exists():
             janela.deiconify()
             janela.lift()
             janela.focus_force()
             return
+        janelas[chave] = criar()
+
+    def abrir_gerenciador_usuarios(_evento=None):
         from formGerenciadorUsuarios import App as GerenciadorUsuarios
-        janelas["usuarios"] = GerenciadorUsuarios(root)
+        _abrir_unica("usuarios", lambda: GerenciadorUsuarios(root))
 
     def abrir_corujinha():
         # Coruja -> 4 janelas do PowerShell -> relatório num formulário próprio.
@@ -793,124 +797,52 @@ def main():
         janelas["coruja"] = executar_corujinha(root)
 
     def abrir_pesquisa_arquivos(_evento=None):
-        janela = janelas.get("pesquisa")
-        if janela is not None and janela.winfo_exists():
-            janela.deiconify()
-            janela.lift()
-            janela.focus_force()
-            return
         from formPesquisaArquivos import PesquisaArquivos
-        janelas["pesquisa"] = PesquisaArquivos(root)
+        _abrir_unica("pesquisa", lambda: PesquisaArquivos(root))
 
     def abrir_navegador(_evento=None):
-        janela = janelas.get("navegador")
-        if janela is not None and janela.winfo_exists():
-            janela.deiconify()
-            janela.lift()
-            janela.focus_force()
-            return
         from formNavegador import FormNavegador
-        janelas["navegador"] = FormNavegador(root)
+        _abrir_unica("navegador", lambda: FormNavegador(root))
 
     def abrir_e2e(_evento=None):
-        janela = janelas.get("e2e")
-        if janela is not None and janela.winfo_exists():
-            janela.deiconify()
-            janela.lift()
-            janela.focus_force()
-            return
         from formE2E import FormE2E
-        janelas["e2e"] = FormE2E(root)
+        _abrir_unica("e2e", lambda: FormE2E(root))
 
     def abrir_radio(_evento=None):
-        janela = janelas.get("radio")
-        if janela is not None and janela.winfo_exists():
-            janela.deiconify()
-            janela.lift()
-            janela.focus_force()
-            return
         from formRadio import FormRadio
-        janelas["radio"] = FormRadio(root)
+        _abrir_unica("radio", lambda: FormRadio(root))
 
     def abrir_memoria(_evento=None):
-        janela = janelas.get("memoria")
-        if janela is not None and janela.winfo_exists():
-            janela.deiconify()
-            janela.lift()
-            janela.focus_force()
-            return
         from formMemoria import FormMemoria
-        janelas["memoria"] = FormMemoria(root)
+        _abrir_unica("memoria", lambda: FormMemoria(root))
 
     def abrir_disco(_evento=None):
-        janela = janelas.get("disco")
-        if janela is not None and janela.winfo_exists():
-            janela.deiconify()
-            janela.lift()
-            janela.focus_force()
-            return
         from formDisco import FormDisco
-        janelas["disco"] = FormDisco(root)
+        _abrir_unica("disco", lambda: FormDisco(root))
 
     def abrir_processador(_evento=None):
-        janela = janelas.get("processador")
-        if janela is not None and janela.winfo_exists():
-            janela.deiconify()
-            janela.lift()
-            janela.focus_force()
-            return
         from formProcess import FormProcess
-        janelas["processador"] = FormProcess(root)
+        _abrir_unica("processador", lambda: FormProcess(root))
 
     def abrir_espiao(_evento=None):
-        janela = janelas.get("espiao")
-        if janela is not None and janela.winfo_exists():
-            janela.deiconify()
-            janela.lift()
-            janela.focus_force()
-            return
         from formSpy import FormSpy
-        janelas["espiao"] = FormSpy(root)
+        _abrir_unica("espiao", lambda: FormSpy(root))
 
     def abrir_hash(_evento=None):
-        janela = janelas.get("hash")
-        if janela is not None and janela.winfo_exists():
-            janela.deiconify()
-            janela.lift()
-            janela.focus_force()
-            return
         from formHash import FormHash
-        janelas["hash"] = FormHash(root)
+        _abrir_unica("hash", lambda: FormHash(root))
 
     def abrir_particionar(_evento=None):
-        janela = janelas.get("particionar")
-        if janela is not None and janela.winfo_exists():
-            janela.deiconify()
-            janela.lift()
-            janela.focus_force()
-            return
         from formParticionar import FormParticionar
-        janelas["particionar"] = FormParticionar(root)
+        _abrir_unica("particionar", lambda: FormParticionar(root))
 
     def abrir_dividir_pdf(_evento=None):
-        janela = janelas.get("dividir_pdf")
-        if janela is not None and janela.winfo_exists():
-            janela.deiconify()
-            janela.lift()
-            janela.focus_force()
-            return
         from formDividirPdf import FormDividirPdf
-        janelas["dividir_pdf"] = FormDividirPdf(root)
+        _abrir_unica("dividir_pdf", lambda: FormDividirPdf(root))
 
     def abrir_sei(_evento=None):
-        janela = janelas.get("sei")
-        if janela is not None and janela.winfo_exists():
-            janela.deiconify()
-            janela.lift()
-            janela.focus_force()
-            return
         from formSei import FormSei
-        janelas["sei"] = FormSei(root)
+        _abrir_unica("sei", lambda: FormSei(root))
 
     # EXTENSÃO NIST (modNist.py): carregada sob demanda, na mesma janela Tk.
     nist = PainelNist(root, fundo, status, BASE_DIR)
