@@ -49,7 +49,7 @@ disponível no seu computador, use `requirements.txt` (versões mínimas).
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-✅ `Ran 76 tests ... OK` (no Windows os 4 testes de `test_windows_v12.py` rodam de verdade e
+✅ `Ran 77 tests ... OK` (no Windows os 4 testes de `test_windows_v12.py` rodam de verdade e
 criam e apagam um certificado temporário de teste). Também dá para dar dois cliques em `testar_integracao_windows.bat`.
 
 ## 5. Certificado digital do usuário

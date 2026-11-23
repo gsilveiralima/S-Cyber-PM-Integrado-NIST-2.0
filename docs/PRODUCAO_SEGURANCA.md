@@ -53,7 +53,7 @@ laboratório (sem PKI), o comando de criação está no cabeçalho de `appSCyber
 ## Testes
 `tests/test_seguranca.py` (8 testes): política de senha, troca obrigatória (inclusive arquivo antigo e
 troca pelas Opções), lista de certificados, aceite por AC com cadeia e titular, assinatura do desafio
-e proteção contra injeção no script do PowerShell. Total do projeto: 76 testes.
+e proteção contra injeção no script do PowerShell. Total do projeto: 77 testes.
 
 ## Consolidação, retenção e cópias (v1.2)
 - Os pacotes de consolidação são aceitos sem confirmação somente quando o certificado de quem

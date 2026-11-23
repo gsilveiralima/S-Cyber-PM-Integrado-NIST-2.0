@@ -34,7 +34,7 @@ esse repositório original não foi modificado.
 | Origem | Arquivos |
 |---|---|
 | Novos | `nist_intelligence/` (catalog, core, crypto, collector, report, bridge, main, signing, package, notificacoes), `coletor_nist.ps1`, `coletar_nist_windows.bat`, `formNISTIntelligence.py`, `formTrocaSenha.py`, `adicionar_certificado.py`, `verificar_certificados.ps1`, `modNist.py`, `iniciar_nist_windows.bat`, `teste_painel_nist.py`, `tests/`, `requirements-lock.txt` |
-| Originais alterados | `appSCyberPM.py` (lista de certificados, AC institucional, painel NIST), `formOpcoes.py` (política de senha), `formLogin.py` (troca obrigatória), `formAbout.py` (versão 1.5), `gerarExe.py` (módulos do painel no `.exe`) |
+| Originais alterados | `appSCyberPM.py` (lista de certificados, AC institucional, painel NIST, rotina de entrada, PSModulePath), `formOpcoes.py` (política de senha), `formLogin.py` (troca obrigatória), `formAbout.py` (versão 1.5), `formTour.py` (passos do NIST), `gerarExe.py` (módulos do painel no `.exe`) |
 | Originais sem alteração | os demais `form*.py` e `mod*.py`, imagens e áudio |
 
 O manifesto `../docs/MANIFESTO_ATUALIZACAO_CERTIFICADO.json` registra os SHA-256 da base original
@@ -46,7 +46,7 @@ O manifesto `../docs/MANIFESTO_ATUALIZACAO_CERTIFICADO.json` registra os SHA-256
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-São 76 testes (inclui auditoria, coleta contínua, SEI no incidente, backup, feriados, vários
+São 77 testes (inclui auditoria, coleta contínua, SEI no incidente, backup, feriados, vários
 computadores, consolidação assinada, retenção e avisos): catálogo CSF, avaliação e plano, riscos, incidentes e prazo da ANPD, custódia,
 coleta técnica, relatório, criptografia, SEI, senhas, certificados, inclusão de certificado e
 consistência do roteiro do Tour. Os mesmos testes e o lint (`ruff`) rodam no GitHub Actions

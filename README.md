@@ -24,7 +24,7 @@ Expand-Archive scyber-pm.zip -DestinationPath scyber-pm -Force
 cd .\scyber-pm\S-Cyber-PM-Integrado-NIST-2.0-main\S-Cyber-PM-Integrado
 py -3 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
-.\.venv\Scripts\python.exe -m unittest discover -s tests        # 76 testes OK
+.\.venv\Scripts\python.exe -m unittest discover -s tests        # 77 testes OK
 powershell -ExecutionPolicy Bypass -File .\verificar_certificados.ps1
 .\.venv\Scripts\python.exe appSCyberPM.py --nist     # abre direto no painel NIST
 ```
@@ -60,7 +60,7 @@ S-Cyber-PM-Integrado/            aplicação (execute appSCyberPM.py daqui)
   iniciar_nist_windows.bat       abre o S-Cyber PM direto no painel NIST
   coletor_nist.ps1               coletor avulso para computadores sem o S-Cyber PM
   coletar_nist_windows.bat       executa o coletor avulso (como Administrador)
-  tests/                         76 testes automáticos (rodam também no GitHub Actions, no Windows)
+  tests/                         77 testes automáticos (rodam também no GitHub Actions, no Windows)
 docs/                            instalação, validação, segurança e changelogs
 ```
 

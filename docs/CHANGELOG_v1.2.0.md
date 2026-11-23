@@ -80,10 +80,19 @@ retenção de dados.
 ## Correções
 - `NISTPanel.close()` não existia: a janela de teste falhava ao fechar, e o fechamento chamava
   `destroy()` dentro do próprio evento de destruição.
+- Os testes reais no Windows encontraram e corrigiram três problemas:
+  - **PSModulePath do PowerShell 7:** aberto a partir do `pwsh`, o S-Cyber PM passava essa variável
+    aos subprocessos do Windows PowerShell 5.1, que perdiam o drive `Cert:` e os módulos nativos.
+    Agora o `appSCyberPM.py` remove a variável ao iniciar, e a coleta e os avisos não a repassam;
+  - **lista vazia gravada como `{}`:** o PowerShell grava assim uma lista vazia (contas sem senha),
+    e ela virava uma falsa "conta sem senha obrigatória";
+  - **listas embrulhadas no coletor avulso:** ao serializar a coleta dentro de outro objeto, o
+    PowerShell 5.1 grava listas como `{"value": [...], "Count": n}`. Agora a coleta é serializada
+    como no aplicativo, e a importação desfaz o embrulho.
 
 ## Qualidade
-- 76 testes automáticos:
-  - 19 em `tests/test_nist_v12.py`;
+- 77 testes automáticos:
+  - 20 em `tests/test_nist_v12.py`;
   - 4 em `tests/test_windows_v12.py`, que rodam **de verdade no Windows do CI**:
     - criam um certificado temporário de chave não exportável;
     - assinam pelo .NET e conferem a assinatura em Python;
