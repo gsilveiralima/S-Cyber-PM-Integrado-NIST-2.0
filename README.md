@@ -1,23 +1,63 @@
 # S-Cyber PM Integrado — NIST CSF 2.0
 
-Cópia integrada do **S-Cyber PM** (Cryptography and Digital Certificate Framework) com o módulo
-**S-Cyber NIST Intelligence v0.5.0**, que leva o NIST Cybersecurity Framework 2.0 para dentro da
-aplicação.
+Cópia integrada do **S-Cyber PM 1.5** (Cryptography and Digital Certificate Framework) com o
+módulo **S-Cyber NIST Intelligence 1.0.0**, que leva o NIST Cybersecurity Framework 2.0 para dentro
+da aplicação.
+
+> **Situação:** versão para uso real, validada no Windows 11 em 22/11/2026
+> ([registro da validação](docs/VALIDACAO_WINDOWS_2026-11-22.md)). Desenvolvimento conjunto do
+> MAJ Leonídio e do SGT Gabriel, com autorização da PMGO para uso nos sistemas corporativos.
 
 Este projeto de extensão foi apresentado ao Programa de Reconhecimento INOVA (Senac) e tem como base a
 monografia *Aplicação do NIST Cybersecurity Framework na cibersegurança da Polícia Militar: um estudo
 de caso (simulado) com OSINT na PMGO*.
 
+## Instalação
+
+O passo a passo validado, com os problemas encontrados e as soluções, está em
+**[docs/INSTALACAO_WINDOWS.md](docs/INSTALACAO_WINDOWS.md)**. Em resumo (PowerShell, sem Git):
+
+```powershell
+cd $HOME\Downloads
+Invoke-WebRequest https://github.com/gsilveiralima/S-Cyber-PM-Integrado-NIST-2.0/archive/refs/heads/main.zip -OutFile scyber-pm.zip
+Expand-Archive scyber-pm.zip -DestinationPath scyber-pm -Force
+cd .\scyber-pm\S-Cyber-PM-Integrado-NIST-2.0-main\S-Cyber-PM-Integrado
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
+.\.venv\Scripts\python.exe -m unittest discover -s tests        # 42 testes OK
+powershell -ExecutionPolicy Bypass -File .\verificar_certificados.ps1
+.\.venv\Scripts\python.exe appSCyberPM.py
+```
+
+Cada usuário precisa de um **certificado autorizado com a chave privada** no próprio Windows
+(ver [CERTIFICADOS.md](S-Cyber-PM-Integrado/CERTIFICADOS.md)). No primeiro acesso, o aplicativo obriga
+a trocar a senha de fábrica. Depois do login, o painel NIST abre com **Ctrl+Shift+N**.
+
+## Documentação
+
+| Documento | Conteúdo |
+|---|---|
+| [docs/INSTALACAO_WINDOWS.md](docs/INSTALACAO_WINDOWS.md) | Instalação passo a passo e solução de problemas |
+| [S-Cyber-PM-Integrado/CERTIFICADOS.md](S-Cyber-PM-Integrado/CERTIFICADOS.md) | Certificados autorizados, inclusão de usuário, AC institucional |
+| [S-Cyber-PM-Integrado/GUIA_NIST_INTELLIGENCE.md](S-Cyber-PM-Integrado/GUIA_NIST_INTELLIGENCE.md) | Uso de cada aba do painel NIST |
+| [docs/PRODUCAO_SEGURANCA.md](docs/PRODUCAO_SEGURANCA.md) | Senhas, certificados e configuração para produção |
+| [S-Cyber-PM-Integrado/INSTRUCOES_INTEGRACAO.md](S-Cyber-PM-Integrado/INSTRUCOES_INTEGRACAO.md) | O que foi integrado, arquivos alterados, limites |
+| [docs/VALIDACAO_WINDOWS_2026-11-22.md](docs/VALIDACAO_WINDOWS_2026-11-22.md) | Resultado dos testes no Windows 11 |
+| [docs/CHANGELOG_v1.0.0.md](docs/CHANGELOG_v1.0.0.md) | Mudanças desta versão (e changelogs anteriores em `docs/`) |
+
 ## Estrutura
 
 ```
-S-Cyber-PM-Integrado/          aplicação (execute appSCyberPM.py daqui)
-  nist_intelligence/           módulo NIST (catálogo, avaliação, coleta, relatório, SEI)
-  formNISTIntelligence.py      ponto de integração com a janela principal
-  tests/                       testes automáticos do módulo
-  GUIA_NIST_INTELLIGENCE.md    guia de uso
-  INSTRUCOES_INTEGRACAO.md     o que foi integrado e como executar
-docs/                          changelogs e manifesto de integridade
+S-Cyber-PM-Integrado/            aplicação (execute appSCyberPM.py daqui)
+  appSCyberPM.py                 abertura, certificado, login e janela principal
+  nist_intelligence/             módulo NIST (catálogo, avaliação, coleta, relatório, SEI, criptografia)
+  formNISTIntelligence.py        ligação do painel NIST com a janela principal
+  formTrocaSenha.py              troca obrigatória da senha de fábrica
+  adicionar_certificado.py       inclui um usuário na lista de certificados
+  verificar_certificados.ps1     diagnóstico dos certificados deste Windows
+  requirements-lock.txt          versões exatas validadas
+  tests/                         42 testes automáticos
+docs/                            instalação, validação, segurança e changelogs
 ```
 
 ## O que o módulo NIST Intelligence faz
@@ -36,27 +76,6 @@ docs/                          changelogs e manifesto de integridade
 - Gera um **relatório PDF** que pode ser assinado com o certificado do S-Cyber PM e protegido com senha.
 - **Cifra o banco de dados** com uma chave derivada do certificado do S-Cyber PM.
 
-## Executar (Windows 10/11, Python 3.11+)
-
-```powershell
-cd S-Cyber-PM-Integrado
-py -3 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe appSCyberPM.py
-```
-
-O S-Cyber PM exige o certificado autorizado, com a chave privada, no repositório **Pessoal** do
-Windows (veja `S-Cyber-PM-Integrado/CERTIFICADO_ORIGINAL_VERIFICACAO.md`). Depois do login, abra
-**NIST Intelligence** pela Ribbon, pelo menu ou com **Ctrl+Shift+N**.
-
-Para testar só o painel NIST, sem o login e com um banco temporário:
-
-```powershell
-$env:SCYBER_NIST_DEV=1; .\.venv\Scripts\python.exe teste_painel_nist.py
-```
-
-Testes automáticos: `py -3 -m unittest discover -s tests -v`, dentro de `S-Cyber-PM-Integrado`.
-
 ## Segurança
 
 - Os textos do banco do módulo (`%APPDATA%\SCyberPM\nist\nist.db`) são **cifrados com AES-256-GCM**.
@@ -66,7 +85,9 @@ Testes automáticos: `py -3 -m unittest discover -s tests -v`, dentro de `S-Cybe
 - A proteção vale para o arquivo em disco. Quem abre o S-Cyber PM com o certificado e a senha de
   acesso lê os dados normalmente. Registre só o necessário.
 - A coleta técnica só lê dados: não altera configurações e não lê senhas.
-- Nenhuma chave privada faz parte deste repositório. O arquivo `.cer` contém apenas a chave pública.
+- Nenhuma chave privada faz parte deste repositório. O arquivo `.cer` contém apenas a chave pública,
+  e os thumbprints da lista são públicos por natureza.
+- Login com certificado (desafio e resposta), senha forte obrigatória e PDFs assinados e cifrados.
 
 ## Autoria e licença
 

@@ -28,7 +28,7 @@ from . import crypto
 from .catalog import (CATEGORIES, FUNCTIONS, MATURITY, SUB_BY_CATEGORY,  # noqa: F401
                       SUBCATEGORIES, TIERS, category_of, function_of)
 
-VERSION = '0.5.0'
+VERSION = '1.0.0'
 
 # Mesma pasta de dados do S-Cyber PM (%APPDATA%\SCyberPM), numa subpasta própria.
 _APPDATA = Path(os.environ.get('APPDATA') or (Path.home() / '.config'))

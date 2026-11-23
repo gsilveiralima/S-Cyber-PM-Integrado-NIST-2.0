@@ -4,7 +4,7 @@
 #  Arquivo     : formLogin.py
 #  Descrição   : Formulário de login de início (usuário e senha de acesso)
 #  Tipo        : Formulário (tkinter)
-#  Versão      : 1.4 (versão do aplicativo)
+#  Versão      : 1.5 (versão do aplicativo)
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
@@ -22,6 +22,7 @@
 #                        Cabeçalho padrão de identificação e revisão
 #                        Janela protegida contra captura de tela
 #                        Botão Entrar com Windows Hello (PIN/biometria)
+#    1.5     2026-11-22  Troca obrigatória das senhas de fábrica (formTrocaSenha)
 # ==============================================================================
 """
 S-Cyber PM - Formulário de login (depois da validação do certificado).

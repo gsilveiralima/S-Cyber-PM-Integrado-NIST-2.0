@@ -6,7 +6,7 @@
 #                (desafio e resposta), login e formulário principal com Ribbon
 #                e barra de status
 #  Tipo        : Aplicativo principal
-#  Versão      : 1.4 (versão do aplicativo)
+#  Versão      : 1.5 (versão do aplicativo)
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
@@ -34,6 +34,8 @@
 #            2026-11-20  "Dividir PDF" vira "Ferramentas de PDF" (dividir, extrair,
 #                          remover páginas, juntar e comprimir) no menu, na
 #                          Ribbon e no assistente
+#    1.5     2026-11-22  Vários certificados autorizados (lista e AC institucional),
+#                          painel NIST Intelligence integrado (Ctrl+Shift+N)
 # ==============================================================================
 """
 S-Cyber PM - Splash screen com validação de certificado digital.
@@ -115,6 +117,7 @@ from modRibbon import BarraStatus, Ribbon, foto_icone
 # repositório Pessoal do usuário do Windows, com a chave privada e dentro da validade.
 CERTIFICADOS_AUTORIZADOS = [
     "ECD4B39DE69C171732449C0D8378F312661482DA",   # CN=S-Cyber PM (MAJ Leonídio), vence em 14/11/2027
+    "B330B18E7E10C2F4F9182E911516A13DA0591CC9",   # CN=S-Cyber-PM-NIST-2.0 (SGT Gabriel), vence em 22/11/2027
 ]
 
 # Autoridades certificadoras aceitas (impressão digital SHA-1 da AC raiz ou intermediária).

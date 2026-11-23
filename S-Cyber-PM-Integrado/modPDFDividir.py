@@ -411,9 +411,7 @@ class LeitorPDF:
         dados = _decodificar_stream(stm, self.resolver)
         w = d["W"]
         larg = int(w[0]), int(w[1]), int(w[2])
-        total = sum(larg)
         indice = d.get("Index", [0, d.get("Size", 0)])
-        it = iter(range(0, len(dados), total))
         faixas = [(indice[k], indice[k + 1]) for k in range(0, len(indice), 2)]
         pos_b = 0
 

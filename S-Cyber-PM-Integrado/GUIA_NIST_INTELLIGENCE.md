@@ -1,4 +1,4 @@
-# Guia do S-Cyber NIST Intelligence v0.5.0
+# Guia do S-Cyber NIST Intelligence 1.0.0
 
 Abra pelo menu ou pela Ribbon **NIST Intelligence** (ou **Ctrl+Shift+N**), depois do login do S-Cyber PM.
 
