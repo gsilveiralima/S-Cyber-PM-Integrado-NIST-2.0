@@ -100,6 +100,7 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 import formOpcoes
 from modAssistente import Assistente, BarraComando
+from modNist import PainelNist
 from modRecursos import limpar_pasta_temporaria
 from formAbout import APP_VERSAO, FormAbout
 from formLogin import FormLogin
@@ -706,21 +707,6 @@ def main():
             return
         from formTour import FormTour
 
-        def tour_nist_aba(nome):
-            abrir_nist()
-            painel = _nist_estado["painel"]
-            if painel is None:
-                return
-            for aba in painel.tabs.tabs():
-                if painel.tabs.tab(aba, "text") == nome:
-                    painel.tabs.select(aba)
-                    break
-
-        def tour_nist_voltar():
-            painel = _nist_estado["painel"]
-            if painel is not None and painel.winfo_exists() and painel.winfo_ismapped():
-                voltar_inicio_nist()
-
         acoes = {
             "opcoes": lambda: formOpcoes.FormOpcoes(root),
             "certificados": lambda: ListCerts(root),
@@ -738,9 +724,9 @@ def main():
             "disco": abrir_disco,
             "processador": abrir_processador,
             "espiao": abrir_espiao,
-            "nist": abrir_nist,
-            "nist_aba": tour_nist_aba,
-            "nist_voltar": tour_nist_voltar,
+            "nist": nist.abrir,
+            "nist_aba": nist.selecionar_aba,
+            "nist_voltar": nist.voltar_se_aberto,
             "sobre": lambda: FormAbout(root),
         }
         janelas["tour"] = FormTour(root, ribbon=ribbon, status=status, acoes=acoes)
@@ -926,31 +912,10 @@ def main():
         from formSei import FormSei
         janelas["sei"] = FormSei(root)
 
-    # EXTENSÃO NIST: carregada sob demanda, usando a mesma janela Tk.
-    # O S-Cyber PM original, sua autenticação e módulos permanecem independentes.
-    _nist_estado = {"painel": None}
-
-    def voltar_inicio_nist(_evento=None):
-        painel = _nist_estado["painel"]
-        if painel is not None and painel.winfo_exists():
-            painel.pack_forget()
-        fundo.pack(fill="both", expand=True)
-        status.mensagem("Tela principal do S-Cyber PM")
-
-    def abrir_nist(_evento=None):
-        painel = _nist_estado["painel"]
-        if painel is None or not painel.winfo_exists():
-            try:
-                from formNISTIntelligence import criar_painel
-                painel = criar_painel(root, BASE_DIR, voltar_inicio_nist)
-            except Exception as erro:
-                messagebox.showerror("NIST Intelligence",
-                    "Não foi possível carregar o painel NIST.\n\n" + str(erro), parent=root)
-                return
-            _nist_estado["painel"] = painel
-        fundo.pack_forget()
-        painel.pack(fill="both", expand=True)
-        status.mensagem("S-Cyber NIST Intelligence — painel integrado")
+    # EXTENSÃO NIST (modNist.py): carregada sob demanda, na mesma janela Tk.
+    nist = PainelNist(root, fundo, status, BASE_DIR)
+    abrir_nist = nist.abrir
+    voltar_inicio_nist = nist.voltar
 
     # Mesma ordem e mesmos grupos da aba Ferramentas da Ribbon, separados por linhas
     menu_ferramentas = tk.Menu(menus, tearoff=False)
