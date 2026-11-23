@@ -1142,4 +1142,9 @@ if __name__ == "__main__":
     # abriria o aplicativo inteiro de novo em cada processo filho
     import multiprocessing
     multiprocessing.freeze_support()
+    # Aberto a partir do PowerShell 7 (pwsh), o PSModulePath herdado faz o Windows PowerShell 5.1
+    # dos subprocessos carregar módulos do 7: some o drive Cert: e falham certificados e coletas.
+    # Sem a variável, o PowerShell 5.1 usa os próprios caminhos padrão.
+    if sys.platform == "win32":
+        os.environ.pop("PSModulePath", None)
     main()

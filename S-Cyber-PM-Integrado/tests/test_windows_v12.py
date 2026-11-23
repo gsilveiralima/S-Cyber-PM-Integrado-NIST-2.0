@@ -20,6 +20,10 @@ sys.path.insert(0, str(APP_DIR))
 from nist_intelligence import core, crypto, notificacoes, package, signing  # noqa: E402
 
 WINDOWS = sys.platform == 'win32'
+if WINDOWS:
+    # Como o appSCyberPM.py faz ao iniciar: o CI roda no PowerShell 7, e o PSModulePath dele
+    # impede o Windows PowerShell 5.1 de achar o drive Cert: e os módulos nativos.
+    os.environ.pop('PSModulePath', None)
 
 
 def _ps(script):
@@ -85,6 +89,10 @@ class ColetorAvulsoWindowsTests(unittest.TestCase):
                             str(tmp / 'coletor_nist.ps1')], capture_output=True, text=True, timeout=240, check=True)
             arquivos = list(tmp.glob('coleta_*.json'))
             self.assertEqual(len(arquivos), 1)
+            import json
+            raw = json.loads(arquivos[0].read_text(encoding='utf-8-sig'))['dados']
+            for chave in ('admins', 'nopwd', 'listening', 'firewall'):
+                print(chave, '=', json.dumps(raw.get(chave))[:300])
             db = core.connect(tmp / 'n.db', crypto.derive_key(os.urandom(32)))
             try:
                 db.actor = 'ci'

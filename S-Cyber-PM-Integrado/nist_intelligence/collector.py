@@ -124,6 +124,7 @@ def run(thumbprint=None):
         raise RuntimeError('A coleta técnica só funciona no Windows.')
     import os
     env = dict(os.environ)
+    env.pop('PSModulePath', None)        # herdado do PowerShell 7, quebra módulos do 5.1
     if thumbprint:
         env['SCYBER_THUMB'] = ''.join(ch for ch in thumbprint if ch.isalnum())
     encoded = base64.b64encode(_PS.encode('utf-16-le')).decode('ascii')
@@ -167,6 +168,16 @@ def _as_list(v):
     if v is None:
         return []
     return v if isinstance(v, list) else [v]
+
+
+def _names(v):
+    """Lista de nomes (texto), mesmo se o PowerShell devolver objetos no lugar de strings."""
+    out = []
+    for item in _as_list(v):
+        if isinstance(item, dict):
+            item = item.get('Name') or item.get('name') or item.get('value') or json.dumps(item)
+        out.append(str(item))
+    return out
 
 
 def _net_accounts(lines):
@@ -284,7 +295,7 @@ def evaluate(raw, today=None):
     if _err(v):
         out.append(_unavailable('admins', 'Administradores locais', v, subs))
     else:
-        names = _as_list(v)
+        names = _names(v)
         status = 'OK' if len(names) <= 2 else 'Atenção'
         out.append(_r('admins', 'Administradores locais', status,
                       f'{len(names)} membro(s): {", ".join(names[:8])}', subs))
@@ -297,7 +308,7 @@ def evaluate(raw, today=None):
         problems = []
         if isinstance(g, dict) and g.get('enabled'):
             problems.append('conta Convidado ATIVA')
-        empty = [] if _err(nopwd) else _as_list(nopwd)
+        empty = [] if _err(nopwd) else _names(nopwd)
         if empty:
             problems.append(f'contas sem senha obrigatória: {", ".join(empty)}')
         out.append(_r('accounts', 'Contas locais', 'Falha' if problems else 'OK',

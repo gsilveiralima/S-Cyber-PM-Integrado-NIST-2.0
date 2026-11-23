@@ -66,6 +66,7 @@ def _powershell(script, env=None, wait=True):
     args = ['powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded]
     flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
     full_env = dict(os.environ, **(env or {}))
+    full_env.pop('PSModulePath', None)       # herdado do PowerShell 7, quebra módulos do 5.1
     if not wait:
         return subprocess.Popen(args, env=full_env, creationflags=flags,
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
