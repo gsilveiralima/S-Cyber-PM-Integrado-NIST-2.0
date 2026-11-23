@@ -17,7 +17,7 @@ from pathlib import Path
 APP_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(APP_DIR))
 
-from nist_intelligence import core, crypto, notificacoes, package, signing  # noqa: E402
+from nist_intelligence import collector, core, crypto, notificacoes, package, signing  # noqa: E402
 
 WINDOWS = sys.platform == 'win32'
 if WINDOWS:
@@ -26,10 +26,10 @@ if WINDOWS:
     os.environ.pop('PSModulePath', None)
 
 
-def _ps(script):
+def _ps(script, output=True):
     r = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command',
                         script], capture_output=True, text=True, timeout=180)
-    if r.returncode or not r.stdout.strip():
+    if r.returncode or (output and not r.stdout.strip()):
         raise RuntimeError(f'PowerShell: {r.stderr or r.stdout or "sem saída"}')
     return r.stdout.strip()
 
@@ -46,7 +46,7 @@ class AssinaturaWindowsTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        _ps(f"Remove-Item 'Cert:\\CurrentUser\\My\\{cls.thumb}' -DeleteKey")
+        _ps(f"Remove-Item 'Cert:\\CurrentUser\\My\\{cls.thumb}' -DeleteKey", output=False)
 
     def test_assinatura_do_windows_conferida_em_python(self):
         cms = signing.windows_signer(self.thumb)(b'conteudo real')
@@ -93,6 +93,8 @@ class ColetorAvulsoWindowsTests(unittest.TestCase):
             raw = json.loads(arquivos[0].read_text(encoding='utf-8-sig'))['dados']
             for chave in ('admins', 'nopwd', 'listening', 'firewall'):
                 print(chave, '=', json.dumps(raw.get(chave))[:300])
+            contas = [r for r in collector.evaluate(raw) if r['id'] == 'accounts'][0]
+            self.assertNotIn('{}', contas['detail'])
             db = core.connect(tmp / 'n.db', crypto.derive_key(os.urandom(32)))
             try:
                 db.actor = 'ci'

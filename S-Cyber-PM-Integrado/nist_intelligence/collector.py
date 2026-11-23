@@ -165,7 +165,8 @@ def normalize(value):
 
 
 def _as_list(v):
-    if v is None:
+    # O PowerShell grava lista vazia como null ou como {} (visto no Windows do CI).
+    if v is None or v == {}:
         return []
     return v if isinstance(v, list) else [v]
 

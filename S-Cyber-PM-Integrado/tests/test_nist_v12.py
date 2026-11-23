@@ -124,6 +124,10 @@ class VariosComputadoresTests(Base):
         head = [h for h in core.collections_by_host(self.db) if h[0] == cid][0]
         self.assertEqual((head[1], head[2], head[6]), ('2026-11-23T10:00:00', 'PC-SEM-APP', 'Importada'))
         self.assertEqual(core.findings_by_subcategory(self.db).get('PR.IR-01'), 'Falha')
+        # lista vazia gravada como {} pelo PowerShell não vira "conta sem senha"
+        raw['nopwd'] = {}
+        conta = [r for r in collector.evaluate(raw) if r['id'] == 'accounts'][0]
+        self.assertEqual(conta['status'], 'OK', conta['detail'])
         # embrulho do PowerShell 5.1 ({"value": [...], "Count": n}) é desfeito
         raw['nopwd'] = {'value': ['Convidado2'], 'Count': 1}
         arq.write_text(json.dumps({'formato': core.COLLECTION_FORMAT, 'dados': raw}), encoding='utf-8')
