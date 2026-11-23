@@ -8,7 +8,7 @@ from datetime import date
 from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
-from . import collector, core, report
+from . import collector, core, package, report
 from .bridge import ReadOnlySEIBridge
 from .catalog import CATEGORIES, FUNCTIONS, MATURITY, SUB_BY_CATEGORY, TIERS, function_of
 
@@ -60,11 +60,13 @@ class NISTPanel(ttk.Frame):
     """Painel embutível no Tk raiz do S-Cyber PM."""
 
     def __init__(self, parent, original_root=None, embedded=False, on_back=None, db_path=core.DB, key=None,
-                 actor=None, auto_collect=None):
+                 actor=None, auto_collect=None, signer=None, trusted_thumbs=(), cert_thumb=None):
         # key: chave de 32 bytes derivada do certificado (crypto.derive_key). Abre o banco
         # antes de criar a janela: se a chave não servir, nada fica pela metade.
         # actor: quem usa o painel (usuário do S-Cyber PM, Windows e certificado), para a auditoria.
         # auto_collect: refazer a coleta técnica ao abrir se a última for antiga (padrão: só integrado).
+        # signer: assina bytes com o certificado do usuário (CMS); trusted_thumbs: certificados autorizados
+        # do S-Cyber PM, usados para conferir os pacotes de consolidação recebidos.
         db = core.connect(db_path, key)
         db.actor = actor or self._username()
         try:
@@ -85,6 +87,10 @@ class NISTPanel(ttk.Frame):
         self._inc_id = None       # incidente selecionado
         self._ev_id = None        # evidência selecionada
         self._collecting = False
+        self._coll_id = None      # coleta (computador) selecionada na aba Coleta técnica
+        self.signer = signer
+        self.trusted_thumbs = tuple(trusted_thumbs or ())
+        self.cert_thumb = cert_thumb
 
         self._setup_style()
         self._make_header()
@@ -99,11 +105,12 @@ class NISTPanel(ttk.Frame):
         self.t_ev = self.add_tab('Evidências e custódia')
         self.t_osint = self.add_tab('OSINT')
         self.t_sei = self.add_tab('Consultas SEI')
+        self.t_cons = self.add_tab('Consolidação')
         self.t_report = self.add_tab('Relatório')
         self.t_audit = self.add_tab('Auditoria')
         for build in (self.make_dashboard, self.make_assessment, self.make_plan, self.make_collect,
                       self.make_risks, self.make_incidents, self.make_evidence, self.make_osint,
-                      self.make_sei, self.make_report, self.make_audit):
+                      self.make_sei, self.make_consolidation, self.make_report, self.make_audit):
             build()
         self.refresh()
         self.bind('<Destroy>', self._on_destroy, add='+')
@@ -346,9 +353,9 @@ class NISTPanel(ttk.Frame):
         right = nist_Frame(pane)
         pane.add(left, weight=3)
         pane.add(right, weight=2)
-        self.atree = self.tree(left, ('Atual', 'Alvo', 'Lacuna', 'Técnico', 'Responsável', 'Prazo'),
-                               {'Atual': 55, 'Alvo': 55, 'Lacuna': 60, 'Técnico': 90, 'Responsável': 120,
-                                'Prazo': 85}, show='tree headings')
+        self.atree = self.tree(left, ('Atual', 'Alvo', 'Lacuna', 'Técnico', 'Evid.', 'Responsável', 'Prazo'),
+                               {'Atual': 55, 'Alvo': 55, 'Lacuna': 60, 'Técnico': 90, 'Evid.': 50,
+                                'Responsável': 120, 'Prazo': 85}, show='tree headings')
         self.atree.column('#0', width=330, stretch=True)
         self.atree.heading('#0', text='Função / categoria / subcategoria')
         self.atree.tag_configure('lacuna', foreground='#ffd54f')
@@ -372,6 +379,20 @@ class NISTPanel(ttk.Frame):
         self.a_action = self.field(form, 'Ação necessária', 7, width=36)
         nist_Button(form, text='Salvar avaliação', command=self.save_sub).grid(row=8, column=1, sticky='w', pady=6)
 
+        evbox = nist_Frame(right)
+        evbox.pack(fill='x', padx=6, pady=(8, 0))
+        nist_Label(evbox, text='Evidências desta subcategoria', style='NIST.Section.TLabel').pack(anchor='w')
+        nist_Label(evbox, text='Arquivos da cadeia de custódia (SHA-256) que comprovam a maturidade informada.',
+                   style='NIST.Info.TLabel', wraplength=430).pack(anchor='w')
+        self.sevtree = self.tree(evbox, ('ID', 'Arquivo', 'SHA-256'), {'ID': 40, 'Arquivo': 190, 'SHA-256': 170},
+                                 height=3)
+        bar = nist_Frame(evbox)
+        bar.pack(anchor='w', pady=(0, 4))
+        self.sev_button = nist_Button(bar, text='Anexar arquivo novo…', command=self.attach_new_evidence)
+        self.sev_button.pack(side='left')
+        nist_Button(bar, text='Anexar já registrada…', command=self.attach_existing_evidence).pack(side='left', padx=6)
+        nist_Button(bar, text='Remover vínculo', command=self.detach_evidence).pack(side='left')
+
         tierbox = nist_Frame(right)
         tierbox.pack(fill='x', padx=6, pady=(14, 0))
         nist_Label(tierbox, text='Nível de implementação (Tier) por função', style='NIST.Section.TLabel'
@@ -387,6 +408,7 @@ class NISTPanel(ttk.Frame):
     def refresh_assessment(self):
         data = core.sub_assessments(self.db)
         tech = core.findings_by_subcategory(self.db)
+        evid = core.evidence_counts(self.db)
         mode = self.assess_filter.get()
         opened = {iid for iid in self.atree.get_children() if self.atree.item(iid, 'open')}
         for cat in [c for f in self.atree.get_children() for c in self.atree.get_children(f)]:
@@ -418,12 +440,14 @@ class NISTPanel(ttk.Frame):
                         tags = ('Falha',)
                     self.atree.insert(cnode, 'end', iid=scode, text=scode, tags=tags, values=(
                         d['current'] if d else '—', d['target'] if d else '—',
-                        gap if gap is not None else '—', t, d['owner'] if d else '', _br(d['due_date']) if d else ''))
+                        gap if gap is not None else '—', t, evid.get(scode, ''), d['owner'] if d else '',
+                        _br(d['due_date']) if d else ''))
             if not self.atree.get_children(fnode) and mode != 'Todas':
                 self.atree.delete(fnode)
         if self._sub and self.atree.exists(self._sub):
             self.atree.see(self._sub)
             self.atree.selection_set(self._sub)
+        self.refresh_sub_evidence()
 
     def pick_sub(self, event=None):
         sel = self.atree.selection()
@@ -439,6 +463,78 @@ class NISTPanel(ttk.Frame):
         self.set_entry(self.a_due, _br(d['due_date']) if d else '')
         self.set_entry(self.a_evidence, d['evidence_note'] if d else '')
         self.set_entry(self.a_action, d['action_note'] if d else '')
+        self.refresh_sub_evidence()
+
+    def refresh_sub_evidence(self):
+        self.clear(self.sevtree)
+        if not self._sub:
+            return
+        for eid, name, digest, _ in core.evidence_for_sub(self.db, self._sub):
+            self.sevtree.insert('', 'end', iid=str(eid), values=(eid, name, digest[:20] + '…'))
+
+    def _need_sub(self):
+        if not self._sub:
+            messagebox.showinfo('Evidências', 'Selecione uma subcategoria na lista.', parent=self)
+        return self._sub
+
+    def attach_new_evidence(self):
+        sub = self._need_sub()
+        if not sub:
+            return
+        file = filedialog.askopenfilename(title=f'Evidência para {sub}', parent=self)
+        if not file:
+            return
+        path = Path(file)
+        self.sev_button.state(['disabled'])
+
+        def done(digest, error):
+            self.sev_button.state(['!disabled'])
+            if error:
+                self._error('Erro de leitura', error)
+                return
+            try:
+                eid = core.save_evidence(self.db, path.name, digest, path, path.stat().st_size,
+                                         f'Evidência da avaliação {sub}', self.db.actor.split(' ')[0])
+                core.link_evidence(self.db, sub, eid)
+            except (ValueError, OSError) as exc:
+                self._error('Evidência', exc)
+                return
+            self.refresh()
+        self._thread(lambda: core.sha256_file(path), done)
+
+    def attach_existing_evidence(self):
+        sub = self._need_sub()
+        if not sub:
+            return
+        items = core.evidence_list(self.db)
+        if not items:
+            messagebox.showinfo('Evidências', 'Nenhuma evidência registrada ainda. Use "Anexar arquivo novo…".',
+                                parent=self)
+            return
+        win = tk.Toplevel(self)
+        win.title(f'Anexar evidência a {sub}')
+        win.configure(bg=BG)
+        win.transient(self.winfo_toplevel())
+        t = self.tree(win, ('ID', 'Arquivo', 'SHA-256', 'Data'),
+                      {'ID': 45, 'Arquivo': 220, 'SHA-256': 260, 'Data': 120}, height=10)
+        for e in items:
+            t.insert('', 'end', iid=str(e['id']), values=(e['id'], e['file_name'], e['sha256'][:32] + '…',
+                                                          e['recorded_at'][:16].replace('T', ' ')))
+
+        def ok():
+            for iid in t.selection():
+                core.link_evidence(self.db, sub, int(iid))
+            win.destroy()
+            self.refresh()
+        nist_Button(win, text='Anexar selecionadas', command=ok).pack(pady=8)
+
+    def detach_evidence(self):
+        sel = self.sevtree.selection()
+        if not self._sub or not sel:
+            return
+        for iid in sel:
+            core.unlink_evidence(self.db, self._sub, int(iid))
+        self.refresh()
 
     def save_sub(self):
         if not self._sub:
@@ -508,11 +604,13 @@ class NISTPanel(ttk.Frame):
     # ================================================================ coleta técnica
     def make_collect(self):
         f = self.t_collect
-        self.title_label(f, 'Coleta técnica automática deste computador',
+        self.title_label(f, 'Coleta técnica automática — este e outros computadores',
                          'Verificações SOMENTE DE LEITURA no Windows (antivírus, firewall, BitLocker, UAC, RDP, SMBv1, '
                          'atualizações, contas, política de senha, bloqueio de tela, logs, portas, certificado do '
                          'S-Cyber PM). Cada resultado é ligado às subcategorias do CSF e gravado com o SHA-256 dos dados '
-                         'brutos. Execute como Administrador para obter BitLocker, SMB, Secure Boot e backup.')
+                         'brutos. Execute como Administrador para obter BitLocker, SMB, Secure Boot e backup. '
+                         'Computadores sem o S-Cyber PM: salve o coletor avulso, rode-o lá e importe o .json aqui; '
+                         'a avaliação considera a pior situação entre todos os computadores.')
         bar = nist_Frame(f)
         bar.pack(fill='x', padx=12)
         self.collect_button = nist_Button(bar, text='Executar verificação agora', command=self.run_collect)
@@ -520,11 +618,20 @@ class NISTPanel(ttk.Frame):
         nist_Button(bar, text='Aplicar à avaliação CSF', command=self.apply_collect).pack(side='left', padx=8)
         nist_Button(bar, text='Exportar resultados CSV', command=lambda: self.export('findings', 'coleta_tecnica.csv')
                     ).pack(side='left')
+        nist_Button(bar, text='Importar coleta de outro computador…', command=self.import_collect
+                    ).pack(side='left', padx=8)
+        nist_Button(bar, text='Salvar coletor avulso (.ps1)…', command=self.save_standalone).pack(side='left')
         self.collect_info = tk.StringVar(value='Nenhuma coleta executada.')
         nist_Label(f, textvariable=self.collect_info, style='NIST.Info.TLabel', wraplength=1100
                    ).pack(anchor='w', padx=16, pady=4)
         self.collect_changes = tk.StringVar(value='')
         nist_Label(f, textvariable=self.collect_changes, wraplength=1100).pack(anchor='w', padx=16)
+        self.htree = self.tree(f, ('Computador', 'Origem', 'Data (UTC)', 'Usuário', 'Administrador', 'OK', 'Atenção',
+                                   'Falha', 'Indisponível'),
+                               {'Computador': 150, 'Origem': 80, 'Data (UTC)': 130, 'Usuário': 200,
+                                'Administrador': 90, 'OK': 50, 'Atenção': 60, 'Falha': 50, 'Indisponível': 80},
+                               height=4)
+        self.htree.bind('<<TreeviewSelect>>', self.pick_host)
         self.ctree = self.tree(f, ('Situação', 'Verificação', 'Detalhe', 'Subcategorias CSF'),
                                {'Situação': 95, 'Verificação': 230, 'Detalhe': 560, 'Subcategorias CSF': 190})
 
@@ -556,7 +663,7 @@ class NISTPanel(ttk.Frame):
                 self._error('Coleta técnica', error)
             return
         results = collector.evaluate(raw)
-        core.save_collection(self.db, collector.meta(raw), raw, results)
+        self._coll_id = core.save_collection(self.db, collector.meta(raw), raw, results)
         self.refresh()
         if not auto:
             self.tabs.select(self.t_collect)
@@ -568,8 +675,8 @@ class NISTPanel(ttk.Frame):
             return
         if not messagebox.askyesno(
                 'Aplicar à avaliação',
-                'As subcategorias ainda NÃO avaliadas e ligadas à última coleta recebem a maturidade sugerida '
-                '(OK = 3, Atenção = 2, Falha = 1) e alvo 3.\n\nAvaliações já feitas por alguém não são alteradas: '
+                'As subcategorias ainda NÃO avaliadas e ligadas às coletas recebem a maturidade sugerida pela '
+                'pior situação entre os computadores (OK = 3, Atenção = 2, Falha = 1) e alvo 3.\n\nAvaliações já feitas por alguém não são alteradas: '
                 'as que divergirem da coleta são listadas para revisão.\n\nContinuar?', parent=self):
             return
         try:
@@ -585,25 +692,75 @@ class NISTPanel(ttk.Frame):
         messagebox.showinfo('Aplicar à avaliação', text, parent=self)
 
     def refresh_collect(self):
+        self.clear(self.htree)
         self.clear(self.ctree)
-        head, items = core.latest_findings(self.db)
-        if not head:
+        hosts = core.collections_by_host(self.db)
+        if not hosts:
             self.collect_changes.set('')
             return
-        _, run_at, host, user, admin, digest = head
-        counts = {}
-        for _check, title, status, detail, subs in items:
-            counts[status] = counts.get(status, 0) + 1
+        ids = [h[0] for h in hosts]
+        if self._coll_id not in ids:
+            self._coll_id = ids[0]
+        for cid, run_at, host, user, admin, _digest, source, counts in hosts:
+            tag = ('Falha',) if counts.get('Falha') else ('Atenção',) if counts.get('Atenção') else ('OK',)
+            self.htree.insert('', 'end', iid=str(cid), tags=tag, values=(
+                host, source, run_at[:16].replace('T', ' '), user, 'Sim' if admin else 'Não', counts.get('OK', 0),
+                counts.get('Atenção', 0), counts.get('Falha', 0), counts.get('Indisponível', 0)))
+        self.htree.selection_set(str(self._coll_id))
+        cid, run_at, host, user, admin, digest, source, counts = next(h for h in hosts if h[0] == self._coll_id)
+        for _check, title, status, detail, subs in core.findings_for(self.db, cid):
             self.ctree.insert('', 'end', values=(status, title, detail, subs.replace(',', ', ')), tags=(status,))
         resume = ', '.join(f'{v} {k}' for k, v in sorted(counts.items()))
-        self.collect_info.set(f'Última coleta: {run_at[:16].replace("T", " ")} UTC • {host} • {user} • '
+        self.collect_info.set(f'{len(hosts)} computador(es). Selecionado: {host} ({source.lower()}) • '
+                              f'{run_at[:16].replace("T", " ")} UTC • {user} • '
                               f'{"Administrador" if admin else "sem privilégio de Administrador"} • {resume} • '
                               f'SHA-256 dos dados: {digest[:24]}…')
         changes = core.compare_collections(self.db)
         self.collect_changes.set(
-            ('Desde a coleta anterior: ' + '; '.join(
-                f"{c['title']} {c['change']} ({c['before']} → {c['after']})" for c in changes))
-            if changes else 'Sem mudanças em relação à coleta anterior.')
+            ('Desde a coleta anterior de cada computador: ' + '; '.join(
+                f"{c['host']}: {c['title']} {c['change']} ({c['before']} → {c['after']})" for c in changes[:12]))
+            if changes else 'Sem mudanças em relação às coletas anteriores.')
+
+    def pick_host(self, event=None):
+        sel = self.htree.selection()
+        if sel and int(sel[0]) != self._coll_id:
+            self._coll_id = int(sel[0])
+            self.refresh_collect()
+
+    def import_collect(self):
+        files = filedialog.askopenfilenames(title='Coletas geradas pelo coletor avulso',
+                                            filetypes=[('Coleta NIST', '*.json')], parent=self)
+        done, errors = 0, []
+        for file in files:
+            try:
+                self._coll_id = core.import_collection(self.db, file)
+                done += 1
+            except (ValueError, OSError) as exc:
+                errors.append(f'{Path(file).name}: {exc}')
+        if not files:
+            return
+        self.refresh()
+        text = f'{done} coleta(s) importada(s).' + ('\n\n' + '\n'.join(errors) if errors else '')
+        (messagebox.showwarning if errors else messagebox.showinfo)('Importar coleta', text, parent=self)
+
+    def save_standalone(self):
+        folder = filedialog.askdirectory(title='Pasta para o coletor avulso (ex.: um pendrive)', parent=self)
+        if not folder:
+            return
+        try:
+            target = Path(folder) / 'coletor_nist.ps1'
+            target.write_text(collector.standalone_script(), encoding='utf-8-sig', newline='\r\n')
+            (Path(folder) / 'coletar_nist_windows.bat').write_text(collector.STANDALONE_BAT, encoding='ascii',
+                                                                    newline='\r\n')
+        except OSError as exc:
+            self._error('Coletor avulso', exc)
+            return
+        core.log_event(self.db, 'Coleta técnica', 'Salvar coletor avulso', '', str(target.parent.name))
+        self.refresh_audit()
+        messagebox.showinfo('Coletor avulso', f'Coletor salvo em {folder}.\n\nNo outro computador, clique com o '
+                            'botão direito em coletar_nist_windows.bat > Executar como administrador. Depois traga '
+                            'o arquivo coleta_<COMPUTADOR>_<data>.json e use "Importar coleta de outro computador".',
+                            parent=self)
 
     # ================================================================ riscos
     def make_risks(self):
@@ -738,7 +895,8 @@ class NISTPanel(ttk.Frame):
         f = self.t_inc
         self.title_label(f, 'Resposta a incidentes (RS/RC) e comunicação LGPD',
                          'Com dados pessoais envolvidos, o prazo de comunicação à ANPD é de 3 dias úteis a partir do '
-                         'conhecimento (Res. CD/ANPD nº 15/2024, art. 6º; feriados não são descontados). '
+                         'conhecimento (Res. CD/ANPD nº 15/2024, art. 6º). São descontados sábados, domingos, '
+                         'feriados nacionais e os feriados estaduais/municipais cadastrados em "Feriados…". '
                          'A linha do tempo é encadeada por hash: qualquer alteração posterior é detectada.')
         form = nist_Frame(f)
         form.pack(fill='x', padx=10)
@@ -759,6 +917,7 @@ class NISTPanel(ttk.Frame):
         nist_Button(bar, text='Registrar incidente', command=self.add_incident).pack(side='left')
         nist_Button(bar, text='Exportar CSV', command=lambda: self.export('incidents', 'incidentes.csv')
                     ).pack(side='left', padx=6)
+        nist_Button(bar, text='Feriados…', command=self.edit_holidays).pack(side='left')
         self.itree = self.tree(f, ('ID', 'Incidente', 'Severidade', 'Fase', 'Conhecimento', 'ANPD', 'Processo SEI',
                                    'CSF'),
                                {'ID': 45, 'Incidente': 300, 'Severidade': 80, 'Fase': 110, 'Conhecimento': 95,
@@ -781,6 +940,63 @@ class NISTPanel(ttk.Frame):
         nist_Button(bar, text='Processo SEI…', command=self.link_sei_manual).pack(side='left', padx=(0, 6))
         nist_Button(bar, text='Verificar integridade', command=lambda: self.check_chain('incident_log')
                     ).pack(side='left')
+
+    def edit_holidays(self):
+        win = tk.Toplevel(self)
+        win.title('Feriados considerados no prazo ANPD')
+        win.configure(bg=BG)
+        win.transient(self.winfo_toplevel())
+        year = tk.IntVar(value=date.today().year)
+        top = nist_Frame(win)
+        top.pack(fill='x', padx=10, pady=(10, 0))
+        nist_Label(top, text='Ano').pack(side='left')
+        spin = ttk.Spinbox(top, from_=2020, to=2100, textvariable=year, width=6)
+        spin.pack(side='left', padx=6)
+        t = self.tree(win, ('Data', 'Feriado', 'Tipo'), {'Data': 90, 'Feriado': 300, 'Tipo': 120}, height=14)
+        form = nist_Frame(win)
+        form.pack(fill='x', padx=10)
+        h_day = self.field(form, 'Data (DD/MM/AAAA)', 0, width=14)
+        h_name = self.field(form, 'Nome', 1, width=34)
+        h_kind = self.field(form, 'Tipo', 2, widget='combo', values=core.HOLIDAY_KINDS, width=20)
+
+        def fill():
+            self.clear(t)
+            try:
+                y = int(year.get())
+            except (tk.TclError, ValueError):
+                return
+            for day, name, kind in core.holidays(self.db, y):
+                t.insert('', 'end', iid=day, values=(_br(day), name, kind), tags=() if kind == 'Nacional' else ('OK',))
+
+        def changed(n):
+            fill()
+            self.refresh()
+            if n:
+                messagebox.showinfo('Feriados', f'Prazo ANPD recalculado em {n} incidente(s).', parent=win)
+
+        def add():
+            try:
+                changed(core.add_holiday(self.db, h_day.get(), h_name.get(), h_kind.get()))
+            except ValueError as exc:
+                self._error('Feriados', exc)
+
+        def remove():
+            sel = t.selection()
+            if not sel or t.item(sel[0], 'values')[2] == 'Nacional':
+                messagebox.showinfo('Feriados', 'Selecione um feriado cadastrado (os nacionais são fixos em lei).',
+                                    parent=win)
+                return
+            changed(core.remove_holiday(self.db, sel[0]))
+        bar = nist_Frame(win)
+        bar.pack(fill='x', padx=10, pady=8)
+        nist_Button(bar, text='Cadastrar', command=add).pack(side='left')
+        nist_Button(bar, text='Remover selecionado', command=remove).pack(side='left', padx=6)
+        nist_Label(win, text='Nacionais: Leis 662/1949, 6.802/1980, 9.093/1995 e 14.759/2023. Carnaval e Corpus '
+                   'Christi são ponto facultativo: cadastre-os se a unidade não funcionar nesses dias.',
+                   style='NIST.Info.TLabel', wraplength=520).pack(anchor='w', padx=12, pady=(0, 10))
+        spin.configure(command=fill)
+        spin.bind('<Return>', lambda e: fill())
+        fill()
 
     def refresh_incidents(self):
         self.clear(self.itree)
@@ -1185,6 +1401,120 @@ class NISTPanel(ttk.Frame):
             threading.Thread(target=old.logout, daemon=True).start()
 
     # ================================================================ relatório
+    def make_consolidation(self):
+        f = self.t_cons
+        self.title_label(f, 'Consolidação entre unidades / computadores',
+                         'Gere um pacote ASSINADO com o seu certificado e CIFRADO com uma senha combinada, leve-o à '
+                         'unidade consolidadora e importe lá. Só vão dados minimizados (LGPD): maturidade por função, '
+                         'riscos e incidentes sem textos, prazos ANPD e o resumo das coletas. Na importação, a '
+                         'assinatura é conferida e o certificado comparado com a lista de autorizados do S-Cyber PM.')
+        form = nist_Frame(f)
+        form.pack(fill='x', padx=10)
+        self.cons_unit = self.field(form, 'Nome desta unidade', 0, width=40)
+        self.cons_pass = self.field(form, 'Senha do pacote', 1, width=24)
+        self.cons_pass2 = self.field(form, 'Repita a senha', 2, width=24)
+        for e in (self.cons_pass, self.cons_pass2):
+            e.configure(show='•')
+        bar = nist_Frame(form)
+        bar.grid(row=3, column=1, sticky='w', pady=6)
+        self.cons_button = nist_Button(bar, text='Gerar pacote assinado…', command=self.build_package)
+        self.cons_button.pack(side='left')
+        nist_Button(bar, text='Importar pacote…', command=self.import_package).pack(side='left', padx=8)
+        nist_Button(bar, text='Remover pacote selecionado', command=self.remove_package).pack(side='left')
+        self.cons_status = tk.StringVar(value='')
+        nist_Label(f, textvariable=self.cons_status, style='NIST.Info.TLabel', wraplength=1100
+                   ).pack(anchor='w', padx=16)
+        cols = ('Unidade',) + tuple(c for c, _ in FUNCTIONS) + ('Riscos altos', 'Incidentes abertos', 'ANPD vencidos')
+        self.cvtree = self.tree(f, cols, dict({'Unidade': 220, 'Riscos altos': 90, 'Incidentes abertos': 120,
+                                               'ANPD vencidos': 100}, **{c: 55 for c, _ in FUNCTIONS}), height=7)
+        nist_Label(f, text='Pacotes importados', style='NIST.Section.TLabel').pack(anchor='w', padx=14)
+        self.cptree = self.tree(f, ('ID', 'Unidade', 'Assinado por', 'Certificado', 'Autorizado', 'Gerado em',
+                                    'Importado em'),
+                                {'ID': 40, 'Unidade': 200, 'Assinado por': 230, 'Certificado': 110, 'Autorizado': 80,
+                                 'Gerado em': 130, 'Importado em': 130}, height=5)
+
+    def refresh_consolidation(self):
+        self.clear(self.cvtree)
+        self.clear(self.cptree)
+        for r in core.consolidated_view(self.db):
+            tags = ('Falha',) if r['anpd_overdue'] else ('grupo',) if r['unit'] == 'MÉDIA' else ()
+            self.cvtree.insert('', 'end', tags=tags, values=(r['unit'],) + tuple(
+                f"{r['maturity'][c]:.2f}" for c, _ in FUNCTIONS) + (r['high_risks'], r['open_incidents'],
+                                                                     r['anpd_overdue']))
+        for c in core.consolidated_list(self.db):
+            self.cptree.insert('', 'end', iid=str(c['id']), tags=() if c['trusted'] else ('Atenção',), values=(
+                c['id'], c['unit'], c['signer'], c['thumb'][:8] + '…', 'Sim' if c['trusted'] else 'NÃO',
+                c['created_at'][:16].replace('T', ' '), c['imported_at'][:16].replace('T', ' ')))
+
+    def build_package(self):
+        if self.signer is None:
+            messagebox.showwarning('Consolidação', 'A assinatura do pacote usa o certificado validado no login: '
+                                   'abra o painel pelo S-Cyber PM.', parent=self)
+            return
+        if self.cons_pass.get() != self.cons_pass2.get():
+            messagebox.showwarning('Consolidação', 'As senhas não conferem.', parent=self)
+            return
+        unit, password = self.cons_unit.get().strip(), self.cons_pass.get()
+        try:
+            package.check_password(password)
+            core._text(unit, 'Nome da unidade')
+        except ValueError as exc:
+            self._error('Consolidação', exc)
+            return
+        safe = ''.join(ch if ch.isalnum() else '_' for ch in unit)[:40]
+        target = filedialog.asksaveasfilename(defaultextension=package.EXTENSION,
+                                              filetypes=[('Pacote NIST', '*' + package.EXTENSION)],
+                                              initialfile=f'consolidacao_{safe}_{date.today():%Y%m%d}'
+                                                          f'{package.EXTENSION}', parent=self)
+        if not target:
+            return
+        self.cons_button.state(['disabled'])
+        self.cons_status.set('Assinando o pacote com o certificado…')
+        content = package.prepare(self.db, unit)       # leitura do banco na thread do Tk
+
+        def done(info, error):
+            self.cons_button.state(['!disabled'])
+            if error:
+                self.cons_status.set('Falha ao gerar o pacote.')
+                self._error('Consolidação', error)
+                return
+            package.write(self.db, target, unit, password, content, info)
+            for e in (self.cons_pass, self.cons_pass2):
+                self.set_entry(e, '')
+            self.cons_status.set(f"Pacote salvo em {target} — assinado por {info['subject']}. Envie a senha por "
+                                 'outro canal.')
+            self.refresh_audit()
+        self._thread(lambda: package.sign(content, self.signer), done)
+
+    def import_package(self):
+        source = filedialog.askopenfilename(filetypes=[('Pacote NIST', '*' + package.EXTENSION)], parent=self)
+        if not source:
+            return
+        password = simpledialog.askstring('Importar pacote', 'Senha do pacote:', show='•', parent=self)
+        if not password:
+            return
+        try:
+            try:
+                r = package.import_package(self.db, source, password, self.trusted_thumbs)
+            except PermissionError as exc:
+                if not messagebox.askyesno('Certificado não autorizado', f'{exc}\n\nA assinatura é válida, mas o '
+                                           'certificado não está na lista do S-Cyber PM. Importar mesmo assim '
+                                           '(fica marcado e registrado na auditoria)?', icon='warning', parent=self):
+                    return
+                r = package.import_package(self.db, source, password, self.trusted_thumbs, allow_untrusted=True)
+        except (ValueError, OSError) as exc:
+            self._error('Importar pacote', exc)
+            return
+        self.refresh()
+        self.tabs.select(self.t_cons)
+        self.cons_status.set(f"Pacote de {r['unit']} importado — assinatura conferida ({r['signer']}).")
+
+    def remove_package(self):
+        sel = self.cptree.selection()
+        if sel and messagebox.askyesno('Consolidação', 'Remover o pacote selecionado da consolidação?', parent=self):
+            core.remove_consolidated(self.db, int(sel[0]))
+            self.refresh()
+
     def make_report(self):
         f = self.t_report
         self.title_label(f, 'Relatório de governança NIST CSF 2.0 (PDF)',
@@ -1215,6 +1545,23 @@ class NISTPanel(ttk.Frame):
         bar.pack(anchor='w', padx=16, pady=4)
         nist_Button(bar, text='Fazer backup…', command=self.do_backup).pack(side='left')
         nist_Button(bar, text='Restaurar backup…', command=self.do_restore).pack(side='left', padx=8)
+        nist_Button(bar, text='Abrir pasta das cópias automáticas', command=self.open_backups).pack(side='left')
+        nist_Label(f, text=f'Cópia automática: uma por dia, ao entrar no S-Cyber PM, guardando as últimas '
+                   f'{core.AUTO_BACKUP_KEEP} (pasta backups ao lado do banco).', style='NIST.Info.TLabel'
+                   ).pack(anchor='w', padx=16)
+
+        self.title_label(f, 'Retenção de dados (LGPD)',
+                         'Exclui incidentes ENCERRADOS há mais tempo que o prazo de guarda definido pela unidade, com '
+                         'a linha do tempo deles (as evidências permanecem, sem o vínculo). Antes, um backup completo '
+                         'é salvo onde você escolher. A operação só roda com a cadeia íntegra e fica na auditoria.')
+        bar = nist_Frame(f)
+        bar.pack(anchor='w', padx=16, pady=4)
+        nist_Label(bar, text='Encerrados há mais de').pack(side='left')
+        self.ret_days = nist_Entry(bar, width=7)
+        self.ret_days.insert(0, '1825')
+        self.ret_days.pack(side='left', padx=6)
+        nist_Label(bar, text='dias').pack(side='left')
+        nist_Button(bar, text='Aplicar retenção…', command=self.do_retention).pack(side='left', padx=10)
 
     def make_pdf(self):
         sign, encrypt = self.rep_sign.get(), self.rep_encrypt.get()
@@ -1263,6 +1610,38 @@ class NISTPanel(ttk.Frame):
             return
         self.refresh_audit()
         messagebox.showinfo('Backup', f'Backup salvo em {target}.', parent=self)
+
+    def open_backups(self):
+        folder = Path(self.db_path).parent / 'backups'
+        folder.mkdir(parents=True, exist_ok=True)
+        try:
+            os.startfile(folder)              # Windows
+        except AttributeError:
+            webbrowser.open(folder.as_uri())
+
+    def do_retention(self):
+        try:
+            days = int(self.ret_days.get())
+        except ValueError:
+            messagebox.showwarning('Retenção', 'Informe o prazo em dias (número inteiro).', parent=self)
+            return
+        if not messagebox.askyesno('Retenção de dados', f'Excluir DEFINITIVAMENTE os incidentes encerrados há mais '
+                                   f'de {days} dias, com a linha do tempo deles?\n\nAntes, você escolhe onde salvar '
+                                   'o backup completo.', icon='warning', parent=self):
+            return
+        archive = filedialog.asksaveasfilename(defaultextension='.db', filetypes=[('Backup NIST', '*.db')],
+                                               initialfile=f'arquivo_retencao_{date.today():%Y%m%d}.db', parent=self)
+        if not archive:
+            return
+        try:
+            n = core.purge_closed_incidents(self.db, days, archive)
+        except (ValueError, OSError) as exc:
+            self._error('Retenção', exc)
+            return
+        self.refresh()
+        messagebox.showinfo('Retenção', f'{n} incidente(s) excluído(s).' + (
+            f' Backup anterior salvo em {archive}.' if n else ' Nada a excluir (o backup não foi necessário).'),
+            parent=self)
 
     def do_restore(self):
         source = filedialog.askopenfilename(filetypes=[('Backup NIST', '*.db')], parent=self)
@@ -1317,8 +1696,8 @@ class NISTPanel(ttk.Frame):
 
     def refresh(self):
         for part in (self.refresh_assessment, self.refresh_plan, self.refresh_collect, self.refresh_risks,
-                     self.refresh_incidents, self.refresh_evidence, self.refresh_osint, self.refresh_audit,
-                     self.refresh_dashboard):
+                     self.refresh_incidents, self.refresh_evidence, self.refresh_osint, self.refresh_consolidation,
+                     self.refresh_audit, self.refresh_dashboard):
             part()
         self.refresh_header()
 
@@ -1339,6 +1718,8 @@ class NISTPanel(ttk.Frame):
             self.db.close()
         except Exception:
             log.warning('Falha ao fechar o banco NIST', exc_info=True)
+
+    def close(self):
         self._shutdown()
         self.destroy()
 

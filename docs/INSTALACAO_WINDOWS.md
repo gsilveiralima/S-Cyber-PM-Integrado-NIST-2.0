@@ -49,7 +49,8 @@ disponível no seu computador, use `requirements.txt` (versões mínimas).
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-✅ `Ran 53 tests ... OK`. Também dá para dar dois cliques em `testar_integracao_windows.bat`.
+✅ `Ran 77 tests ... OK` (no Windows os 4 testes de `test_windows_v12.py` rodam de verdade e
+criam e apagam um certificado temporário de teste). Também dá para dar dois cliques em `testar_integracao_windows.bat`.
 
 ## 5. Certificado digital do usuário
 
@@ -125,7 +126,15 @@ menu **NIST Intelligence** ou o assistente ("coleta técnica", "incidentes"...).
   abra o PowerShell **como Administrador**, entre na pasta e rode o comando acima.
 - **Relatório** → marque *Assinar* e *Proteger com senha* → *Gerar relatório PDF*. Ao abrir o
   arquivo, o leitor de PDF pede a senha dos PDFs e mostra que ele está assinado.
-- **Backup** (aba Relatório): faça um backup periódico do banco cifrado.
+- **Backup** (aba Relatório): a cópia automática é diária (últimas 7). Mesmo assim, faça de vez
+  em quando um backup manual para fora do computador.
+- **Feriados** (aba Incidentes → *Feriados…*): cadastre os feriados de Goiás e do município, para o
+  prazo da ANPD ficar certo.
+- **Outros computadores:** na aba Coleta técnica, use *Salvar coletor avulso (.ps1)…* num pendrive.
+  No outro computador, clique com o botão direito em `coletar_nist_windows.bat` e escolha *Executar
+  como administrador*. Depois importe o `.json` gerado.
+- **Consolidação:** cada unidade gera o pacote assinado (aba Consolidação), e a consolidadora importa.
+  Combine a senha por outro canal.
 
 O uso de cada aba está em `S-Cyber-PM-Integrado/GUIA_NIST_INTELLIGENCE.md`.
 
@@ -151,6 +160,10 @@ O `.exe` usa a lista de certificados do `appSCyberPM.py` do momento em que foi g
 | BitLocker, Secure Boot e backup aparecem como "Indisponível" na coleta | Precisam de Administrador | Rode o aplicativo pelo PowerShell como Administrador |
 | PDF sem senha e sem assinatura | Gerado pela impressora "Microsoft Print to PDF" | Use os botões de exportar ou gerar do aplicativo, que aplicam a proteção |
 | Consulta ao banco retorna `[]` | Ainda não há registros | Normal: cadastre um risco antes de conferir |
+| `coletor_nist.ps1 não pode ser carregado porque a execução de scripts foi desabilitada` | Política de execução do PowerShell | Use o `coletar_nist_windows.bat`, que roda com `-ExecutionPolicy Bypass` só para esse script |
+| "O pacote foi assinado por … que não está na lista de certificados autorizados" | O certificado de quem gerou não está em `CERTIFICADOS_AUTORIZADOS` | Inclua-o com `adicionar_certificado.py`, ou importe com confirmação (fica marcado) |
+| "Senha incorreta ou pacote alterado" | Senha errada, ou arquivo corrompido ou adulterado | Confirme a senha com a unidade de origem e peça o pacote de novo |
+| A notificação do Windows não aparece | Notificações desativadas, ou modo Não perturbe | Os mesmos avisos aparecem no Painel e na barra de status |
 
 ## Painel NIST sem login (só para desenvolvimento)
 

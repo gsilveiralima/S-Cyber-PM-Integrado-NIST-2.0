@@ -388,9 +388,10 @@ ROTEIRO = [
           "informe a maturidade atual, a maturidade desejada, o responsável e o prazo; depois, "
           "clique em Salvar avaliação. Em Nível de implementação, defina o Tier de cada "
           "função, de um a quatro. A coluna Técnico mostra o resultado da última coleta "
-          "automática ligada àquela subcategoria, e o botão Exportar avaliação CSV gera uma "
-          "planilha para análise externa.",
-          "árvore hierárquica · perfil atual × perfil-alvo · Tiers · exportação CSV",
+          "automática ligada àquela subcategoria, e a coluna Evid. conta os arquivos anexados "
+          "como prova: use Anexar arquivo novo, que guarda o SHA-256 na cadeia de custódia. O "
+          "botão Exportar avaliação CSV gera uma planilha para análise externa.",
+          "árvore hierárquica · perfil atual × perfil-alvo · Tiers · evidências · exportação CSV",
           acao="nist_aba:Avaliação CSF 2.0"),
     Passo("NIST: aba Plano de ação",
           "O plano de ação é gerado sozinho a partir das lacunas: toda subcategoria cujo alvo "
@@ -407,8 +408,9 @@ ROTEIRO = [
           "portas abertas e o certificado do S-Cyber PM. Clique em Executar verificação agora e "
           "aguarde até um minuto. Cada resultado é ligado às subcategorias do CSF e gravado com "
           "o SHA-256 dos dados coletados, para provar que não foi alterado. Nada é modificado "
-          "no sistema.",
-          "PowerShell somente leitura · SHA-256 · mapeamento para o CSF",
+          "no sistema. Para os computadores sem o S-Cyber PM, salve o coletor avulso, rode-o "
+          "lá e importe o arquivo gerado: a avaliação considera a pior situação entre todos.",
+          "PowerShell somente leitura · SHA-256 · vários computadores · mapeamento para o CSF",
           acao="nist_aba:Coleta técnica"),
     Passo("NIST: aba Riscos",
           "No registro de riscos, você cadastra cada risco com probabilidade e impacto, de um a "
@@ -422,7 +424,8 @@ ROTEIRO = [
           "Esta aba apoia a resposta a incidentes, nas funções Responder e Recuperar. Registre "
           "o incidente e marque se envolve dados pessoais: nesse caso, o prazo de comunicação "
           "à A N P D, de três dias úteis a partir do conhecimento, é calculado e acompanhado, "
-          "e o botão Comunicado à A N P D hoje registra o cumprimento. Cada fase é lançada numa "
+          "descontando fins de semana, feriados nacionais e os feriados locais cadastrados em "
+          "Feriados, e o botão Comunicado à A N P D hoje registra o cumprimento. Cada fase é lançada numa "
           "linha do tempo encadeada por hash, e o botão Verificar integridade denuncia qualquer "
           "alteração feita depois.",
           "LGPD · Res. CD/ANPD nº 15/2024 · cadeia de hashes", acao="nist_aba:Incidentes"),
@@ -447,13 +450,22 @@ ROTEIRO = [
           "Conectar. Depois, pesquise processos pelo termo. As consultas não são gravadas no "
           "banco, e Desconectar encerra a sessão.",
           "HTTP com sessão (requests) · leitura de HTML", acao="nist_aba:Consultas SEI"),
+    Passo("NIST: aba Consolidação",
+          "A consolidação junta a situação de várias unidades. Cada unidade gera um pacote "
+          "assinado com o próprio certificado e cifrado com uma senha combinada; a unidade "
+          "consolidadora importa os pacotes, o sistema confere a assinatura e se o certificado "
+          "está na lista de autorizados, e mostra a maturidade por função, os riscos altos e os "
+          "prazos da A N P D de cada uma, com a média geral. Só vão dados minimizados, sem textos.",
+          "assinatura CMS · scrypt + AES-256-GCM · minimização LGPD", acao="nist_aba:Consolidação"),
     Passo("NIST: aba Relatório",
           "Por fim, o relatório de governança em PDF: resumo por função com gráfico, plano de "
           "ação, mapa de calor de riscos, incidentes com o prazo da A N P D, evidências com a "
           "integridade da custódia e o resultado da coleta técnica. Informe a organização e o "
           "responsável, escolha se o PDF será assinado com o certificado do S-Cyber PM e "
-          "protegido com a senha das Opções, e clique em Gerar relatório PDF.",
-          "reportlab · assinatura PKCS #7 · AES-256", acao="nist_aba:Relatório"),
+          "protegido com a senha das Opções, e clique em Gerar relatório PDF. Na mesma aba ficam "
+          "o backup, as cópias automáticas diárias e a retenção, que exclui incidentes encerrados "
+          "há mais tempo que o prazo de guarda, sempre com backup antes e registro na auditoria.",
+          "reportlab · assinatura PKCS #7 · AES-256 · retenção LGPD", acao="nist_aba:Relatório"),
     Passo("NIST: fluxo de uso recomendado",
           "Resumindo o uso do Nist Intelligence: primeiro, rode a Coleta técnica; segundo, "
           "avalie as subcategorias na aba de Avaliação; terceiro, consulte o Plano de ação "

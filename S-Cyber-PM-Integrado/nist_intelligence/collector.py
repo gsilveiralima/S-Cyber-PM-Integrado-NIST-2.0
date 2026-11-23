@@ -66,6 +66,55 @@ if ($env:SCYBER_THUMB) { T certificado { $c=Get-Item "Cert:\CurrentUser\My\$env:
 $r | ConvertTo-Json -Depth 5 -Compress
 '''
 
+_STANDALONE_HEAD = r'''# ==============================================================================
+#  S-Cyber NIST Intelligence - coletor avulso (SOMENTE LEITURA)
+# ------------------------------------------------------------------------------
+#  Para computadores SEM o S-Cyber PM instalado. Faz as mesmas consultas da
+#  aba "Coleta tecnica", nao altera nada no Windows e grava um arquivo
+#  coleta_<COMPUTADOR>_<data>.json na mesma pasta deste script.
+#
+#  Como usar: clique duas vezes em coletar_nist_windows.bat (ou rode
+#    powershell -NoProfile -ExecutionPolicy Bypass -File coletor_nist.ps1)
+#  Como Administrador a coleta fica completa (BitLocker, SMB, Secure Boot).
+#  Leve o .json ao computador com o S-Cyber PM e use
+#    NIST > Coleta tecnica > Importar coleta de outro computador.
+#
+#  ARQUIVO GERADO PELO APLICATIVO (collector.standalone_script): nao edite.
+# ==============================================================================
+'''
+
+_STANDALONE_TAIL = r'''
+# $r e serializado exatamente como na coleta do aplicativo: aninhar $r em outro objeto antes do
+# ConvertTo-Json faz o PowerShell 5.1 gravar listas como {"value":[...],"Count":n}.
+$dados = $r | ConvertTo-Json -Depth 5 -Compress
+$saida = '{"formato":"scyber-nist-coleta","versao":1,"gerado":"' + (Get-Date).ToString('s') + '","dados":' + $dados + '}'
+$pasta = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
+$arquivo = Join-Path $pasta ('coleta_{0}_{1}.json' -f $env:COMPUTERNAME, (Get-Date).ToString('yyyyMMdd_HHmm'))
+[IO.File]::WriteAllText($arquivo, $saida, [Text.UTF8Encoding]::new($false))
+Write-Host ''
+Write-Host "Coleta gravada em: $arquivo"
+Write-Host 'Leve este arquivo ao computador com o S-Cyber PM (Coleta tecnica > Importar).'
+'''
+
+
+STANDALONE_BAT = (
+    '@echo off\n'
+    'REM Coletor avulso do S-Cyber NIST Intelligence (somente leitura) para computadores\n'
+    'REM sem o S-Cyber PM. Gera coleta_<COMPUTADOR>_<data>.json nesta pasta.\n'
+    'REM Para coleta completa: clique com o botao direito > Executar como administrador.\n'
+    'cd /d "%~dp0"\n'
+    'powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0coletor_nist.ps1"\n'
+    'pause\n')
+
+
+def standalone_script():
+    """Script PowerShell avulso (coletor_nist.ps1): as mesmas consultas de _PS, gravando
+    {formato, versao, gerado, dados} num .json para core.import_collection."""
+    body = _PS.strip('\n').splitlines()
+    assert body[-1].startswith('$r | ConvertTo-Json')
+    return _STANDALONE_HEAD + '\n'.join(body[:-1]) + '\n' + _STANDALONE_TAIL
+
+
 RISKY_PORTS = {21: 'FTP', 23: 'Telnet', 135: 'RPC', 139: 'NetBIOS', 445: 'SMB', 3389: 'RDP', 5985: 'WinRM'}
 
 
@@ -75,6 +124,7 @@ def run(thumbprint=None):
         raise RuntimeError('A coleta técnica só funciona no Windows.')
     import os
     env = dict(os.environ)
+    env.pop('PSModulePath', None)        # herdado do PowerShell 7, quebra módulos do 5.1
     if thumbprint:
         env['SCYBER_THUMB'] = ''.join(ch for ch in thumbprint if ch.isalnum())
     encoded = base64.b64encode(_PS.encode('utf-16-le')).decode('ascii')
@@ -102,10 +152,33 @@ def _unavailable(id_, title, value, subs):
     return _r(id_, title, 'Indisponível', f'Não foi possível consultar ({msg[:160]}).', subs)
 
 
+def normalize(value):
+    """Desfaz o embrulho {"value": [...], "Count": n} que o PowerShell 5.1 às vezes grava
+    no lugar de uma lista (arrays dentro de PSObject)."""
+    if isinstance(value, dict):
+        if set(value) == {'value', 'Count'}:
+            return normalize(value['value'])
+        return {k: normalize(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [normalize(v) for v in value]
+    return value
+
+
 def _as_list(v):
-    if v is None:
+    # O PowerShell grava lista vazia como null ou como {} (visto no Windows do CI).
+    if v is None or v == {}:
         return []
     return v if isinstance(v, list) else [v]
+
+
+def _names(v):
+    """Lista de nomes (texto), mesmo se o PowerShell devolver objetos no lugar de strings."""
+    out = []
+    for item in _as_list(v):
+        if isinstance(item, dict):
+            item = item.get('Name') or item.get('name') or item.get('value') or json.dumps(item)
+        out.append(str(item))
+    return out
 
 
 def _net_accounts(lines):
@@ -223,7 +296,7 @@ def evaluate(raw, today=None):
     if _err(v):
         out.append(_unavailable('admins', 'Administradores locais', v, subs))
     else:
-        names = _as_list(v)
+        names = _names(v)
         status = 'OK' if len(names) <= 2 else 'Atenção'
         out.append(_r('admins', 'Administradores locais', status,
                       f'{len(names)} membro(s): {", ".join(names[:8])}', subs))
@@ -236,7 +309,7 @@ def evaluate(raw, today=None):
         problems = []
         if isinstance(g, dict) and g.get('enabled'):
             problems.append('conta Convidado ATIVA')
-        empty = [] if _err(nopwd) else _as_list(nopwd)
+        empty = [] if _err(nopwd) else _names(nopwd)
         if empty:
             problems.append(f'contas sem senha obrigatória: {", ".join(empty)}')
         out.append(_r('accounts', 'Contas locais', 'Falha' if problems else 'OK',

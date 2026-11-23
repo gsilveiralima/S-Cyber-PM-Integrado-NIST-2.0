@@ -6,6 +6,7 @@ cifrado com a senha de PDFs das Opções, pelo módulo original modPDFProtegido.
 from __future__ import annotations
 
 from datetime import datetime
+from xml.sax.saxutils import escape
 
 from reportlab.graphics.charts.barcharts import VerticalBarChart
 from reportlab.graphics.shapes import Drawing, String
@@ -37,7 +38,8 @@ def _styles():
 
 
 def _table(rows, widths, st, header=True, row_colors=None):
-    data = [[Paragraph(str(c if c is not None else ''), st['Cell']) for c in r] for r in rows]
+    # Textos digitados pelo usuário vão escapados: "<" ou "&" num título não quebram o PDF.
+    data = [[Paragraph(escape(str(c if c is not None else '')), st['Cell']) for c in r] for r in rows]
     t = Table(data, colWidths=widths, repeatRows=1 if header else 0)
     style = [('GRID', (0, 0), (-1, -1), 0.25, colors.grey), ('VALIGN', (0, 0), (-1, -1), 'TOP')]
     if header:
@@ -74,12 +76,12 @@ def build(db, path, organization='', author=''):
     tech = core.findings_by_subcategory(db)
 
     story += [Paragraph('Relatório de Governança Cibernética — NIST CSF 2.0', st['Title']),
-              Paragraph(f'{organization or "Organização"} — emitido em {now}'
-                        + (f' por {author}' if author else ''), st['Normal']),
+              Paragraph(escape(f'{organization or "Organização"} — emitido em {now}'
+                               + (f' por {author}' if author else '')), st['Normal']),
               Paragraph(f'S-Cyber NIST Intelligence v{core.VERSION}'
                         + (' (base de dados cifrada com o certificado)' if getattr(db, 'encrypted', False) else '')
                         + '. Avaliação registrada pelos responsáveis; '
-                        'a coleta técnica reflete apenas o computador em que foi executada.', st['Small']),
+                        'a coleta técnica reflete os computadores coletados (seção 6).', st['Small']),
               Spacer(1, 0.4 * cm)]
 
     # 1. Resumo
@@ -100,7 +102,7 @@ def build(db, path, organization='', author=''):
     alerts = core.alerts(db)
     if alerts:
         story += [Spacer(1, 0.3 * cm), Paragraph('<b>Alertas</b>', st['Normal'])]
-        story += [Paragraph(f'• {text}', st['Cell']) for text, _ in alerts]
+        story += [Paragraph(escape(f'• {text}'), st['Cell']) for text, _ in alerts]
 
     # 2. Plano de ação
     story += [PageBreak(), Paragraph('2. Plano de ação priorizado (lacunas)', st['Heading2'])]
@@ -158,28 +160,70 @@ def build(db, path, organization='', author=''):
         rows.append([e['id'], e['file_name'], e['sha256'], e['custodian'], e['recorded_at'][:16].replace('T', ' ')])
     story.append(_table(rows, [0.8 * cm, 4 * cm, 7.2 * cm, 2.5 * cm, 3 * cm], st) if len(rows) > 1
                  else Paragraph('Nenhuma evidência registrada.', st['Normal']))
+    links = [(code, e) for code, _ in core.SUBCATEGORIES for e in core.evidence_for_sub(db, code)]
+    if links:
+        story.append(Paragraph('Evidências que comprovam a avaliação, por subcategoria:', st['Small']))
+        rows = [['Subcategoria', '#', 'Arquivo', 'SHA-256']]
+        for code, (eid, name, digest, _) in links:
+            rows.append([code, eid, name, digest])
+        story.append(_table(rows, [2.2 * cm, 0.8 * cm, 4.5 * cm, 10 * cm], st))
     ok, bad = core.verify_chain(db, 'custody_log')
     story.append(Paragraph('Cadeia de custódia: ' + ('íntegra (cadeia de hash verificada).' if ok
                            else f'ADULTERADA a partir do registro {bad}.'), st['Small']))
 
     # 6. Coleta técnica
-    head, items = core.latest_findings(db)
+    hosts = core.collections_by_host(db)
     story += [PageBreak(), Paragraph('6. Coleta técnica automática', st['Heading2'])]
-    if head:
-        _, run_at, host, user, admin, digest = head
-        story.append(Paragraph(f'Computador {host}, usuário {user}, {run_at[:16].replace("T", " ")} UTC, '
-                               f'{"com" if admin else "sem"} privilégio de administrador. SHA-256 dos dados '
-                               f'brutos: {digest}', st['Small']))
-        rows, row_colors = [['Verificação', 'Situação', 'Detalhe', 'Subcategorias']], {}
-        for n, (_, title, status, detail, subs) in enumerate(items, start=1):
-            rows.append([title, status, detail, subs.replace(',', ', ')])
-            row_colors[n] = STATUS_COLORS.get(status, colors.white)
-        story.append(_table(rows, [4 * cm, 2 * cm, 8 * cm, 3.5 * cm], st, row_colors=row_colors))
+    if hosts:
+        rows = [['Computador', 'Origem', 'Data (UTC)', 'Admin.', 'OK', 'Atenção', 'Falha', 'Indisp.']]
+        for _, run_at, host, _user, admin, _digest, source, counts in hosts:
+            rows.append([host, source, run_at[:16].replace('T', ' '), 'Sim' if admin else 'Não',
+                         counts.get('OK', 0), counts.get('Atenção', 0), counts.get('Falha', 0),
+                         counts.get('Indisponível', 0)])
+        story.append(_table(rows, [3.6 * cm, 2 * cm, 2.8 * cm, 1.4 * cm, 1.4 * cm, 1.8 * cm, 1.4 * cm, 1.6 * cm], st))
+        story.append(Paragraph('A avaliação considera a pior situação de cada verificação entre os computadores.',
+                               st['Small']))
+        for cid, run_at, host, user, admin, digest, source, _ in hosts:
+            story.append(Spacer(1, 0.3 * cm))
+            story.append(Paragraph(escape(f'Computador {host} ({source.lower()}), usuário {user}, '
+                                          f'{run_at[:16].replace("T", " ")} UTC, {"com" if admin else "sem"} '
+                                          f'privilégio de administrador. SHA-256 dos dados brutos: {digest}'),
+                                   st['Small']))
+            rows, row_colors = [['Verificação', 'Situação', 'Detalhe', 'Subcategorias']], {}
+            for n, (_, title, status, detail, subs) in enumerate(core.findings_for(db, cid), start=1):
+                rows.append([title, status, detail, subs.replace(',', ', ')])
+                row_colors[n] = STATUS_COLORS.get(status, colors.white)
+            story.append(_table(rows, [4 * cm, 2 * cm, 8 * cm, 3.5 * cm], st, row_colors=row_colors))
     else:
         story.append(Paragraph('Nenhuma coleta executada.', st['Normal']))
 
-    # 7. Trilha de auditoria
-    story += [Spacer(1, 0.4 * cm), Paragraph('7. Trilha de auditoria (últimos 30 registros)', st['Heading2'])]
+    # 7. Consolidação
+    view = core.consolidated_view(db)
+    if len(view) > 2:
+        story += [PageBreak(), Paragraph('7. Consolidação entre unidades', st['Heading2'])]
+        rows = [['Unidade'] + [f for f, _ in FUNCTIONS] + ['Riscos altos', 'Incid. abertos', 'ANPD vencidos']]
+        row_colors = {}
+        for n, r in enumerate(view, start=1):
+            rows.append([r['unit']] + [f"{r['maturity'][f]:.2f}" for f, _ in FUNCTIONS]
+                        + [r['high_risks'], r['open_incidents'], r['anpd_overdue']])
+            if r['anpd_overdue']:
+                row_colors[n] = LEVEL_COLORS['alto']
+        story.append(_table(rows, [4 * cm] + [1.2 * cm] * len(FUNCTIONS) + [1.8 * cm, 1.9 * cm, 1.9 * cm], st,
+                            row_colors=row_colors))
+        rows = [['Unidade', 'Assinado por', 'Certificado', 'Autorizado', 'Gerado em']]
+        for c in core.consolidated_list(db):
+            rows.append([c['unit'], c['signer'], c['thumb'], 'Sim' if c['trusted'] else 'NÃO',
+                         c['created_at'][:16].replace('T', ' ')])
+        story.append(Spacer(1, 0.3 * cm))
+        story.append(_table(rows, [3.5 * cm, 4 * cm, 5.5 * cm, 1.7 * cm, 2.8 * cm], st))
+        story.append(Paragraph('Pacotes com assinatura conferida na importação (CMS/SHA-256).', st['Small']))
+        audit_no = 8
+    else:
+        audit_no = 7
+
+    # Trilha de auditoria
+    story += [Spacer(1, 0.4 * cm), Paragraph(f'{audit_no}. Trilha de auditoria (últimos 30 registros)',
+                                             st['Heading2'])]
     trilha = core.audit_list(db, 30)
     if trilha:
         rows = [['Data (UTC)', 'Usuário', 'Área', 'Ação', 'Resumo']]

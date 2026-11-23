@@ -1,7 +1,7 @@
 # S-Cyber PM Integrado — NIST CSF 2.0
 
 Cópia integrada do **S-Cyber PM 1.5** (Cryptography and Digital Certificate Framework) com o
-módulo **S-Cyber NIST Intelligence 1.1.0**, que leva o NIST Cybersecurity Framework 2.0 para dentro
+módulo **S-Cyber NIST Intelligence 1.2.0**, que leva o NIST Cybersecurity Framework 2.0 para dentro
 da aplicação.
 
 > **Situação:** versão para uso real, validada no Windows 11 em 22/11/2026
@@ -24,7 +24,7 @@ Expand-Archive scyber-pm.zip -DestinationPath scyber-pm -Force
 cd .\scyber-pm\S-Cyber-PM-Integrado-NIST-2.0-main\S-Cyber-PM-Integrado
 py -3 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
-.\.venv\Scripts\python.exe -m unittest discover -s tests        # 53 testes OK
+.\.venv\Scripts\python.exe -m unittest discover -s tests        # 77 testes OK
 powershell -ExecutionPolicy Bypass -File .\verificar_certificados.ps1
 .\.venv\Scripts\python.exe appSCyberPM.py --nist     # abre direto no painel NIST
 ```
@@ -44,7 +44,7 @@ a trocar a senha de fábrica. Depois do login, o painel NIST abre sozinho (com `
 | [docs/PRODUCAO_SEGURANCA.md](docs/PRODUCAO_SEGURANCA.md) | Senhas, certificados e configuração para produção |
 | [S-Cyber-PM-Integrado/INSTRUCOES_INTEGRACAO.md](S-Cyber-PM-Integrado/INSTRUCOES_INTEGRACAO.md) | O que foi integrado, arquivos alterados, limites |
 | [docs/VALIDACAO_WINDOWS_2026-11-22.md](docs/VALIDACAO_WINDOWS_2026-11-22.md) | Resultado dos testes no Windows 11 |
-| [docs/CHANGELOG_v1.1.0.md](docs/CHANGELOG_v1.1.0.md) | Mudanças desta versão (e changelogs anteriores em `docs/`) |
+| [docs/CHANGELOG_v1.2.0.md](docs/CHANGELOG_v1.2.0.md) | Mudanças desta versão (e changelogs anteriores em `docs/`) |
 
 ## Estrutura
 
@@ -58,7 +58,9 @@ S-Cyber-PM-Integrado/            aplicação (execute appSCyberPM.py daqui)
   verificar_certificados.ps1     diagnóstico dos certificados deste Windows
   requirements-lock.txt          versões exatas validadas
   iniciar_nist_windows.bat       abre o S-Cyber PM direto no painel NIST
-  tests/                         53 testes automáticos (rodam também no GitHub Actions)
+  coletor_nist.ps1               coletor avulso para computadores sem o S-Cyber PM
+  coletar_nist_windows.bat       executa o coletor avulso (como Administrador)
+  tests/                         77 testes automáticos (rodam também no GitHub Actions, no Windows)
 docs/                            instalação, validação, segurança e changelogs
 ```
 
@@ -72,7 +74,8 @@ docs/                            instalação, validação, segurança e changel
 - Monta um **plano de ação** priorizado pelas lacunas e pelas falhas técnicas.
 - Mantém um **registro de riscos** na matriz ordinal 1–3, com tratamento, risco residual e mapa de calor.
 - Acompanha **incidentes** pelas fases de resposta, com prazo de comunicação à ANPD
-  (Res. CD/ANPD nº 15/2024) e linha do tempo encadeada por hash.
+  (Res. CD/ANPD nº 15/2024) e linha do tempo encadeada por hash. O prazo desconta os feriados
+  nacionais e os estaduais ou municipais cadastrados.
 - Guarda **evidências** com SHA-256 e cadeia de custódia à prova de adulteração.
 - Registra indícios de **OSINT** defensivo e faz consultas somente leitura ao **SEI**.
 - Gera um **relatório PDF** que pode ser assinado com o certificado do S-Cyber PM e protegido com senha.
@@ -81,6 +84,13 @@ docs/                            instalação, validação, segurança e changel
 - Refaz a **coleta técnica sozinho** a cada 7 dias, compara com a anterior e aplica o resultado na avaliação.
 - Liga os **incidentes aos processos do SEI** e faz **backup e restauração** do banco cifrado.
 - **Cifra o banco de dados** com uma chave derivada do certificado do S-Cyber PM.
+- Avalia **vários computadores**: um coletor avulso roda nos computadores sem o S-Cyber PM, e o
+  resultado é importado no painel.
+- **Consolida várias unidades** com pacotes assinados pelo certificado e cifrados com senha, que
+  levam só dados minimizados.
+- Liga **evidências às subcategorias** da avaliação.
+- Faz **cópia automática diária**, avisa por **notificação do Windows** sobre prazos e sobre a
+  validade do certificado, e aplica a **retenção** de incidentes encerrados (LGPD).
 - Tem **tour narrado** (Arquivo > Tour ou `F2`) que apresenta o painel aba por aba e explica o uso.
 
 ## Segurança
