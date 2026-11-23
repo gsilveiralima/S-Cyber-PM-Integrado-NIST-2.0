@@ -25,7 +25,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from . import crypto
-from .catalog import (CATEGORIES, FUNCTIONS, MATURITY, SUB_BY_CATEGORY,  # noqa: F401
+from .crypto import InvalidTagfrom .catalog import (CATEGORIES, FUNCTIONS, MATURITY, SUB_BY_CATEGORY,  # noqa: F401
                       SUBCATEGORIES, TIERS, category_of, function_of)
 
 VERSION = '1.0.0'
@@ -84,7 +84,7 @@ class NistConnection(sqlite3.Connection):
             return crypto.LOCKED
         try:
             return self.cipher.decrypt(value)
-        except Exception:
+        except (InvalidTag, ValueError):
             return crypto.LOCKED
 
 
