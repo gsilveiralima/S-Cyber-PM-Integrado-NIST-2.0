@@ -869,7 +869,6 @@ def gerar_pdf(caminho: str, app: App):
                             leftMargin=1.2 * cm, rightMargin=1.2 * cm,
                             topMargin=1.2 * cm, bottomMargin=1.2 * cm,
                             title="Relatório de Usuários")
-    import io
     from modRecursos import icone_coruja_png
     cabecalho_txt = [
         Paragraph("Relatório de Usuários do Computador", estilos["Title"]),

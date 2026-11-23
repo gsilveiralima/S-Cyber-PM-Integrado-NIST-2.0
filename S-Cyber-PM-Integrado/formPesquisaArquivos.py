@@ -48,7 +48,6 @@ import os
 import queue
 import stat
 import subprocess
-import sys
 import threading
 import tkinter as tk
 from datetime import datetime, timedelta

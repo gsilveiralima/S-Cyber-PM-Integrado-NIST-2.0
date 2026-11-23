@@ -1,0 +1,38 @@
+# S-Cyber PM 1.5 + NIST Intelligence 1.0.0 — versões EXATAS validadas
+# Validado em 22/11/2026: Windows 11 x64, Python 3.14.8, 39 testes automáticos OK
+# e aplicação completa testada (certificado, login, painel NIST, coleta, PDF assinado).
+#
+# Instalação reprodutível (recomendada para uso real):
+#   .\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
+# O requirements.txt traz só as versões mínimas, para desenvolvimento.
+
+# Dependências diretas (requirements.txt)
+cryptography==50.0.2
+pillow==13.0.0
+numpy==2.5.5
+matplotlib==3.11.2
+reportlab==5.1.0
+pywin32==312
+pywebview==6.2.1
+requests==2.34.2
+
+# Dependências indiretas, nas versões instaladas pelo pip no teste
+bottle==0.13.4
+certifi==2026.11.20
+cffi==2.1.1
+charset-normalizer==3.5.2
+clr_loader==0.3.1
+contourpy==1.4.0
+cycler==0.12.1
+fonttools==4.68.0
+idna==3.20
+kiwisolver==1.5.1
+packaging==26.3
+proxy_tools==0.1.0
+pycparser==3.12
+pyparsing==3.3.3
+python-dateutil==4.0.0
+pythonnet==3.2.1
+typing_extensions==4.16.0
+tzdata==2026.6
+urllib3==2.8.0

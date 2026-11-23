@@ -53,8 +53,9 @@ laboratório (sem PKI), o comando de criação está no cabeçalho de `appSCyber
 ## Testes
 `tests/test_seguranca.py` (8 testes): política de senha, troca obrigatória (inclusive arquivo antigo e
 troca pelas Opções), lista de certificados, aceite por AC com cadeia e titular, assinatura do desafio
-e proteção contra injeção no script do PowerShell. Total do projeto: 39 testes.
+e proteção contra injeção no script do PowerShell. Total do projeto: 42 testes.
 
-## Pendente de validação no Windows
-Login real com certificados da lista e da AC institucional, `Verify()` e revogação on-line na rede da
-PMGO, e a janela **Definir senhas** no primeiro acesso.
+## Validação no Windows
+Validado em 22/11/2026 (`VALIDACAO_WINDOWS_2026-11-22.md`): certificado da lista, troca obrigatória
+de senha com recusa de senha fraca e assinatura com o certificado do login. Ainda falta validar,
+quando houver, o aceite por AC institucional e a revogação on-line na rede da PMGO.

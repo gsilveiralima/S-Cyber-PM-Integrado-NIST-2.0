@@ -119,6 +119,13 @@ def main():
         # Imagem da espiã que diz "Thank You!" na simulação ponta a ponta (formE2E)
         "--add-data", f"{PASTA / 'espia.png'}{';' if sys.platform == 'win32' else ':'}.",
         "--paths", str(PASTA),
+        # Módulos importados só quando usados (painel NIST e troca de senha):
+        # declarados para o PyInstaller não deixar nenhum de fora
+        "--hidden-import", "formNISTIntelligence",
+        "--hidden-import", "formTrocaSenha",
+        "--hidden-import", "formExploreSEI",
+        "--collect-submodules", "nist_intelligence",
+        "--collect-submodules", "reportlab.graphics",
         "--distpath", str(DESTINO),
         "--workpath", str(TRABALHO / "trabalho"),
         "--specpath", str(TRABALHO),

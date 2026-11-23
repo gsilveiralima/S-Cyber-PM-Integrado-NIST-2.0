@@ -5,7 +5,7 @@
 #  Descrição   : Opções do aplicativo em arquivo criptografado (chave derivada
 #                do certificado) e caixa de opções
 #  Tipo        : Formulário (tkinter)
-#  Versão      : 1.4 (versão do aplicativo)
+#  Versão      : 1.5 (versão do aplicativo)
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
@@ -26,6 +26,7 @@
 #                        Janela protegida contra captura de tela
 #                        Cadastro e remoção do Windows Hello (PIN/biometria)
 #            2026-11-20  Faixa preta de cabeçalho (padrão dos formulários)
+#    1.5     2026-11-22  Política de senha forte e marca de troca obrigatória
 # ==============================================================================
 """
 S-Cyber PM - opções do aplicativo, gravadas num arquivo criptografado.
