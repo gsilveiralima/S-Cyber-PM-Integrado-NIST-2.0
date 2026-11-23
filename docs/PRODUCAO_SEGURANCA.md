@@ -53,7 +53,7 @@ laboratório (sem PKI), o comando de criação está no cabeçalho de `appSCyber
 ## Testes
 `tests/test_seguranca.py` (8 testes): política de senha, troca obrigatória (inclusive arquivo antigo e
 troca pelas Opções), lista de certificados, aceite por AC com cadeia e titular, assinatura do desafio
-e proteção contra injeção no script do PowerShell. Total do projeto: 46 testes.
+e proteção contra injeção no script do PowerShell. Total do projeto: 53 testes.
 
 ## Validação no Windows
 Validado em 22/11/2026 (`VALIDACAO_WINDOWS_2026-11-22.md`): certificado da lista, troca obrigatória

@@ -1,4 +1,4 @@
-# S-Cyber PM 1.5 + NIST Intelligence 1.0.0 — integração
+# S-Cyber PM 1.5 + NIST Intelligence 1.1.0 — integração
 
 Desenvolvimento conjunto do MAJ Leonídio Alves de Moraes Junior e do SGT Gabriel Silveira Lima,
 autorizado para uso nos sistemas da PMGO. A base é o S-Cyber PM 1.4 (`Leonidiojr/S-Cyber-prj`);
@@ -9,10 +9,14 @@ esse repositório original não foi modificado.
 
 ## O que foi integrado ao S-Cyber PM
 
-- Menu e aba da Ribbon **NIST Intelligence**, atalho **Ctrl+Shift+N** e comando do assistente local.
+- Menu e aba da Ribbon **NIST Intelligence**, com atalho para cada aba no menu, **Ctrl+Shift+N**, comandos
+  do assistente local e passos no Tour. `appSCyberPM.py --nist` (ou `iniciar_nist_windows.bat`) entra
+  direto no painel, depois do certificado e do login. A ligação com a janela principal fica em `modNist.py`.
+- Trilha de auditoria (usuário do S-Cyber PM, Windows e certificado), coleta técnica automática a cada
+  7 dias, processo SEI ligado ao incidente, e backup e restauração do banco.
 - O painel abre dentro da janela principal (mesmo processo), com as abas: Painel, Avaliação CSF 2.0,
   Plano de ação, Coleta técnica, Riscos, Incidentes, Evidências e custódia, OSINT, Consultas SEI e
-  Relatório. **Tela inicial** volta à janela principal.
+  Relatório e Auditoria. **Tela inicial** volta à janela principal.
 - Banco em `%APPDATA%\SCyberPM\nist\nist.db`, com os textos **cifrados (AES-256-GCM)** por uma
   chave derivada do certificado do usuário.
 - O relatório PDF é assinado e cifrado pelo módulo original `modPDFProtegido`.
@@ -22,7 +26,7 @@ esse repositório original não foi modificado.
 
 | Origem | Arquivos |
 |---|---|
-| Novos | `nist_intelligence/` (catalog, core, crypto, collector, report, bridge, main), `formNISTIntelligence.py`, `formTrocaSenha.py`, `adicionar_certificado.py`, `verificar_certificados.ps1`, `teste_painel_nist.py`, `tests/`, `requirements-lock.txt` |
+| Novos | `nist_intelligence/` (catalog, core, crypto, collector, report, bridge, main), `formNISTIntelligence.py`, `formTrocaSenha.py`, `adicionar_certificado.py`, `verificar_certificados.ps1`, `modNist.py`, `iniciar_nist_windows.bat`, `teste_painel_nist.py`, `tests/`, `requirements-lock.txt` |
 | Originais alterados | `appSCyberPM.py` (lista de certificados, AC institucional, painel NIST), `formOpcoes.py` (política de senha), `formLogin.py` (troca obrigatória), `formAbout.py` (versão 1.5), `gerarExe.py` (módulos do painel no `.exe`) |
 | Originais sem alteração | os demais `form*.py` e `mod*.py`, imagens e áudio |
 
@@ -35,7 +39,7 @@ O manifesto `../docs/MANIFESTO_ATUALIZACAO_CERTIFICADO.json` registra os SHA-256
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-São 46 testes: catálogo CSF, avaliação e plano, riscos, incidentes e prazo da ANPD, custódia,
+São 53 testes (inclui auditoria, coleta contínua, SEI no incidente e backup): catálogo CSF, avaliação e plano, riscos, incidentes e prazo da ANPD, custódia,
 coleta técnica, relatório, criptografia, SEI, senhas, certificados, inclusão de certificado e
 consistência do roteiro do Tour. Os mesmos testes e o lint (`ruff`) rodam no GitHub Actions
 (`.github/workflows/ci.yml`) a cada push na `main` e a cada pull request.

@@ -892,6 +892,11 @@ def main():
     # Comando exclusivo da cópia integrada; não existe no repositório original.
     menu_nist = tk.Menu(menus, tearoff=False)
     menu_nist.add_command(label="Abrir painel NIST Intelligence", accelerator="Ctrl+Shift+N", command=abrir_nist)
+    menu_nist.add_separator()
+    for _aba in ("Avaliação CSF 2.0", "Plano de ação", "Coleta técnica", "Riscos", "Incidentes",
+                 "Evidências e custódia", "Consultas SEI", "Relatório", "Auditoria"):
+        menu_nist.add_command(label=_aba, command=lambda a=_aba: nist.selecionar_aba(a))
+    menu_nist.add_separator()
     menu_nist.add_command(label="Voltar à tela principal", command=voltar_inicio_nist)
     menus.add_cascade(label="NIST Intelligence", menu=menu_nist)
     root.bind("<Control-u>", abrir_gerenciador_usuarios)
@@ -995,6 +1000,20 @@ def main():
                        "abre o painel de governança NIST CSF 2.0", abrir_nist,
                        ["nist", "governanca", "cybersecurity framework",
                         "intelligence", "matriz nist", "csf 2.0"])
+    for _nome, _desc, _aba, _palavras in (
+            ("NIST: coleta técnica", "verifica a segurança deste computador e liga ao CSF", "Coleta técnica",
+             ["coleta tecnica", "verificar seguranca", "checar computador", "firewall", "bitlocker", "defender"]),
+            ("NIST: avaliação CSF", "avalia a maturidade das 106 subcategorias", "Avaliação CSF 2.0",
+             ["avaliacao", "maturidade", "subcategoria", "perfil alvo", "lacunas"]),
+            ("NIST: riscos", "registro de riscos e mapa de calor", "Riscos",
+             ["risco", "riscos", "mapa de calor", "matriz de risco"]),
+            ("NIST: incidentes", "resposta a incidentes e prazo da ANPD", "Incidentes",
+             ["incidente", "incidentes", "anpd", "lgpd", "vazamento"]),
+            ("NIST: relatório", "gera o relatório PDF de governança assinado", "Relatório",
+             ["relatorio nist", "relatorio de governanca", "pdf nist"]),
+            ("NIST: auditoria", "trilha de quem alterou o quê no painel", "Auditoria",
+             ["auditoria", "trilha", "quem alterou", "historico de alteracoes"])):
+        assistente.comando(_nome, _desc, lambda a=_aba: nist.selecionar_aba(a), _palavras)
     assistente.comando("Navegador seguro", "abre o navegador seguro", abrir_navegador,
                        ["navegador", "navegar", "browser", "internet", "site", "web", "seguro"])
     assistente.comando("Corujinha: relatório do sistema", "gera o relatório e o inventário do PC",
@@ -1098,6 +1117,10 @@ def main():
         root.deiconify()
         root.lift()
         root.focus_force()
+        # appSCyberPM.py --nist (ou SCyberPM.exe --nist): entra direto no painel NIST,
+        # depois do certificado e do login, como qualquer outra abertura.
+        if "--nist" in sys.argv[1:]:
+            root.after(300, abrir_nist)
 
     # Splash (certificado) -> login -> formulário principal
     SplashScreen(root, on_success=lambda: FormLogin(

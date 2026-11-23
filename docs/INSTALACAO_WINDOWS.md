@@ -49,7 +49,7 @@ disponível no seu computador, use `requirements.txt` (versões mínimas).
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-✅ `Ran 42 tests ... OK`. Também dá para dar dois cliques em `testar_integracao_windows.bat`.
+✅ `Ran 53 tests ... OK`. Também dá para dar dois cliques em `testar_integracao_windows.bat`.
 
 ## 5. Certificado digital do usuário
 
@@ -110,15 +110,24 @@ Ou dê dois cliques em `iniciar_integrado_windows.bat`.
 
 ## 7. Painel NIST Intelligence
 
-Pressione **Ctrl+Shift+N** (ou use a aba **NIST Intelligence** da Ribbon).
-✅ O cabeçalho mostra **banco cifrado • integrado ao S-Cyber PM**.
+Para entrar direto no painel, depois do certificado e do login:
 
-- **Coleta técnica** → *Executar verificação agora*. Para obter também BitLocker, Secure Boot e
-  backup, abra o PowerShell **como Administrador**, entre na pasta e rode `.\.venv\Scripts\python.exe appSCyberPM.py`.
+```powershell
+.\.venv\Scripts\python.exe appSCyberPM.py --nist
+```
+
+Também dá para dar dois cliques em `iniciar_nist_windows.bat`. Com o aplicativo já aberto: **Ctrl+Shift+N**,
+menu **NIST Intelligence** ou o assistente ("coleta técnica", "incidentes"...).
+✅ O cabeçalho mostra o seu usuário, o certificado, **banco cifrado** e **integrado ao S-Cyber PM**.
+
+- **Coleta técnica:** na primeira abertura, e depois a cada 7 dias, o painel faz a coleta sozinho.
+  Em seguida, use *Aplicar à avaliação CSF*. Para obter também BitLocker, Secure Boot e backup,
+  abra o PowerShell **como Administrador**, entre na pasta e rode o comando acima.
 - **Relatório** → marque *Assinar* e *Proteger com senha* → *Gerar relatório PDF*. Ao abrir o
   arquivo, o leitor de PDF pede a senha dos PDFs e mostra que ele está assinado.
+- **Backup** (aba Relatório): faça um backup periódico do banco cifrado.
 
-O guia de uso de cada aba está em `S-Cyber-PM-Integrado/GUIA_NIST_INTELLIGENCE.md`.
+O uso de cada aba está em `S-Cyber-PM-Integrado/GUIA_NIST_INTELLIGENCE.md`.
 
 ## 8. Executável (opcional)
 

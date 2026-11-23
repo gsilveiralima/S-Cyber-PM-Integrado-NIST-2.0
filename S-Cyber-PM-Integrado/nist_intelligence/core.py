@@ -18,6 +18,7 @@ import csv
 import hashlib
 import json
 import os
+import re
 import shutil
 import sqlite3
 from datetime import date, datetime, timedelta, timezone
@@ -29,7 +30,7 @@ from .crypto import InvalidTag
 from .catalog import (CATEGORIES, FUNCTIONS, MATURITY, SUB_BY_CATEGORY,  # noqa: F401
                       SUBCATEGORIES, TIERS, category_of, function_of)
 
-VERSION = '1.0.0'
+VERSION = '1.1.0'
 
 # Mesma pasta de dados do S-Cyber PM (%APPDATA%\SCyberPM), numa subpasta própria.
 _APPDATA = Path(os.environ.get('APPDATA') or (Path.home() / '.config'))
@@ -59,7 +60,7 @@ DELETABLE = {'risks', 'osint_indicators'}
 # Colunas de texto cifradas em repouso quando há chave do certificado.
 SENSITIVE = {
     'risks': ('title', 'category', 'threat', 'vulnerability', 'owner'),
-    'incidents': ('title', 'notes'),
+    'incidents': ('title', 'notes', 'sei_process'),
     'incident_log': ('note',),
     'evidence': ('file_name', 'path', 'description', 'custodian'),
     'custody_log': ('actor', 'note'),
@@ -67,13 +68,19 @@ SENSITIVE = {
     'osint_indicators': ('source_url', 'description'),
     'collections': ('host', 'user', 'raw'),
     'findings': ('detail',),
+    'audit_log': ('actor', 'summary'),
 }
+
+AUTO_COLLECT_DAYS = 7          # o painel refaz a coleta técnica quando a última é mais antiga
+# Maturidade sugerida a partir da coleta técnica (o operador confirma ou ajusta).
+SUGGESTED_MATURITY = {'OK': 3, 'Atenção': 2, 'Falha': 1}
 
 
 class NistConnection(sqlite3.Connection):
     """Conexão que cifra (E) e decifra (SQL dec()) os campos sensíveis."""
     cipher = None
     encrypted = False      # o banco tem dados cifrados
+    actor = 'operador'     # quem está usando (usuário do S-Cyber PM, Windows e certificado)
 
     def E(self, value):
         return self.cipher.encrypt(value) if self.cipher else value
@@ -195,6 +202,10 @@ def connect(path=DB, key=None):
     CREATE TABLE IF NOT EXISTS collections(
       id INTEGER PRIMARY KEY, run_at TEXT NOT NULL, host TEXT NOT NULL, user TEXT NOT NULL,
       admin INTEGER NOT NULL, raw TEXT NOT NULL, sha256 TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS audit_log(
+      id INTEGER PRIMARY KEY, at TEXT NOT NULL, actor TEXT NOT NULL, entity TEXT NOT NULL,
+      action TEXT NOT NULL, ref TEXT NOT NULL, summary TEXT NOT NULL,
+      prev_hash TEXT NOT NULL, hash TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS findings(
       id INTEGER PRIMARY KEY, collection_id INTEGER NOT NULL REFERENCES collections(id),
       check_id TEXT NOT NULL, title TEXT NOT NULL, status TEXT NOT NULL,
@@ -210,7 +221,7 @@ def connect(path=DB, key=None):
         ('severity', "TEXT NOT NULL DEFAULT 'Média'"), ('phase', "TEXT NOT NULL DEFAULT 'Detecção'"),
         ('personal_data', 'INTEGER NOT NULL DEFAULT 0'), ('detected_on', "TEXT NOT NULL DEFAULT ''"),
         ('anpd_deadline', "TEXT NOT NULL DEFAULT ''"), ('anpd_notified_on', "TEXT NOT NULL DEFAULT ''"),
-        ('subcategory', "TEXT NOT NULL DEFAULT ''")])
+        ('subcategory', "TEXT NOT NULL DEFAULT ''"), ('sei_process', "TEXT NOT NULL DEFAULT ''")])
     _add_columns(db, 'evidence', [
         ('path', "TEXT NOT NULL DEFAULT ''"), ('size', 'INTEGER NOT NULL DEFAULT 0'),
         ('description', "TEXT NOT NULL DEFAULT ''"), ('custodian', "TEXT NOT NULL DEFAULT ''"),
@@ -264,7 +275,29 @@ def _entry_hash(prev_hash, payload):
 _CHAINS = {
     'custody_log': ('evidence_id', 'at', 'action', 'actor', 'note', 'sha256'),
     'incident_log': ('incident_id', 'at', 'phase', 'note'),
+    'audit_log': ('at', 'actor', 'entity', 'action', 'ref', 'summary'),
 }
+
+
+# ============================================================ trilha de auditoria
+def audit(db, entity, action, ref='', summary=''):
+    """Registra quem fez o quê na trilha encadeada por hash (sem commit: quem chama confirma).
+
+    ref fica em claro: use só identificadores (id, código CSF). Texto livre vai em summary,
+    que é cifrado junto com actor."""
+    _append_chain(db, 'audit_log', (now(), str(db.actor)[:200], entity, action, str(ref)[:80],
+                                    str(summary)[:MAX_TEXT]))
+
+
+def log_event(db, entity, action, ref='', summary=''):
+    """Evento da interface que não altera dados (relatório, exportação, backup)."""
+    audit(db, entity, action, ref, summary)
+    db.commit()
+
+
+def audit_list(db, limit=500):
+    return db.execute(f"SELECT id,at,{_sel('audit_log', 'actor,entity,action,ref,summary')},hash "
+                      'FROM audit_log ORDER BY id DESC LIMIT ?', (int(limit),)).fetchall()
 
 
 def _append_chain(db, table, values):
@@ -305,6 +338,7 @@ def save_sub_assessment(db, sub_code, current, target, owner='', due_date='', ev
                   action_note=excluded.action_note,updated_at=excluded.updated_at''',
                (sub_code, current, target, db.E(_text(owner, 'Responsável', False)), _date(due_date, 'Prazo'),
                 db.E(_text(evidence_note, 'Evidência', False)), db.E(_text(action_note, 'Ação', False)), now()))
+    audit(db, 'Avaliação', 'Salvar', sub_code, f'maturidade {current} → alvo {target}')
     db.commit()
 
 
@@ -325,6 +359,7 @@ def save_tier(db, function, current, target):
     db.execute('INSERT INTO function_tiers(function,current,target,updated_at) VALUES(?,?,?,?) '
                'ON CONFLICT(function) DO UPDATE SET current=excluded.current,target=excluded.target,'
                'updated_at=excluded.updated_at', (function, current, target, now()))
+    audit(db, 'Tier', 'Salvar', function, f'Tier {current} → alvo {target}')
     db.commit()
 
 
@@ -400,8 +435,10 @@ def save_risk(db, title, category, likelihood, impact, function, subcategory='',
     if risk_id:
         sets = ','.join(f'{c}=?' for c in cols.split(','))
         db.execute(f'UPDATE risks SET {sets} WHERE id=?', (*values, int(risk_id)))
+        audit(db, 'Risco', 'Editar', risk_id, f'{title} — P×I {likelihood * impact}, {treatment}, {status}')
     else:
-        db.execute(f'INSERT INTO risks({cols},created_at) VALUES({",".join("?" * 15)})', (*values, now()))
+        cur = db.execute(f'INSERT INTO risks({cols},created_at) VALUES({",".join("?" * 15)})', (*values, now()))
+        audit(db, 'Risco', 'Registrar', cur.lastrowid, f'{title} — P×I {likelihood * impact}')
     db.commit()
 
 
@@ -481,6 +518,8 @@ def save_incident(db, title, status_or_phase='Detecção', notes='', severity='M
                      (db.E(title), status, db.E(notes), now(), severity, phase, int(bool(personal_data)),
                       detected, deadline, subcategory))
     _append_chain(db, 'incident_log', (cur.lastrowid, now(), phase, notes or 'Incidente registrado'))
+    audit(db, 'Incidente', 'Registrar', cur.lastrowid,
+          f'{title} — {severity}' + (' — dados pessoais (prazo ANPD)' if personal_data else ''))
     db.commit()
     return cur.lastrowid
 
@@ -492,6 +531,7 @@ def advance_incident(db, incident_id, phase, note):
     status = 'Encerrado' if phase == 'Encerrado' else 'Em análise'
     db.execute('UPDATE incidents SET phase=?, status=? WHERE id=?', (phase, status, int(incident_id)))
     _append_chain(db, 'incident_log', (int(incident_id), now(), phase, note))
+    audit(db, 'Incidente', 'Fase', incident_id, f'{phase}: {note}')
     db.commit()
 
 
@@ -500,14 +540,33 @@ def mark_anpd_notified(db, incident_id, on_date=''):
     db.execute('UPDATE incidents SET anpd_notified_on=? WHERE id=?', (on_date, int(incident_id)))
     _append_chain(db, 'incident_log', (int(incident_id), now(), 'Comunicação',
                                        f'Comunicação à ANPD registrada em {_br(on_date)}'))
+    audit(db, 'Incidente', 'Comunicação ANPD', incident_id, _br(on_date))
     db.commit()
 
 
 def incidents(db):
     keys = ('id', 'title', 'severity', 'phase', 'personal_data', 'detected_on', 'anpd_deadline',
-            'anpd_notified_on', 'subcategory', 'notes', 'created_at')
+            'anpd_notified_on', 'subcategory', 'notes', 'created_at', 'sei_process')
     rows = db.execute(f'SELECT {_sel("incidents", ",".join(keys))} FROM incidents ORDER BY id DESC')
     return [dict(zip(keys, r, strict=True)) for r in rows]
+
+
+SEI_PROCESS = re.compile(r'^[0-9A-Za-z./ \-]{3,40}$')
+
+
+def set_incident_sei(db, incident_id, process, description=''):
+    """Vincula o incidente a um processo do SEI (número como o SEI mostra) e registra na linha do tempo."""
+    process = (process or '').strip()
+    if not SEI_PROCESS.match(process):
+        raise ValueError('Número de processo SEI inválido.')
+    row = db.execute('SELECT phase FROM incidents WHERE id=?', (int(incident_id),)).fetchone()
+    if not row:
+        raise ValueError('Incidente não encontrado.')
+    db.execute('UPDATE incidents SET sei_process=? WHERE id=?', (db.E(process), int(incident_id)))
+    note = f'Vinculado ao processo SEI {process}' + (f' ({description[:200]})' if description else '')
+    _append_chain(db, 'incident_log', (int(incident_id), now(), row[0], note))
+    audit(db, 'Incidente', 'Vincular SEI', incident_id, process)
+    db.commit()
 
 
 def incident_timeline(db, incident_id):
@@ -539,6 +598,7 @@ def save_evidence(db, file_name, digest, path='', size=0, description='', custod
                       int(incident_id) if incident_id else None, source))
     _append_chain(db, 'custody_log', (cur.lastrowid, now(), 'Coleta', custodian,
                                       description or 'Registro inicial', digest))
+    audit(db, 'Evidência', 'Registrar', cur.lastrowid, f'{file_name} — SHA-256 {digest[:16]}…')
     db.commit()
     return cur.lastrowid
 
@@ -551,6 +611,7 @@ def custody_event(db, evidence_id, action, actor, note, digest=None):
         raise ValueError('Evidência não encontrada')
     _append_chain(db, 'custody_log', (int(evidence_id), now(), action, _text(actor, 'Responsável'),
                                       _text(note, 'Observação', False), digest or row[0]))
+    audit(db, 'Custódia', action, evidence_id, note)
     db.commit()
 
 
@@ -601,6 +662,11 @@ def save_collection(db, meta, raw, results):
         db.execute('INSERT INTO findings(collection_id,check_id,title,status,detail,subcategories) '
                    'VALUES(?,?,?,?,?,?)', (cur.lastrowid, r['id'], r['title'], r['status'], db.E(r['detail']),
                                            ','.join(r['subs'])))
+    counts = {}
+    for r in results:
+        counts[r['status']] = counts.get(r['status'], 0) + 1
+    audit(db, 'Coleta técnica', 'Executar', cur.lastrowid,
+          f"{meta.get('host', '')}: " + ', '.join(f'{v} {k}' for k, v in sorted(counts.items())))
     db.commit()
     return cur.lastrowid
 
@@ -629,6 +695,118 @@ def findings_by_subcategory(db):
     return result
 
 
+def last_collection_age_days(db, today=None):
+    """Dias desde a última coleta técnica (None se nunca houve)."""
+    row = db.execute('SELECT run_at FROM collections ORDER BY id DESC LIMIT 1').fetchone()
+    if not row:
+        return None
+    today = today or date.today()
+    return (today - date.fromisoformat(row[0][:10])).days
+
+
+def collection_needed(db, today=None):
+    age = last_collection_age_days(db, today)
+    return age is None or age >= AUTO_COLLECT_DAYS
+
+
+def compare_collections(db):
+    """Mudanças entre as duas últimas coletas: [{check, title, before, after, change}].
+    Itens 'Indisponível' (sem permissão) não contam como melhora ou piora."""
+    ids = [r[0] for r in db.execute('SELECT id FROM collections ORDER BY id DESC LIMIT 2')]
+    if len(ids) < 2:
+        return []
+
+    def load(cid):
+        return {c: (t, st) for c, t, st in db.execute(
+            'SELECT check_id,title,status FROM findings WHERE collection_id=?', (cid,))}
+    new, old = load(ids[0]), load(ids[1])
+    out = []
+    for check, (title, after) in new.items():
+        before = old.get(check, (title, None))[1]
+        if before is None or before == after or 'Indisponível' in (before, after):
+            continue
+        change = 'piorou' if _STATUS_RANK[after] > _STATUS_RANK[before] else 'melhorou'
+        out.append({'check': check, 'title': title, 'before': before, 'after': after, 'change': change})
+    return sorted(out, key=lambda c: (c['change'] != 'piorou', c['title']))
+
+
+def apply_findings(db, target=3):
+    """Leva a última coleta técnica para a avaliação.
+
+    Subcategorias ainda não avaliadas recebem a maturidade sugerida (OK=3, Atenção=2,
+    Falha=1) e o alvo; as já avaliadas por alguém NÃO são alteradas: voltam na lista
+    de divergências para revisão humana. Devolve (criadas, divergências)."""
+    head, _ = latest_findings(db)
+    if not head:
+        raise ValueError('Nenhuma coleta técnica registrada.')
+    when = _br(head[1][:10])
+    data = sub_assessments(db)
+    created, divergent = [], []
+    for sub, status in sorted(findings_by_subcategory(db).items()):
+        suggested = SUGGESTED_MATURITY.get(status)
+        if suggested is None or sub not in SUB_CODES:
+            continue
+        if sub in data:
+            if data[sub]['current'] != suggested:
+                divergent.append((sub, data[sub]['current'], suggested, status))
+            continue
+        db.execute('INSERT INTO sub_assessments(sub_code,current,target,owner,due_date,evidence_note,'
+                   "action_note,updated_at) VALUES(?,?,?,'','',?,'',?)",
+                   (sub, suggested, max(target, suggested), db.E(f'Coleta técnica de {when}: {status}'), now()))
+        created.append(sub)
+    audit(db, 'Avaliação', 'Aplicar coleta técnica', head[0],
+          f'{len(created)} subcategoria(s) avaliada(s); {len(divergent)} divergência(s) para revisão')
+    db.commit()
+    return created, divergent
+
+
+# ============================================================ backup
+def backup(db, destination):
+    """Cópia consistente do banco (os textos continuam cifrados com o certificado)."""
+    destination = Path(destination)
+    target = sqlite3.connect(destination)
+    try:
+        db.backup(target)
+    finally:
+        target.close()
+    log_event(db, 'Backup', 'Gerar', '', f'{destination.name} ({destination.stat().st_size} bytes)')
+    return destination
+
+
+def restore(source, destination=DB, key=None):
+    """Restaura um backup sobre o banco do usuário.
+
+    O backup é validado numa cópia temporária: precisa abrir com o certificado atual e
+    ter as cadeias de hash íntegras. O banco atual é guardado ao lado antes da troca.
+    Devolve o caminho dessa cópia de segurança (None se não havia banco)."""
+    import tempfile
+    source, destination = Path(source), Path(destination)
+    with tempfile.TemporaryDirectory(prefix='scyber_nist_restore_') as tmp:
+        check = Path(tmp) / 'check.db'
+        shutil.copy2(source, check)
+        db = connect(check, key)
+        try:
+            for table in _CHAINS:
+                ok, bad = verify_chain(db, table)
+                if not ok:
+                    raise ValueError(f'O backup tem a tabela {table} adulterada (registro {bad}).')
+        finally:
+            db.close()
+        saved = None
+        if destination.exists():
+            saved = destination.with_name(f'{destination.stem}.antes-restauracao-'
+                                          f'{datetime.now():%Y%m%d-%H%M%S}{destination.suffix}')
+            shutil.copy2(destination, saved)
+        shutil.copy2(check, destination)
+    db = connect(destination, key)
+    try:
+        log_event(db, 'Backup', 'Restaurar', '', f'{source.name}; banco anterior guardado em '
+                  + (saved.name if saved else '(não havia)'))
+    finally:
+        db.close()
+    return saved
+
+
 # ============================================================ OSINT e geral
 def save_indicator(db, url, description, status):
     url = (url or '').strip()
@@ -642,6 +820,7 @@ def save_indicator(db, url, description, status):
         raise ValueError('Status inválido')
     db.execute('INSERT INTO osint_indicators(source_url,description,status,created_at) VALUES(?,?,?,?)',
                (db.E(url), db.E(description), status, now()))
+    audit(db, 'OSINT', 'Registrar', '', f'{urlsplit(url).hostname}: {description[:120]}')
     db.commit()
 
 
@@ -654,6 +833,7 @@ def delete_record(db, table, record_id):
     if table not in DELETABLE:
         raise ValueError('Tabela inválida')
     db.execute(f'DELETE FROM {table} WHERE id=?', (int(record_id),))
+    audit(db, {'risks': 'Risco', 'osint_indicators': 'OSINT'}[table], 'Excluir', record_id)
     db.commit()
 
 
@@ -684,11 +864,18 @@ def alerts(db, today=None):
     for code, d in sub_assessments(db).items():
         if d['due_date'] and d['due_date'] < today.isoformat() and d['current'] < d['target']:
             out.append((f'Ação de {code} com prazo vencido ({_br(d["due_date"])})', 'médio'))
-    for table in ('custody_log', 'incident_log'):
+    nomes = {'custody_log': 'cadeia de custódia', 'incident_log': 'linha do tempo de incidentes',
+             'audit_log': 'trilha de auditoria'}
+    for table, nome in nomes.items():
         ok, bad = verify_chain(db, table)
         if not ok:
-            nome = 'cadeia de custódia' if table == 'custody_log' else 'linha do tempo de incidentes'
             out.append((f'INTEGRIDADE: {nome} adulterada a partir do registro {bad}', 'alto'))
+    for c in compare_collections(db):
+        if c['change'] == 'piorou':
+            out.append((f"Coleta técnica: {c['title']} piorou ({c['before']} → {c['after']})", 'alto'))
+    age = last_collection_age_days(db, today)
+    if age is not None and age >= AUTO_COLLECT_DAYS:
+        out.append((f'Coleta técnica desatualizada: a última tem {age} dia(s)', 'médio'))
     fails = sum(1 for s in findings_by_subcategory(db).values() if s == 'Falha')
     if fails:
         out.append((f'Coleta técnica: {fails} subcategoria(s) com falha detectada', 'médio'))
@@ -711,7 +898,8 @@ EXPORTS = {
               'owner,due_date,res_likelihood,res_impact,status,created_at', 'risks'),
     'osint': ('id,source_url,description,status,created_at', 'osint_indicators'),
     'incidents': ('id,title,severity,phase,personal_data,detected_on,anpd_deadline,anpd_notified_on,'
-                  'subcategory,notes,created_at', 'incidents'),
+                  'subcategory,sei_process,notes,created_at', 'incidents'),
+    'audit': ('id,at,actor,entity,action,ref,summary,prev_hash,hash', 'audit_log'),
     'evidence': ('id,file_name,sha256,size,path,description,custodian,incident_id,source,recorded_at', 'evidence'),
     'custody': ('id,evidence_id,at,action,actor,note,sha256,prev_hash,hash', 'custody_log'),
     'findings': ('collection_id,check_id,title,status,detail,subcategories', 'findings'),

@@ -2,10 +2,11 @@
 import logging
 import os
 import threading
+import webbrowser
 import tkinter as tk
 from datetime import date
 from pathlib import Path
-from tkinter import filedialog, messagebox, ttk
+from tkinter import filedialog, messagebox, simpledialog, ttk
 
 from . import collector, core, report
 from .bridge import ReadOnlySEIBridge
@@ -58,16 +59,22 @@ def _br(iso):
 class NISTPanel(ttk.Frame):
     """Painel embutível no Tk raiz do S-Cyber PM."""
 
-    def __init__(self, parent, original_root=None, embedded=False, on_back=None, db_path=core.DB, key=None):
+    def __init__(self, parent, original_root=None, embedded=False, on_back=None, db_path=core.DB, key=None,
+                 actor=None, auto_collect=None):
         # key: chave de 32 bytes derivada do certificado (crypto.derive_key). Abre o banco
         # antes de criar a janela: se a chave não servir, nada fica pela metade.
+        # actor: quem usa o painel (usuário do S-Cyber PM, Windows e certificado), para a auditoria.
+        # auto_collect: refazer a coleta técnica ao abrir se a última for antiga (padrão: só integrado).
         db = core.connect(db_path, key)
+        db.actor = actor or self._username()
         try:
             super().__init__(parent, style='NIST.TFrame')
         except Exception:
             db.close()
             raise
         self.db = db
+        self.db_path = db_path
+        self.key = key
         self.embedded = embedded
         self.on_back = on_back
         self.sei = None
@@ -77,6 +84,7 @@ class NISTPanel(ttk.Frame):
         self._risk_id = None      # risco em edição
         self._inc_id = None       # incidente selecionado
         self._ev_id = None        # evidência selecionada
+        self._collecting = False
 
         self._setup_style()
         self._make_header()
@@ -92,12 +100,17 @@ class NISTPanel(ttk.Frame):
         self.t_osint = self.add_tab('OSINT')
         self.t_sei = self.add_tab('Consultas SEI')
         self.t_report = self.add_tab('Relatório')
+        self.t_audit = self.add_tab('Auditoria')
         for build in (self.make_dashboard, self.make_assessment, self.make_plan, self.make_collect,
                       self.make_risks, self.make_incidents, self.make_evidence, self.make_osint,
-                      self.make_sei, self.make_report):
+                      self.make_sei, self.make_report, self.make_audit):
             build()
         self.refresh()
         self.bind('<Destroy>', self._on_destroy, add='+')
+        # Coleta contínua: integrado ao S-Cyber PM, o painel refaz a coleta técnica sozinho
+        # quando a última tem mais de core.AUTO_COLLECT_DAYS dias (somente leitura, em segundo plano).
+        if (embedded if auto_collect is None else auto_collect) and core.collection_needed(self.db):
+            self.after(1500, lambda: self.run_collect(auto=True))
 
     # ================================================================ base
     def _setup_style(self):
@@ -208,10 +221,12 @@ class NISTPanel(ttk.Frame):
             return
         try:
             core.export_csv(self.db, kind, target)
+            core.log_event(self.db, 'Exportação', 'CSV', kind, Path(target).name)
         except (OSError, ValueError) as exc:
             self._error('Exportação', exc)
             return
         messagebox.showinfo('Exportação', 'Arquivo CSV salvo.', parent=self)
+        self.refresh_audit()
 
     @staticmethod
     def _username():
@@ -502,11 +517,14 @@ class NISTPanel(ttk.Frame):
         bar.pack(fill='x', padx=12)
         self.collect_button = nist_Button(bar, text='Executar verificação agora', command=self.run_collect)
         self.collect_button.pack(side='left')
+        nist_Button(bar, text='Aplicar à avaliação CSF', command=self.apply_collect).pack(side='left', padx=8)
         nist_Button(bar, text='Exportar resultados CSV', command=lambda: self.export('findings', 'coleta_tecnica.csv')
-                    ).pack(side='left', padx=8)
+                    ).pack(side='left')
         self.collect_info = tk.StringVar(value='Nenhuma coleta executada.')
         nist_Label(f, textvariable=self.collect_info, style='NIST.Info.TLabel', wraplength=1100
                    ).pack(anchor='w', padx=16, pady=4)
+        self.collect_changes = tk.StringVar(value='')
+        nist_Label(f, textvariable=self.collect_changes, wraplength=1100).pack(anchor='w', padx=16)
         self.ctree = self.tree(f, ('Situação', 'Verificação', 'Detalhe', 'Subcategorias CSF'),
                                {'Situação': 95, 'Verificação': 230, 'Detalhe': 560, 'Subcategorias CSF': 190})
 
@@ -518,27 +536,59 @@ class NISTPanel(ttk.Frame):
             log.warning('Certificado do S-Cyber PM indisponível para a coleta', exc_info=True)
             return None
 
-    def run_collect(self):
+    def run_collect(self, auto=False):
+        if self._collecting:
+            return
+        self._collecting = True
         self.collect_button.state(['disabled'])
-        self.collect_info.set('Coletando... (pode levar até um minuto)')
+        self.collect_info.set('Coletando... (pode levar até um minuto)' if not auto else
+                              'Coleta automática em andamento (a última tem mais de '
+                              f'{core.AUTO_COLLECT_DAYS} dias)...')
         thumb = self._thumbprint()
-        self._thread(lambda: collector.run(thumb), self._collect_done)
+        self._thread(lambda: collector.run(thumb), lambda raw, error: self._collect_done(raw, error, auto))
 
-    def _collect_done(self, raw, error):
+    def _collect_done(self, raw, error, auto=False):
+        self._collecting = False
         self.collect_button.state(['!disabled'])
         if error:
-            self.collect_info.set('Falha na coleta.')
-            self._error('Coleta técnica', error)
+            self.collect_info.set('Falha na coleta' + (' automática' if auto else '') + f': {error}')
+            if not auto:          # na automática, só avisa na aba (sem janela no meio do trabalho)
+                self._error('Coleta técnica', error)
             return
         results = collector.evaluate(raw)
         core.save_collection(self.db, collector.meta(raw), raw, results)
         self.refresh()
-        self.tabs.select(self.t_collect)
+        if not auto:
+            self.tabs.select(self.t_collect)
+
+    def apply_collect(self):
+        head, _ = core.latest_findings(self.db)
+        if not head:
+            messagebox.showinfo('Coleta técnica', 'Execute a verificação primeiro.', parent=self)
+            return
+        if not messagebox.askyesno(
+                'Aplicar à avaliação',
+                'As subcategorias ainda NÃO avaliadas e ligadas à última coleta recebem a maturidade sugerida '
+                '(OK = 3, Atenção = 2, Falha = 1) e alvo 3.\n\nAvaliações já feitas por alguém não são alteradas: '
+                'as que divergirem da coleta são listadas para revisão.\n\nContinuar?', parent=self):
+            return
+        try:
+            created, divergent = core.apply_findings(self.db)
+        except ValueError as exc:
+            self._error('Aplicar à avaliação', exc)
+            return
+        self.refresh()
+        text = f'{len(created)} subcategoria(s) avaliada(s) a partir da coleta.'
+        if divergent:
+            text += '\n\nDivergências para revisão (avaliação atual → sugestão da coleta):\n' + '\n'.join(
+                f'• {sub}: {cur} → {sug} ({status})' for sub, cur, sug, status in divergent[:15])
+        messagebox.showinfo('Aplicar à avaliação', text, parent=self)
 
     def refresh_collect(self):
         self.clear(self.ctree)
         head, items = core.latest_findings(self.db)
         if not head:
+            self.collect_changes.set('')
             return
         _, run_at, host, user, admin, digest = head
         counts = {}
@@ -549,6 +599,11 @@ class NISTPanel(ttk.Frame):
         self.collect_info.set(f'Última coleta: {run_at[:16].replace("T", " ")} UTC • {host} • {user} • '
                               f'{"Administrador" if admin else "sem privilégio de Administrador"} • {resume} • '
                               f'SHA-256 dos dados: {digest[:24]}…')
+        changes = core.compare_collections(self.db)
+        self.collect_changes.set(
+            ('Desde a coleta anterior: ' + '; '.join(
+                f"{c['title']} {c['change']} ({c['before']} → {c['after']})" for c in changes))
+            if changes else 'Sem mudanças em relação à coleta anterior.')
 
     # ================================================================ riscos
     def make_risks(self):
@@ -704,9 +759,10 @@ class NISTPanel(ttk.Frame):
         nist_Button(bar, text='Registrar incidente', command=self.add_incident).pack(side='left')
         nist_Button(bar, text='Exportar CSV', command=lambda: self.export('incidents', 'incidentes.csv')
                     ).pack(side='left', padx=6)
-        self.itree = self.tree(f, ('ID', 'Incidente', 'Severidade', 'Fase', 'Conhecimento', 'ANPD', 'CSF'),
-                               {'ID': 45, 'Incidente': 320, 'Severidade': 80, 'Fase': 110, 'Conhecimento': 95,
-                                'ANPD': 230, 'CSF': 80}, height=6)
+        self.itree = self.tree(f, ('ID', 'Incidente', 'Severidade', 'Fase', 'Conhecimento', 'ANPD', 'Processo SEI',
+                                   'CSF'),
+                               {'ID': 45, 'Incidente': 300, 'Severidade': 80, 'Fase': 110, 'Conhecimento': 95,
+                                'ANPD': 220, 'Processo SEI': 170, 'CSF': 80}, height=6)
         self.itree.bind('<<TreeviewSelect>>', self.pick_incident)
         nist_Label(f, text='Linha do tempo do incidente selecionado', style='NIST.Section.TLabel'
                    ).pack(anchor='w', padx=14)
@@ -722,6 +778,7 @@ class NISTPanel(ttk.Frame):
         self.l_note.pack(side='left', padx=6, fill='x', expand=True)
         nist_Button(bar, text='Registrar', command=self.add_timeline).pack(side='left')
         nist_Button(bar, text='Comunicado à ANPD hoje', command=self.anpd_done).pack(side='left', padx=6)
+        nist_Button(bar, text='Processo SEI…', command=self.link_sei_manual).pack(side='left', padx=(0, 6))
         nist_Button(bar, text='Verificar integridade', command=lambda: self.check_chain('incident_log')
                     ).pack(side='left')
 
@@ -732,7 +789,7 @@ class NISTPanel(ttk.Frame):
             tags = ('Falha',) if status.startswith('VENCIDO') else ('Atenção',) if status.startswith('Vence') else ()
             self.itree.insert('', 'end', iid=str(inc['id']), tags=tags, values=(
                 inc['id'], inc['title'], inc['severity'], inc['phase'], _br(inc['detected_on']), status,
-                inc['subcategory']))
+                inc['sei_process'], inc['subcategory']))
         self.refresh_timeline()
         self.e_incident['values'] = [''] + [f"#{i['id']} {i['title'][:40]}" for i in core.incidents(self.db)]
 
@@ -787,9 +844,30 @@ class NISTPanel(ttk.Frame):
             self.refresh()
             self.itree.selection_set(str(self._inc_id))
 
+    def link_sei_manual(self):
+        if not self._inc_id:
+            messagebox.showinfo('Processo SEI', 'Selecione um incidente.', parent=self)
+            return
+        numero = simpledialog.askstring('Processo SEI', f'Número do processo SEI do incidente #{self._inc_id}:',
+                                        parent=self)
+        if numero:
+            self._link_sei(self._inc_id, numero)
+
+    def _link_sei(self, incident_id, numero, descricao=''):
+        try:
+            core.set_incident_sei(self.db, incident_id, numero, descricao)
+        except ValueError as exc:
+            messagebox.showwarning('Processo SEI', str(exc), parent=self)
+            return False
+        self.refresh()
+        if self.itree.exists(str(incident_id)):
+            self.itree.selection_set(str(incident_id))
+        return True
+
     def check_chain(self, table):
         ok, bad = core.verify_chain(self.db, table)
-        name = 'Linha do tempo dos incidentes' if table == 'incident_log' else 'Cadeia de custódia'
+        name = {'incident_log': 'Linha do tempo dos incidentes', 'audit_log': 'Trilha de auditoria'}.get(
+            table, 'Cadeia de custódia')
         if ok:
             messagebox.showinfo('Integridade', f'{name}: íntegra. Todos os registros conferem.', parent=self)
         else:
@@ -990,6 +1068,9 @@ class NISTPanel(ttk.Frame):
         self.sei_query.bind('<Return>', lambda e: self.search_sei())
         nist_Button(search, text='Pesquisar', command=self.search_sei).pack(side='left', padx=4)
         nist_Button(search, text='Meus processos', command=self.list_sei).pack(side='left', padx=4)
+        nist_Button(search, text='Vincular ao incidente selecionado', command=self.link_sei_result
+                    ).pack(side='left', padx=(16, 4))
+        nist_Button(search, text='Abrir no navegador', command=self.open_sei_result).pack(side='left', padx=4)
         self.sei_tree = self.tree(f, ('Número', 'Descrição', 'URL de acesso'),
                                   {'Número': 180, 'Descrição': 480, 'URL de acesso': 360})
 
@@ -1061,6 +1142,30 @@ class NISTPanel(ttk.Frame):
             return
         self._run_sei('Pesquisando...', lambda: client.search(term), self._show_sei_results)
 
+    def _sei_selected(self):
+        sel = self.sei_tree.selection()
+        if not sel:
+            messagebox.showinfo('SEI', 'Selecione um processo na lista de resultados.', parent=self)
+            return None
+        return self.sei_tree.item(sel[0], 'values')
+
+    def link_sei_result(self):
+        values = self._sei_selected()
+        if not values:
+            return
+        if not self._inc_id:
+            messagebox.showinfo('SEI', 'Selecione antes o incidente, na aba Incidentes.', parent=self)
+            return
+        if self._link_sei(self._inc_id, values[0], values[1]):
+            messagebox.showinfo('SEI', f'Processo {values[0]} vinculado ao incidente #{self._inc_id}.', parent=self)
+
+    def open_sei_result(self):
+        values = self._sei_selected()
+        if values and str(values[2]).startswith('https://'):
+            webbrowser.open(values[2])
+        elif values:
+            messagebox.showinfo('SEI', 'Este resultado não tem endereço HTTPS para abrir.', parent=self)
+
     def _show_sei_results(self, rows):
         self.clear(self.sei_tree)
         for record in rows:
@@ -1102,6 +1207,15 @@ class NISTPanel(ttk.Frame):
         nist_Label(f, textvariable=self.rep_status, style='NIST.Info.TLabel', wraplength=1100
                    ).pack(anchor='w', padx=16, pady=6)
 
+        self.title_label(f, 'Backup do banco NIST',
+                         'O backup mantém os textos cifrados com o certificado: só abre com o mesmo certificado. '
+                         'Na restauração, o backup é conferido (certificado e cadeias de hash) e o banco atual '
+                         'é guardado ao lado antes da troca.')
+        bar = nist_Frame(f)
+        bar.pack(anchor='w', padx=16, pady=4)
+        nist_Button(bar, text='Fazer backup…', command=self.do_backup).pack(side='left')
+        nist_Button(bar, text='Restaurar backup…', command=self.do_restore).pack(side='left', padx=8)
+
     def make_pdf(self):
         sign, encrypt = self.rep_sign.get(), self.rep_encrypt.get()
         if sign or encrypt:
@@ -1116,9 +1230,12 @@ class NISTPanel(ttk.Frame):
             return
         try:
             report.build(self.db, target, self.rep_org.get().strip(), self.rep_author.get().strip())
+            core.log_event(self.db, 'Relatório', 'Gerar PDF', '',
+                           Path(target).name + (' (assinado)' if sign else '') + (' (cifrado)' if encrypt else ''))
         except Exception as exc:
             self._error('Relatório', exc)
             return
+        self.refresh_audit()
         if not (sign or encrypt):
             self.rep_status.set(f'Relatório salvo em {target}')
             return
@@ -1134,16 +1251,74 @@ class NISTPanel(ttk.Frame):
             self.rep_status.set(f'Relatório assinado{" e cifrado" if encrypt else ""} salvo em {target}')
         self._thread(lambda: report.protect(target, sign, encrypt), done)
 
+    def do_backup(self):
+        target = filedialog.asksaveasfilename(defaultextension='.db', filetypes=[('Backup NIST', '*.db')],
+                                              initialfile=f'backup_nist_{date.today():%Y%m%d}.db', parent=self)
+        if not target:
+            return
+        try:
+            core.backup(self.db, target)
+        except (OSError, ValueError) as exc:
+            self._error('Backup', exc)
+            return
+        self.refresh_audit()
+        messagebox.showinfo('Backup', f'Backup salvo em {target}.', parent=self)
+
+    def do_restore(self):
+        source = filedialog.askopenfilename(filetypes=[('Backup NIST', '*.db')], parent=self)
+        if not source:
+            return
+        if not messagebox.askyesno('Restaurar backup', 'Os dados atuais do painel serão SUBSTITUÍDOS pelos do '
+                                   'backup (o banco atual é guardado ao lado antes).\n\nContinuar?', parent=self):
+            return
+        actor = self.db.actor
+        self.db.close()
+        try:
+            saved = core.restore(source, self.db_path, self.key)
+        except Exception as exc:
+            self.db = core.connect(self.db_path, self.key)
+            self.db.actor = actor
+            self._error('Restaurar backup', f'O backup não foi restaurado: {exc}')
+            return
+        self.db = core.connect(self.db_path, self.key)
+        self.db.actor = actor
+        self.refresh()
+        messagebox.showinfo('Restaurar backup', 'Backup restaurado.' + (
+            f'\n\nO banco anterior foi guardado como {saved.name}.' if saved else ''), parent=self)
+
+    # ================================================================ auditoria
+    def make_audit(self):
+        f = self.t_audit
+        self.title_label(f, 'Trilha de auditoria',
+                         'Cada alteração no painel (avaliações, riscos, incidentes, evidências, coletas, exportações, '
+                         'relatórios e backups) fica registrada com o usuário e o certificado, numa cadeia de hash: '
+                         'apagar ou alterar um registro é detectado.')
+        bar = nist_Frame(f)
+        bar.pack(fill='x', padx=12)
+        nist_Button(bar, text='Verificar integridade', command=lambda: self.check_chain('audit_log')).pack(side='left')
+        nist_Button(bar, text='Exportar CSV', command=lambda: self.export('audit', 'auditoria_nist.csv')
+                    ).pack(side='left', padx=8)
+        self.atrail = self.tree(f, ('Data (UTC)', 'Usuário', 'Área', 'Ação', 'Ref.', 'Resumo', 'Hash'),
+                                {'Data (UTC)': 140, 'Usuário': 230, 'Área': 110, 'Ação': 130, 'Ref.': 70,
+                                 'Resumo': 420, 'Hash': 120})
+
+    def refresh_audit(self):
+        self.clear(self.atrail)
+        for _id, at, actor, entity, action, ref, summary, digest in core.audit_list(self.db):
+            self.atrail.insert('', 'end', values=(at[:19].replace('T', ' '), actor, entity, action, ref, summary,
+                                                   digest[:14] + '…'))
+
     # ================================================================ geral
     def refresh_header(self):
         state = 'conectada' if self.sei is not None else 'desconectada'
         mode = 'integrado ao S-Cyber PM' if self.embedded else 'MODO DE TESTE (dados temporários)'
         lock = 'banco cifrado' if self.db.encrypted else 'banco SEM criptografia'
-        self.header_status.set(f'v{core.VERSION}  •  Conexão SEI: {state}  •  {lock}  •  {mode}')
+        self.header_status.set(f'v{core.VERSION}  •  {self.db.actor}  •  Conexão SEI: {state}  •  {lock}  •  {mode}')
 
     def refresh(self):
         for part in (self.refresh_assessment, self.refresh_plan, self.refresh_collect, self.refresh_risks,
-                     self.refresh_incidents, self.refresh_evidence, self.refresh_osint, self.refresh_dashboard):
+                     self.refresh_incidents, self.refresh_evidence, self.refresh_osint, self.refresh_audit,
+                     self.refresh_dashboard):
             part()
         self.refresh_header()
 

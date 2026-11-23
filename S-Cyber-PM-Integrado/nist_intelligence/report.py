@@ -140,11 +140,11 @@ def build(db, path, organization='', author=''):
     story += [PageBreak(), Paragraph('4. Incidentes e comunicação LGPD/ANPD', st['Heading2'])]
     incs = core.incidents(db)
     if incs:
-        rows = [['#', 'Incidente', 'Severidade', 'Fase', 'Conhecimento', 'ANPD (Res. CD/ANPD 15/2024)']]
+        rows = [['#', 'Incidente', 'Severidade', 'Fase', 'Conhecimento', 'ANPD (Res. CD/ANPD 15/2024)', 'SEI']]
         for inc in incs:
-            rows.append([inc['id'], inc['title'], inc['severity'], inc['phase'], inc['detected_on'],
-                         core.anpd_status(inc)])
-        story.append(_table(rows, [0.8 * cm, 5.4 * cm, 1.8 * cm, 2.4 * cm, 2.3 * cm, 4.8 * cm], st))
+            rows.append([inc['id'], inc['title'], inc['severity'], inc['phase'], core._br(inc['detected_on']),
+                         core.anpd_status(inc), inc.get('sei_process', '')])
+        story.append(_table(rows, [0.8 * cm, 4.2 * cm, 1.6 * cm, 2.1 * cm, 2.0 * cm, 3.9 * cm, 2.9 * cm], st))
     else:
         story.append(Paragraph('Nenhum incidente registrado.', st['Normal']))
     ok, bad = core.verify_chain(db, 'incident_log')
@@ -177,6 +177,18 @@ def build(db, path, organization='', author=''):
         story.append(_table(rows, [4 * cm, 2 * cm, 8 * cm, 3.5 * cm], st, row_colors=row_colors))
     else:
         story.append(Paragraph('Nenhuma coleta executada.', st['Normal']))
+
+    # 7. Trilha de auditoria
+    story += [Spacer(1, 0.4 * cm), Paragraph('7. Trilha de auditoria (últimos 30 registros)', st['Heading2'])]
+    trilha = core.audit_list(db, 30)
+    if trilha:
+        rows = [['Data (UTC)', 'Usuário', 'Área', 'Ação', 'Resumo']]
+        for _id, at, actor, entity, action, _ref, summary, _digest in trilha:
+            rows.append([at[:16].replace('T', ' '), actor, entity, action, summary])
+        story.append(_table(rows, [2.6 * cm, 4.2 * cm, 2.2 * cm, 2.4 * cm, 6.1 * cm], st))
+    ok, bad = core.verify_chain(db, 'audit_log')
+    story.append(Paragraph('Trilha de auditoria: ' + ('íntegra (cadeia de hash verificada).' if ok
+                           else f'ADULTERADA a partir do registro {bad}.'), st['Small']))
 
     def footer(canvas, doc):
         canvas.saveState()
