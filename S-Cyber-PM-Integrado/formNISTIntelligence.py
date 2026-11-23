@@ -4,14 +4,12 @@ from nist_intelligence.main import NISTPanel
 
 
 def _chave_do_certificado():
-    """Chave do banco NIST, derivada da chave que o formOpcoes obteve com o certificado.
-
-    O formOpcoes não oferece uma função pública para isso; a chave é lida (só lida)
-    do estado interno dele e passa por HKDF própria: nunca é usada diretamente."""
+    """Chave do banco NIST, derivada da chave que o formOpcoes obteve com o certificado
+    (função pública chave_do_arquivo); passa por HKDF própria e nunca é usada diretamente."""
     import formOpcoes
     if not formOpcoes.iniciado():
         raise PermissionError('O certificado do S-Cyber PM ainda não foi validado.')
-    chave = getattr(formOpcoes, '_estado', {}).get('chave')
+    chave = formOpcoes.chave_do_arquivo()
     if not chave:
         raise PermissionError('A chave derivada do certificado não está disponível.')
     return derive_key(chave)
