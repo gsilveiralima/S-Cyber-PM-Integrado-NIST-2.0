@@ -1,19 +1,28 @@
-"""Teste VISUAL do painel NIST, sem o login do S-Cyber PM.
+"""Teste VISUAL do painel NIST, para desenvolvimento — NÃO é o painel de uso real.
 
-Usa um banco temporário apagado ao sair: nunca abre os dados reais do usuário.
-Só roda com a variável SCYBER_NIST_DEV=1, para não virar um atalho de acesso:
+Uso real (certificado, login, banco cifrado, coleta automática e trilha de auditoria):
+    appSCyberPM.py --nist        ou dois cliques em iniciar_nist_windows.bat
+    (dentro do S-Cyber PM: Ctrl+Shift+N, menu NIST Intelligence ou o assistente)
 
-    set SCYBER_NIST_DEV=1        (Prompt)   |   $env:SCYBER_NIST_DEV=1   (PowerShell)
-    python teste_painel_nist.py
+Este script abre só a interface, com um banco TEMPORÁRIO e SEM criptografia,
+apagado ao fechar: serve para testar telas sem tocar nos dados reais. Por isso
+exige a variável SCYBER_NIST_DEV=1 e nunca abre o banco de produção:
+
+    $env:SCYBER_NIST_DEV=1; python teste_painel_nist.py      (PowerShell)
 """
 import os
 import sys
 import tempfile
 from pathlib import Path
 
+USO_REAL = ('Este é o teste de desenvolvimento do painel (banco temporário, sem login).\n'
+            'Para usar o NIST Intelligence de verdade, abra o S-Cyber PM:\n'
+            '    python appSCyberPM.py --nist      (ou iniciar_nist_windows.bat)\n'
+            'Para rodar este teste mesmo assim: defina SCYBER_NIST_DEV=1.')
+
 if __name__ == "__main__":
     if os.environ.get("SCYBER_NIST_DEV") != "1":
-        sys.exit("Teste de desenvolvimento: defina SCYBER_NIST_DEV=1 para executar.")
+        sys.exit(USO_REAL)
     from nist_intelligence.main import Application
     with tempfile.TemporaryDirectory(prefix="nist_teste_") as pasta:
         Application(Path(pasta) / "nist_teste.db").mainloop()

@@ -1,4 +1,6 @@
 """Painel NIST integrado por composição; não interfere no login ou certificados."""
+import os
+
 from nist_intelligence.crypto import derive_key
 from nist_intelligence.main import NISTPanel
 
@@ -15,6 +17,18 @@ def _chave_do_certificado():
     return derive_key(chave)
 
 
+def _quem_esta_usando():
+    """Identificação gravada na trilha de auditoria: usuário do S-Cyber PM, conta do
+    Windows e o certificado validado no login (8 primeiros caracteres do thumbprint)."""
+    import formOpcoes
+    windows = os.environ.get('USERNAME') or os.environ.get('USER') or '?'
+    try:
+        return f'{formOpcoes.usuario()} ({windows}) cert {formOpcoes.certificado()[:8]}'
+    except Exception:
+        return windows
+
+
 def criar_painel(parent, _base_dir, ao_voltar):
     # _base_dir: mantido só para compatibilidade com a chamada do appSCyberPM.py.
-    return NISTPanel(parent, embedded=True, on_back=ao_voltar, key=_chave_do_certificado())
+    return NISTPanel(parent, embedded=True, on_back=ao_voltar, key=_chave_do_certificado(),
+                     actor=_quem_esta_usando())

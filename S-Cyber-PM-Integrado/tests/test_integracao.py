@@ -79,7 +79,7 @@ class PersistenciaTests(BancoTemporario):
         with destino.open(encoding='utf-8-sig', newline='') as f:
             linhas = list(csv.reader(f, delimiter=';'))
         self.assertTrue(linhas[1][1].startswith("'="))
-        self.assertTrue(linhas[1][9].startswith("'+"))
+        self.assertTrue(linhas[1][linhas[0].index('notes')].startswith("'+"))
 
 
 class SEITests(unittest.TestCase):
