@@ -25,8 +25,8 @@ WINDOWS = sys.platform == 'win32'
 def _ps(script):
     r = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command',
                         script], capture_output=True, text=True, timeout=180)
-    if r.returncode:
-        raise RuntimeError(r.stderr or r.stdout)
+    if r.returncode or not r.stdout.strip():
+        raise RuntimeError(f'PowerShell: {r.stderr or r.stdout or "sem saída"}')
     return r.stdout.strip()
 
 
@@ -34,10 +34,11 @@ def _ps(script):
 class AssinaturaWindowsTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.thumb = _ps("$c = New-SelfSignedCertificate -Subject 'CN=S-Cyber NIST CI' "
-                        "-CertStoreLocation Cert:\\CurrentUser\\My -KeyExportPolicy NonExportable "
-                        "-KeySpec Signature -KeyAlgorithm RSA -KeyLength 2048 -HashAlgorithm SHA256 "
-                        "-NotAfter (Get-Date).AddDays(30); $c.Thumbprint").splitlines()[-1].strip()
+        # Os mesmos parâmetros documentados no appSCyberPM.py para o certificado do usuário.
+        cls.thumb = _ps("$ErrorActionPreference='Stop'; $c = New-SelfSignedCertificate -Subject 'CN=S-Cyber NIST CI' "
+                        "-KeyAlgorithm RSA -KeyLength 2048 -KeyExportPolicy NonExportable "
+                        "-CertStoreLocation Cert:\\CurrentUser\\My -NotAfter (Get-Date).AddDays(30); "
+                        "$c.Thumbprint").splitlines()[-1].strip()
 
     @classmethod
     def tearDownClass(cls):

@@ -84,10 +84,13 @@ _STANDALONE_HEAD = r'''# =======================================================
 '''
 
 _STANDALONE_TAIL = r'''
-$saida = [ordered]@{ formato='scyber-nist-coleta'; versao=1; gerado=(Get-Date).ToString('s'); dados=$r }
+# $r e serializado exatamente como na coleta do aplicativo: aninhar $r em outro objeto antes do
+# ConvertTo-Json faz o PowerShell 5.1 gravar listas como {"value":[...],"Count":n}.
+$dados = $r | ConvertTo-Json -Depth 5 -Compress
+$saida = '{"formato":"scyber-nist-coleta","versao":1,"gerado":"' + (Get-Date).ToString('s') + '","dados":' + $dados + '}'
 $pasta = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
 $arquivo = Join-Path $pasta ('coleta_{0}_{1}.json' -f $env:COMPUTERNAME, (Get-Date).ToString('yyyyMMdd_HHmm'))
-[IO.File]::WriteAllText($arquivo, ($saida | ConvertTo-Json -Depth 6 -Compress), [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllText($arquivo, $saida, [Text.UTF8Encoding]::new($false))
 Write-Host ''
 Write-Host "Coleta gravada em: $arquivo"
 Write-Host 'Leve este arquivo ao computador com o S-Cyber PM (Coleta tecnica > Importar).'
@@ -146,6 +149,18 @@ def _err(v):
 def _unavailable(id_, title, value, subs):
     msg = value.get('erro', 'sem dados') if isinstance(value, dict) else 'sem dados'
     return _r(id_, title, 'Indisponível', f'Não foi possível consultar ({msg[:160]}).', subs)
+
+
+def normalize(value):
+    """Desfaz o embrulho {"value": [...], "Count": n} que o PowerShell 5.1 às vezes grava
+    no lugar de uma lista (arrays dentro de PSObject)."""
+    if isinstance(value, dict):
+        if set(value) == {'value', 'Count'}:
+            return normalize(value['value'])
+        return {k: normalize(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [normalize(v) for v in value]
+    return value
 
 
 def _as_list(v):

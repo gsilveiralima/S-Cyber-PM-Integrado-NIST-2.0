@@ -858,7 +858,7 @@ def import_collection(db, path):
         raise ValueError(f'Arquivo de coleta inválido: {exc}') from exc
     if not isinstance(data, dict) or data.get('formato') != COLLECTION_FORMAT or not isinstance(data.get('dados'), dict):
         raise ValueError('Este arquivo não é uma coleta do S-Cyber NIST Intelligence.')
-    raw = data['dados']
+    raw = collector.normalize(data['dados'])
     meta = collector.meta(raw)
     if not meta['host']:
         raise ValueError('A coleta não identifica o computador.')

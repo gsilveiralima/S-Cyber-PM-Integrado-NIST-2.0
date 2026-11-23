@@ -124,6 +124,12 @@ class VariosComputadoresTests(Base):
         head = [h for h in core.collections_by_host(self.db) if h[0] == cid][0]
         self.assertEqual((head[1], head[2], head[6]), ('2026-11-23T10:00:00', 'PC-SEM-APP', 'Importada'))
         self.assertEqual(core.findings_by_subcategory(self.db).get('PR.IR-01'), 'Falha')
+        # embrulho do PowerShell 5.1 ({"value": [...], "Count": n}) é desfeito
+        raw['nopwd'] = {'value': ['Convidado2'], 'Count': 1}
+        arq.write_text(json.dumps({'formato': core.COLLECTION_FORMAT, 'dados': raw}), encoding='utf-8')
+        core.import_collection(self.db, arq)
+        contas = [f for f in core.findings_for(self.db, core.collections_by_host(self.db)[0][0]) if f[0] == 'accounts']
+        self.assertIn('Convidado2', contas[0][3])
         ruim = self.dir / 'x.json'
         ruim.write_text('{"formato": "outro"}', encoding='utf-8')
         with self.assertRaises(ValueError):
@@ -135,8 +141,9 @@ class VariosComputadoresTests(Base):
     def test_coletor_avulso_versionado_igual_ao_gerado(self):
         gerado = collector.standalone_script()
         self.assertIn(collector._PS.strip().splitlines()[3], gerado)
-        self.assertIn("formato='scyber-nist-coleta'", gerado)
-        self.assertNotIn('$r | ConvertTo-Json -Depth 5', gerado)
+        self.assertIn('"formato":"scyber-nist-coleta"', gerado)
+        self.assertEqual(gerado.count('$r | ConvertTo-Json -Depth 5 -Compress'), 1)
+        self.assertTrue(gerado.isascii(), 'PowerShell 5.1 lê .ps1 sem BOM como ANSI: mantenha ASCII')
         no_disco = (APP_DIR / 'coletor_nist.ps1').read_text(encoding='utf-8-sig').replace('\r\n', '\n')
         self.assertEqual(no_disco, gerado, 'rode collector.standalone_script() e atualize coletor_nist.ps1')
         bat = (APP_DIR / 'coletar_nist_windows.bat').read_text(encoding='ascii').replace('\r\n', '\n')

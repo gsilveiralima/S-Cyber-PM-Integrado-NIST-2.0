@@ -57,10 +57,13 @@ T listening { @(Get-NetTCPConnection -State Listen | Where-Object { $_.LocalAddr
 if ($env:SCYBER_THUMB) { T certificado { $c=Get-Item "Cert:\CurrentUser\My\$env:SCYBER_THUMB"
   @{ notafter=$c.NotAfter.ToString('yyyy-MM-dd'); privatekey=$c.HasPrivateKey } } }
 
-$saida = [ordered]@{ formato='scyber-nist-coleta'; versao=1; gerado=(Get-Date).ToString('s'); dados=$r }
+# $r e serializado exatamente como na coleta do aplicativo: aninhar $r em outro objeto antes do
+# ConvertTo-Json faz o PowerShell 5.1 gravar listas como {"value":[...],"Count":n}.
+$dados = $r | ConvertTo-Json -Depth 5 -Compress
+$saida = '{"formato":"scyber-nist-coleta","versao":1,"gerado":"' + (Get-Date).ToString('s') + '","dados":' + $dados + '}'
 $pasta = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
 $arquivo = Join-Path $pasta ('coleta_{0}_{1}.json' -f $env:COMPUTERNAME, (Get-Date).ToString('yyyyMMdd_HHmm'))
-[IO.File]::WriteAllText($arquivo, ($saida | ConvertTo-Json -Depth 6 -Compress), [Text.UTF8Encoding]::new($false))
+[IO.File]::WriteAllText($arquivo, $saida, [Text.UTF8Encoding]::new($false))
 Write-Host ''
 Write-Host "Coleta gravada em: $arquivo"
 Write-Host 'Leve este arquivo ao computador com o S-Cyber PM (Coleta tecnica > Importar).'
