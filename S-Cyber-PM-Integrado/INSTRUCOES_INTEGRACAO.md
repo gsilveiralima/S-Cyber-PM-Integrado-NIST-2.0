@@ -35,8 +35,10 @@ O manifesto `../docs/MANIFESTO_ATUALIZACAO_CERTIFICADO.json` registra os SHA-256
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-São 42 testes: catálogo CSF, avaliação e plano, riscos, incidentes e prazo da ANPD, custódia,
-coleta técnica, relatório, criptografia, SEI, senhas, certificados e inclusão de certificado.
+São 46 testes: catálogo CSF, avaliação e plano, riscos, incidentes e prazo da ANPD, custódia,
+coleta técnica, relatório, criptografia, SEI, senhas, certificados, inclusão de certificado e
+consistência do roteiro do Tour. Os mesmos testes e o lint (`ruff`) rodam no GitHub Actions
+(`.github/workflows/ci.yml`) a cada push na `main` e a cada pull request.
 A validação da aplicação no Windows 11 está em `../docs/VALIDACAO_WINDOWS_2026-11-22.md`.
 
 ## Limites conhecidos

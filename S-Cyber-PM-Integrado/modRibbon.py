@@ -96,6 +96,15 @@ def _certificado(d, k, e):
     d.ellipse(k(20.5, 13.5, 25.5, 18.5), outline=(255, 210, 90), width=int(1 * e))
 
 
+def _nist(d, k, e):
+    """Escudo azul com um check: governança de segurança (NIST CSF)."""
+    d.polygon(k(16, 2, 28, 6, 28, 16, 24, 24, 16, 30, 8, 24, 4, 16, 4, 6),
+              fill=(30, 80, 160), outline=(15, 40, 90), width=int(1.2 * e))
+    d.polygon(k(16, 5, 25, 8, 25, 15.5, 22, 22, 16, 26.5, 10, 22, 7, 15.5, 7, 8),
+              outline=(150, 200, 255), width=int(0.8 * e))
+    d.line(k(10.5, 16, 14.5, 20, 22, 11), fill=BRANCO, width=int(2.4 * e), joint="curve")
+
+
 def _assinar(d, k, e):
     _pagina(d, k, e, 4, 2, 22, 29)
     for y in (8, 11.5, 15):
@@ -332,6 +341,7 @@ def _coruja(lado):
 DESENHOS = {
     "sair": _sair,
     "certificado": _certificado,
+    "nist": _nist,
     "assinar": _assinar,
     "usuarios": _usuarios,
     "pesquisar": _pesquisar,

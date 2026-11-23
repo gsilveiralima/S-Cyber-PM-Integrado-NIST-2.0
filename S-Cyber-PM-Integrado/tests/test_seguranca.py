@@ -74,6 +74,12 @@ class SenhaTests(unittest.TestCase):
         F.salvar(senha_pdf_nova='Relatorio$Pdf2026x')
         self.assertFalse(F._estado['dados']['trocar_senha'])
 
+    def test_chave_do_arquivo_publica(self):
+        F = self.F
+        self.assertEqual(F.chave_do_arquivo(), b'k' * 32)
+        F._estado['dados'] = None
+        self.assertIsNone(F.chave_do_arquivo())
+
 
 class CertificadoTests(unittest.TestCase):
     @classmethod

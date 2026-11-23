@@ -283,6 +283,13 @@ def iniciado():
     return _estado["dados"] is not None
 
 
+def chave_do_arquivo():
+    """Chave AES do arquivo de opções, derivada do certificado. None se ainda não iniciado.
+
+    Para outros módulos derivarem as próprias chaves (com HKDF); nunca usar direto."""
+    return _estado["chave"] if iniciado() else None
+
+
 def _garantir():
     if not iniciado():
         # Formulário aberto sozinho (fora do appSCyberPM.py): usa o certificado do aplicativo

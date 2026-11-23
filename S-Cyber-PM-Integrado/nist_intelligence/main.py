@@ -1,4 +1,5 @@
 """S-Cyber NIST Intelligence — painel embutido no S-Cyber PM (mesmo Tk, sem outro Tk())."""
+import logging
 import os
 import threading
 import tkinter as tk
@@ -9,6 +10,8 @@ from tkinter import filedialog, messagebox, ttk
 from . import collector, core, report
 from .bridge import ReadOnlySEIBridge
 from .catalog import CATEGORIES, FUNCTIONS, MATURITY, SUB_BY_CATEGORY, TIERS, function_of
+
+log = logging.getLogger(__name__)
 
 APP = f'S-Cyber NIST Intelligence | v{core.VERSION}'
 BG = '#101722'
@@ -512,6 +515,7 @@ class NISTPanel(ttk.Frame):
             import formOpcoes
             return formOpcoes.certificado() if formOpcoes.iniciado() else None
         except Exception:
+            log.warning('Certificado do S-Cyber PM indisponível para a coleta', exc_info=True)
             return None
 
     def run_collect(self):
@@ -1012,7 +1016,7 @@ class NISTPanel(ttk.Frame):
             try:
                 client.logout()
             except Exception:
-                pass
+                log.debug('Falha ao encerrar a sessão do SEI após erro de login', exc_info=True)
             raise
         return client
 
@@ -1159,9 +1163,7 @@ class NISTPanel(ttk.Frame):
         try:
             self.db.close()
         except Exception:
-            pass
-
-    def close(self):
+            log.warning('Falha ao fechar o banco NIST', exc_info=True)
         self._shutdown()
         self.destroy()
 

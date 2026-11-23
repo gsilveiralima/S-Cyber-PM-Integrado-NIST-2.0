@@ -24,7 +24,7 @@ Expand-Archive scyber-pm.zip -DestinationPath scyber-pm -Force
 cd .\scyber-pm\S-Cyber-PM-Integrado-NIST-2.0-main\S-Cyber-PM-Integrado
 py -3 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
-.\.venv\Scripts\python.exe -m unittest discover -s tests        # 42 testes OK
+.\.venv\Scripts\python.exe -m unittest discover -s tests        # 46 testes OK
 powershell -ExecutionPolicy Bypass -File .\verificar_certificados.ps1
 .\.venv\Scripts\python.exe appSCyberPM.py
 ```
@@ -56,7 +56,7 @@ S-Cyber-PM-Integrado/            aplicação (execute appSCyberPM.py daqui)
   adicionar_certificado.py       inclui um usuário na lista de certificados
   verificar_certificados.ps1     diagnóstico dos certificados deste Windows
   requirements-lock.txt          versões exatas validadas
-  tests/                         42 testes automáticos
+  tests/                         46 testes automáticos (rodam também no GitHub Actions)
 docs/                            instalação, validação, segurança e changelogs
 ```
 
@@ -75,6 +75,7 @@ docs/                            instalação, validação, segurança e changel
 - Registra indícios de **OSINT** defensivo e faz consultas somente leitura ao **SEI**.
 - Gera um **relatório PDF** que pode ser assinado com o certificado do S-Cyber PM e protegido com senha.
 - **Cifra o banco de dados** com uma chave derivada do certificado do S-Cyber PM.
+- Tem **tour narrado** (Arquivo > Tour ou `F2`) que apresenta o painel aba por aba e explica o uso.
 
 ## Segurança
 

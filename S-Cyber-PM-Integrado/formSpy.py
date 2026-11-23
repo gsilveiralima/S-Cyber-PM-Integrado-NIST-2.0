@@ -959,7 +959,7 @@ class FormSpy(tk.Toplevel):
         ]
         try:
             import formOpcoes
-            chave = formOpcoes._estado.get("chave")
+            chave = formOpcoes.chave_do_arquivo()
             if chave:
                 partes.append(f"  Chave do arquivo de opções (do certificado) .... SHA-256 "
                               f"{hashlib.sha256(chave).hexdigest()[:16].upper()}…\n")

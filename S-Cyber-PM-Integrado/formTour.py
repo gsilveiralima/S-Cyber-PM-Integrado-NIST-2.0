@@ -98,6 +98,15 @@ PRONUNCIA = [
     ("TLS", "T L S"),
     ("CMS", "C M S"),
     ("RSA", "R S A"),
+    ("NIST", "Nist"),
+    ("CSF", "C S F"),
+    ("LGPD", "L G P D"),
+    ("ANPD", "A N P D"),
+    ("OSINT", "ósint"),
+    ("CSV", "C S V"),
+    ("BitLocker", "Bit Locker"),
+    ("SMBv1", "S M B versão 1"),
+    ("RDP", "R D P"),
     ("SEI", "Séi"),
     ("GIL", "Guil"),
     ("RAM", "Râm"),
@@ -352,6 +361,107 @@ ROTEIRO = [
           "programa.",
           "WMI (Win32_Process) · EnumWindows · entropia de Shannon · DPAPI · TLS · reportlab",
           destaque="espiao", acao="espiao"),
+    Passo("NIST Intelligence: o que é e como abrir",
+          "Agora vem a extensão de governança do aplicativo: o S-Cyber NIST Intelligence. Ele "
+          "ajuda a medir e melhorar a segurança cibernética da sua unidade usando o NIST "
+          "Cybersecurity Framework 2.0, o Nist CSF, um padrão internacional organizado em seis "
+          "funções: Governar, Identificar, Proteger, Detectar, Responder e Recuperar. Para abrir, "
+          "use a aba NIST Intelligence da Ribbon, no botão Painel NIST CSF, o menu NIST "
+          "Intelligence, ou o atalho Control Shift N. O painel abre dentro desta mesma janela, "
+          "e o botão Voltar à tela principal, no canto superior, leva você de volta. Os dados "
+          "ficam num banco local cifrado, com chave derivada do seu certificado digital: sem o "
+          "certificado, ninguém abre. Ele tem dez abas, que vou mostrar agora, na ordem em que "
+          "normalmente se usam.",
+          "NIST CSF 2.0 · SQLite cifrado · AES-256-GCM · HKDF · Tkinter",
+          destaque="nist", acao="nist"),
+    Passo("NIST: aba Painel",
+          "A aba Painel é o resumo da situação. Cada cartão representa uma função do Nist CSF "
+          "e mostra a maturidade média, de zero a quatro, o alvo desejado e quantas "
+          "subcategorias já foram avaliadas. O gráfico compara a maturidade atual com o perfil-"
+          "alvo, e a lateral lista os alertas, como prazos vencendo. Use esta aba para ter a "
+          "visão geral e saber onde estão as maiores lacunas. Lembre-se: subcategoria ainda não "
+          "avaliada conta como zero, então o painel melhora conforme você avalia.",
+          "Canvas do Tkinter · maturidade 0–4", acao="nist_aba:Painel"),
+    Passo("NIST: aba Avaliação CSF 2.0",
+          "Aqui você faz o diagnóstico. À esquerda, a árvore com as funções, categorias e "
+          "subcategorias do framework. Clique numa subcategoria, leia o texto oficial e "
+          "informe a maturidade atual, a maturidade desejada, o responsável e o prazo; depois, "
+          "clique em Salvar avaliação. Em Nível de implementação, defina o Tier de cada "
+          "função, de um a quatro. A coluna Técnico mostra o resultado da última coleta "
+          "automática ligada àquela subcategoria, e o botão Exportar avaliação CSV gera uma "
+          "planilha para análise externa.",
+          "árvore hierárquica · perfil atual × perfil-alvo · Tiers · exportação CSV",
+          acao="nist_aba:Avaliação CSF 2.0"),
+    Passo("NIST: aba Plano de ação",
+          "O plano de ação é gerado sozinho a partir das lacunas: toda subcategoria cujo alvo "
+          "é maior que o nível atual vira uma tarefa. A prioridade é a lacuna multiplicada por "
+          "dois quando a coleta técnica encontrou uma falha ligada àquela subcategoria, ou "
+          "seja, o que está de fato errado neste computador sobe na fila. Clique duas vezes "
+          "numa linha para editar a avaliação, e exporte o plano em CSV para acompanhar a "
+          "execução.",
+          "cálculo de prioridade · exportação CSV", acao="nist_aba:Plano de ação"),
+    Passo("NIST: aba Coleta técnica",
+          "A coleta técnica verifica este computador de forma automática e somente de leitura: "
+          "antivírus, firewall, BitLocker, controle de contas, área de trabalho remota RDP, "
+          "SMBv1, atualizações, contas locais, política de senhas, bloqueio de tela, logs, "
+          "portas abertas e o certificado do S-Cyber PM. Clique em Executar verificação agora e "
+          "aguarde até um minuto. Cada resultado é ligado às subcategorias do CSF e gravado com "
+          "o SHA-256 dos dados coletados, para provar que não foi alterado. Nada é modificado "
+          "no sistema.",
+          "PowerShell somente leitura · SHA-256 · mapeamento para o CSF",
+          acao="nist_aba:Coleta técnica"),
+    Passo("NIST: aba Riscos",
+          "No registro de riscos, você cadastra cada risco com probabilidade e impacto, de um a "
+          "três. O sistema calcula o risco inerente, multiplicando os dois, e o risco residual, "
+          "depois do tratamento que você escolher: mitigar, transferir, aceitar ou evitar. O "
+          "mapa de calor mostra onde os riscos se concentram. Clique num risco da lista para "
+          "editar, use Novo para limpar o formulário e Exportar CSV para levar os dados.",
+          "matriz ordinal 3×3 · mapa de calor · risco inerente e residual",
+          acao="nist_aba:Riscos"),
+    Passo("NIST: aba Incidentes",
+          "Esta aba apoia a resposta a incidentes, nas funções Responder e Recuperar. Registre "
+          "o incidente e marque se envolve dados pessoais: nesse caso, o prazo de comunicação "
+          "à A N P D, de três dias úteis a partir do conhecimento, é calculado e acompanhado, "
+          "e o botão Comunicado à A N P D hoje registra o cumprimento. Cada fase é lançada numa "
+          "linha do tempo encadeada por hash, e o botão Verificar integridade denuncia qualquer "
+          "alteração feita depois.",
+          "LGPD · Res. CD/ANPD nº 15/2024 · cadeia de hashes", acao="nist_aba:Incidentes"),
+    Passo("NIST: aba Evidências e custódia",
+          "Aqui você preserva evidências digitais. Escolha o arquivo e clique em Selecionar "
+          "arquivo e registrar: o sistema guarda o SHA-256 dele. Cada movimentação, como "
+          "coleta, transferência ou análise, entra numa cadeia de custódia encadeada por hash. "
+          "Reverificar recalcula o hash do arquivo no local registrado e avisa se ele mudou; "
+          "Verificar cadeia confere todos os registros. A ferramenta apoia, mas não substitui, "
+          "o procedimento pericial oficial.",
+          "SHA-256 · cadeia de custódia · integridade", acao="nist_aba:Evidências e custódia"),
+    Passo("NIST: aba OSINT",
+          "O ósint defensivo é o registro e a triagem de informações públicas que expõem a "
+          "sua organização, como vazamentos, perfis falsos ou dados em sites abertos. A "
+          "pesquisa é manual: você encontra, registra o indício, a fonte e a gravidade, e "
+          "pode excluir ou exportar em CSV. Todo achado exige revisão humana antes de virar "
+          "ação.",
+          "fontes abertas · triagem manual · exportação CSV", acao="nist_aba:OSINT"),
+    Passo("NIST: aba Consultas SEI",
+          "Consultas internas ao SEI, somente leitura. Informe o endereço da instância, seu "
+          "usuário e sua senha, marque a confirmação de que tem autorização e clique em "
+          "Conectar. Depois, pesquise processos pelo termo. As consultas não são gravadas no "
+          "banco, e Desconectar encerra a sessão.",
+          "HTTP com sessão (requests) · leitura de HTML", acao="nist_aba:Consultas SEI"),
+    Passo("NIST: aba Relatório",
+          "Por fim, o relatório de governança em PDF: resumo por função com gráfico, plano de "
+          "ação, mapa de calor de riscos, incidentes com o prazo da A N P D, evidências com a "
+          "integridade da custódia e o resultado da coleta técnica. Informe a organização e o "
+          "responsável, escolha se o PDF será assinado com o certificado do S-Cyber PM e "
+          "protegido com a senha das Opções, e clique em Gerar relatório PDF.",
+          "reportlab · assinatura PKCS #7 · AES-256", acao="nist_aba:Relatório"),
+    Passo("NIST: fluxo de uso recomendado",
+          "Resumindo o uso do Nist Intelligence: primeiro, rode a Coleta técnica; segundo, "
+          "avalie as subcategorias na aba de Avaliação; terceiro, consulte o Plano de ação "
+          "para priorizar; quarto, registre riscos, incidentes e evidências conforme "
+          "aparecerem; e quinto, gere o Relatório em PDF para apresentar à chefia. Repita o "
+          "ciclo periodicamente e acompanhe a evolução no Painel. Agora vamos voltar à tela "
+          "principal.",
+          "ciclo de melhoria contínua do NIST CSF 2.0", acao="nist_aba:Painel"),
     Passo("Sobre o S-Cyber PM",
           "Por fim, a janela Sobre reúne a versão, os autores, os padrões de mercado "
           "utilizados, os componentes instalados e as instruções para gerar o executável de "
@@ -489,6 +599,10 @@ class FormTour(tk.Toplevel):
         self._fechar_abertas()
         self.indice = indice
         passo = ROTEIRO[indice]
+        if not (passo.acao or "").startswith("nist"):
+            voltar = self.acoes.get("nist_voltar")   # sai do painel NIST ao mudar de assunto
+            if voltar is not None:
+                voltar()
 
         self.titulo.configure(text=passo.titulo)
         self.legenda.configure(state="normal")
@@ -523,9 +637,12 @@ class FormTour(tk.Toplevel):
         if acao == "percorrer_ribbon":
             self._percorrer_ribbon()
             return
-        abrir = self.acoes.get(acao)
+        chave, _, argumento = acao.partition(":")      # "nist_aba:Riscos" -> ("nist_aba", "Riscos")
+        abrir = self.acoes.get(chave)
         if abrir is None:
             return
+        if argumento:
+            abrir = lambda f=abrir, a=argumento: f(a)
         antes = set(self._janelas())
         try:
             abrir()
@@ -671,6 +788,9 @@ class FormTour(tk.Toplevel):
         self.narradora.calar()
         self.holofote.fechar()
         self._fechar_abertas()
+        voltar = self.acoes.get("nist_voltar")
+        if voltar is not None:
+            voltar()
         if self.status is not None:
             self.status.mensagem()
         self.destroy()

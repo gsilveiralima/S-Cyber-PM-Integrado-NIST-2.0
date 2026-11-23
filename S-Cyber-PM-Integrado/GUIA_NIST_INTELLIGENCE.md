@@ -2,6 +2,9 @@
 
 Abra pelo menu ou pela Ribbon **NIST Intelligence** (ou **Ctrl+Shift+N**), depois do login do S-Cyber PM.
 
+**Tour narrado:** em *Arquivo > Tour* (ou `F2`), a narradora abre o painel e explica cada aba, para que
+serve e como usar, na ordem do fluxo abaixo.
+
 ## Fluxo de trabalho recomendado
 1. **Coleta técnica**: clique em *Executar verificação agora*. De preferência, abra o S-Cyber PM
    como Administrador. O Windows é consultado somente para leitura, e cada resultado é ligado às

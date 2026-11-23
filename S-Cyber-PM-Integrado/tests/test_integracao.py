@@ -129,7 +129,9 @@ class HospedeiroTests(unittest.TestCase):
     def test_host_continua_protegido_por_login_original(self):
         source = (BASE / 'appSCyberPM.py').read_text(encoding='utf-8')
         self.assertIn('SplashScreen(root, on_success=lambda: FormLogin(', source)
-        self.assertIn('from formNISTIntelligence import criar_painel', source)
+        self.assertIn('PainelNist(root, fundo, status, BASE_DIR)', source)
+        nist = (BASE / 'modNist.py').read_text(encoding='utf-8')
+        self.assertIn('from formNISTIntelligence import criar_painel', nist)
 
     def test_bridge_nao_executa_arquivo_por_caminho(self):
         source = (BASE / 'nist_intelligence' / 'bridge.py').read_text(encoding='utf-8')
