@@ -705,6 +705,22 @@ def main():
             janela.focus_force()
             return
         from formTour import FormTour
+
+        def tour_nist_aba(nome):
+            abrir_nist()
+            painel = _nist_estado["painel"]
+            if painel is None:
+                return
+            for aba in painel.tabs.tabs():
+                if painel.tabs.tab(aba, "text") == nome:
+                    painel.tabs.select(aba)
+                    break
+
+        def tour_nist_voltar():
+            painel = _nist_estado["painel"]
+            if painel is not None and painel.winfo_exists() and painel.winfo_ismapped():
+                voltar_inicio_nist()
+
         acoes = {
             "opcoes": lambda: formOpcoes.FormOpcoes(root),
             "certificados": lambda: ListCerts(root),
@@ -722,6 +738,9 @@ def main():
             "disco": abrir_disco,
             "processador": abrir_processador,
             "espiao": abrir_espiao,
+            "nist": abrir_nist,
+            "nist_aba": tour_nist_aba,
+            "nist_voltar": tour_nist_voltar,
             "sobre": lambda: FormAbout(root),
         }
         janelas["tour"] = FormTour(root, ribbon=ribbon, status=status, acoes=acoes)
@@ -1059,7 +1078,7 @@ def main():
 
     aba = ribbon.aba("NIST Intelligence")
     aba.grupo("Governança cibernética").botao(
-        "Painel\nNIST CSF", "certificado", abrir_nist,
+        "Painel\nNIST CSF", "nist", abrir_nist,
         "Acessar o S-Cyber NIST Intelligence integrado (Ctrl+Shift+N)")
     aba.grupo("Navegação").botao(
         "Tela\ninicial", "sair", voltar_inicio_nist,
