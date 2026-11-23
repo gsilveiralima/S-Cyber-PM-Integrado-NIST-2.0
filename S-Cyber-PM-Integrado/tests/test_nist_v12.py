@@ -154,6 +154,14 @@ class VariosComputadoresTests(Base):
         self.assertEqual(bat, collector.STANDALONE_BAT)
 
 
+class ScriptsPowerShellTests(unittest.TestCase):
+    def test_scripts_sem_bom_duplicado(self):
+        # Um BOM a mais vira um caractere invisível antes do '#': o PowerShell acusa
+        # "O termo '#' não é reconhecido" na linha 1.
+        for script in list(APP_DIR.glob('*.ps1')) + list(APP_DIR.glob('*.bat')):
+            self.assertFalse(script.read_bytes().startswith(b'\xef\xbb\xbf\xef\xbb\xbf'), script.name)
+
+
 class EvidenciaSubcategoriaTests(Base):
     def test_anexa_lista_e_remove(self):
         eid = core.save_evidence(self.db, 'politica.pdf', 'a' * 64, '', 10, 'Política')

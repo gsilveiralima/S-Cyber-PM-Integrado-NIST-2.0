@@ -1,4 +1,4 @@
-﻿﻿# Diagnóstico SOMENTE LEITURA dos certificados autorizados do S-Cyber PM.
+﻿# Diagnóstico SOMENTE LEITURA dos certificados autorizados do S-Cyber PM.
 # Lê a lista CERTIFICADOS_AUTORIZADOS do appSCyberPM.py e confere, no repositório
 # Pessoal do usuário atual, se cada certificado existe, tem chave privada e está válido.
 # Não cria, não importa e não altera nada no Windows.
