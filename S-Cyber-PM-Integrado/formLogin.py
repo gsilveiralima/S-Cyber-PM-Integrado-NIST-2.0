@@ -28,8 +28,8 @@ S-Cyber PM - Formulário de login (depois da validação do certificado).
 
 Confere o usuário e a senha de acesso guardados no arquivo de opções
 (formOpcoes.py: hash PBKDF2, arquivo cifrado com chave derivada do certificado).
-Padrão de fábrica: usuário "agente" (a senha padrão está em formOpcoes.py);
-troque-a em Arquivo > Opções.
+Padrão de fábrica: usuário "agente"; a senha de fábrica é trocada obrigatoriamente no 1º acesso
+(formTrocaSenha.py); depois, as senhas podem ser trocadas em Arquivo > Opções.
 
 Depois de MAX_TENTATIVAS erros o aplicativo é encerrado; a cada erro o botão
 "Entrar" fica bloqueado por alguns segundos.
@@ -174,8 +174,16 @@ class FormLogin(tk.Toplevel):
         if not self.winfo_exists():
             return
         if erro is None:
+            try:
+                trocar = formOpcoes.precisa_trocar_senha()
+            except formOpcoes.ErroOpcoes:
+                trocar = True
             self.destroy()
-            self._ao_entrar()
+            if trocar:
+                from formTrocaSenha import FormTrocaSenha
+                FormTrocaSenha(self.master, ao_concluir=self._ao_entrar, ao_desistir=self._ao_desistir)
+            else:
+                self._ao_entrar()
             return
         self.mensagem.configure(text=f"Windows Hello: {erro}", foreground="#b00020")
         for botao in (self.botao_hello, self.botao_entrar):
@@ -215,8 +223,20 @@ class FormLogin(tk.Toplevel):
         self.configure(cursor="")
 
         if ok:
+            try:
+                trocar = formOpcoes.precisa_trocar_senha(senha)
+            except formOpcoes.ErroOpcoes as e:
+                messagebox.showerror("Acesso", str(e), parent=self)
+                self.desistir()
+                return
+            self.senha.set("")
             self.destroy()
-            self._ao_entrar()
+            if trocar:
+                # Credenciais de fábrica (públicas): só entra depois de definir senhas próprias
+                from formTrocaSenha import FormTrocaSenha
+                FormTrocaSenha(self.master, ao_concluir=self._ao_entrar, ao_desistir=self._ao_desistir)
+            else:
+                self._ao_entrar()
             return
 
         self._tentativas += 1

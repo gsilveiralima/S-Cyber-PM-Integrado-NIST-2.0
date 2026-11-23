@@ -106,7 +106,12 @@ class NISTPanel(ttk.Frame):
         s.configure('NIST.Info.TLabel', background=BG, foreground=MUTED, font=('Segoe UI', 9))
         s.configure('NIST.TButton', font=('Segoe UI', 10), padding=6)
         s.configure('NIST.Treeview', background=PANEL, fieldbackground=PANEL, foreground='white', rowheight=25)
-        s.configure('NIST.Treeview.Heading', background='#263b52', foreground='white')
+        # Os temas nativos do Windows (vista/xpnative/winnative) ignoram a cor de fundo do
+        # cabeçalho e o desenham claro: nesse caso o texto precisa ser escuro, senão some.
+        if s.theme_use() in ('vista', 'xpnative', 'winnative'):
+            s.configure('NIST.Treeview.Heading', foreground='#101722', font=('Segoe UI', 9, 'bold'))
+        else:
+            s.configure('NIST.Treeview.Heading', background='#263b52', foreground='white')
         s.map('NIST.Treeview', background=[('selected', '#225b82')])
         s.configure('NIST.TNotebook', background=BG)
         s.configure('NIST.TNotebook.Tab', padding=(8, 4))
@@ -237,7 +242,7 @@ class NISTPanel(ttk.Frame):
         self.summary.pack(anchor='w', pady=(0, 6))
         nist_Label(right, text='Alertas', style='NIST.Section.TLabel').pack(anchor='w')
         self.alert_list = tk.Listbox(right, bg=PANEL, fg=TEXT, height=10, borderwidth=0, highlightthickness=0,
-                                     font=('Segoe UI', 9))
+                                     font=('Segoe UI', 9), activestyle='none', selectbackground=PANEL)
         self.alert_list.pack(fill='both', expand=True)
         if self.db.encrypted:
             aviso = ('Textos do banco cifrados (AES-256-GCM) com chave derivada do certificado do S-Cyber PM. '
@@ -252,7 +257,7 @@ class NISTPanel(ttk.Frame):
         c = self.chart
         c.delete('all')
         w, h = max(c.winfo_width(), 300), max(c.winfo_height(), 200)
-        left, bottom, top = 40, h - 30, 20
+        left, bottom, top = 40, h - 30, 44
         c.create_text(left, 8, text='Maturidade atual × perfil-alvo', fill='white', anchor='nw',
                       font=('Segoe UI', 10, 'bold'))
         for level in range(5):
@@ -269,7 +274,12 @@ class NISTPanel(ttk.Frame):
                 y = bottom - (bottom - top) * value / 4
                 c.create_rectangle(x + k * bar, y, x + (k + 1) * bar - 2, bottom, fill=color, outline='')
             c.create_text(x + bar, bottom + 12, text=code, fill='white', font=('Segoe UI', 9, 'bold'))
-        c.create_text(w - 10, h - 8, text='■ atual   ■ alvo', fill=MUTED, anchor='se', font=('Segoe UI', 8))
+        # Legenda no canto superior direito, com as cores das barras
+        lx = w - 150
+        c.create_rectangle(lx, 12, lx + 10, 22, fill='#3d9be9', outline='')
+        c.create_text(lx + 14, 17, text='atual', fill=MUTED, anchor='w', font=('Segoe UI', 8))
+        c.create_rectangle(lx + 60, 12, lx + 70, 22, fill='#6f7f91', outline='')
+        c.create_text(lx + 74, 17, text='alvo', fill=MUTED, anchor='w', font=('Segoe UI', 8))
 
     def refresh_dashboard(self):
         maturity = core.maturity_by_function(self.db)

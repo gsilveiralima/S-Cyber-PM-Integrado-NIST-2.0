@@ -82,7 +82,7 @@ MAGICO = b"SCPMOPT1"                  # identifica o formato (versão 1)
 ROTULO_CHAVE = b"S-Cyber PM / arquivo de opcoes / v1"
 
 ITERACOES_PBKDF2 = 300_000            # hash da senha de acesso
-TAMANHO_MINIMO_SENHA = 8
+TAMANHO_MINIMO_SENHA = 12             # política para uso em produção (v1.5)
 
 
 class ErroOpcoes(Exception):
@@ -168,7 +168,61 @@ def _padrao():
         "senha_acesso": _hash_senha(SENHA_PADRAO),
         "senha_pdf": SENHA_PADRAO,
         "hello_ativo": False,       # acesso por Windows Hello (PIN/biometria)
+        "trocar_senha": True,       # a senha de fábrica é pública: troca obrigatória no 1º acesso
     }
+
+
+# ==========================================================
+# POLÍTICA DE SENHAS
+# ==========================================================
+
+def problema_senha(senha, nome_usuario=""):
+    """Devolve o motivo pelo qual a senha é fraca, ou None se ela atende à política:
+    12+ caracteres, 3 dos 4 tipos (minúscula, maiúscula, número, símbolo), diferente
+    da senha de fábrica e sem conter o nome do usuário."""
+    if len(senha) < TAMANHO_MINIMO_SENHA:
+        return f"precisa ter pelo menos {TAMANHO_MINIMO_SENHA} caracteres"
+    if hmac.compare_digest(senha.encode("utf-8"), SENHA_PADRAO.encode("utf-8")):
+        return "não pode ser a senha de fábrica"
+    tipos = sum((any(c.islower() for c in senha), any(c.isupper() for c in senha),
+                 any(c.isdigit() for c in senha), any(not c.isalnum() for c in senha)))
+    if tipos < 3:
+        return "precisa misturar pelo menos 3 tipos: minúsculas, maiúsculas, números e símbolos"
+    nome = nome_usuario.strip().lower()
+    if len(nome) >= 3 and nome in senha.lower():
+        return "não pode conter o nome do usuário"
+    if len(set(senha)) < 6:
+        return "tem caracteres repetidos demais"
+    return None
+
+
+def precisa_trocar_senha(senha_digitada=None):
+    """True se o acesso ainda usa credenciais de fábrica (vale também para arquivos
+    de opções criados antes desta versão, que não têm a marca 'trocar_senha')."""
+    _garantir()
+    dados = _estado["dados"]
+    if dados.get("trocar_senha"):
+        return True
+    if hmac.compare_digest(dados.get("senha_pdf", "").encode("utf-8"), SENHA_PADRAO.encode("utf-8")):
+        return True
+    if senha_digitada is not None:
+        return hmac.compare_digest(senha_digitada.encode("utf-8"), SENHA_PADRAO.encode("utf-8"))
+    return _senha_confere(SENHA_PADRAO, dados["senha_acesso"])
+
+
+def definir_senhas_iniciais(senha_acesso_nova, senha_pdf_nova):
+    """Grava as senhas escolhidas no primeiro acesso e tira a marca de troca obrigatória."""
+    _garantir()
+    for rotulo, senha in (("A senha de acesso", senha_acesso_nova), ("A senha dos PDFs", senha_pdf_nova)):
+        problema = problema_senha(senha, _estado["dados"]["usuario"])
+        if problema:
+            raise ErroOpcoes(f"{rotulo} {problema}.")
+    dados = dict(_estado["dados"])
+    dados["senha_acesso"] = _hash_senha(senha_acesso_nova)
+    dados["senha_pdf"] = senha_pdf_nova
+    dados["trocar_senha"] = False
+    _gravar(_estado["chave"], _estado["thumb"], dados)
+    _estado["dados"] = dados
 
 
 # ==========================================================
@@ -272,6 +326,10 @@ def salvar(usuario_novo=None, senha_acesso_nova=None, senha_pdf_nova=None):
         dados["senha_acesso"] = _hash_senha(senha_acesso_nova)
     if senha_pdf_nova is not None:
         dados["senha_pdf"] = senha_pdf_nova
+    if dados.get("trocar_senha"):
+        # A marca sai quando nenhuma das duas senhas é mais a de fábrica
+        dados["trocar_senha"] = (dados["senha_pdf"] == SENHA_PADRAO
+                                 or _senha_confere(SENHA_PADRAO, dados["senha_acesso"]))
     _gravar(_estado["chave"], _estado["thumb"], dados)
     _estado["dados"] = dados
 
@@ -492,16 +550,16 @@ class FormOpcoes(tk.Toplevel):
             if pdf_nova != self.pdf_confirma.var.get():
                 return self._erro("A confirmação da senha dos PDFs não confere.",
                                   self.pdf_confirma)
-            if len(pdf_nova) < TAMANHO_MINIMO_SENHA:
-                return self._erro(f"A senha dos PDFs precisa ter pelo menos "
-                                  f"{TAMANHO_MINIMO_SENHA} caracteres.", self.pdf_nova)
+            problema = problema_senha(pdf_nova, nome)
+            if problema:
+                return self._erro(f"A senha dos PDFs {problema}.", self.pdf_nova)
         if acesso_nova or self.acesso_confirma.var.get():
             if acesso_nova != self.acesso_confirma.var.get():
                 return self._erro("A confirmação da senha de acesso não confere.",
                                   self.acesso_confirma)
-            if len(acesso_nova) < TAMANHO_MINIMO_SENHA:
-                return self._erro(f"A senha de acesso precisa ter pelo menos "
-                                  f"{TAMANHO_MINIMO_SENHA} caracteres.", self.acesso_nova)
+            problema = problema_senha(acesso_nova, nome)
+            if problema:
+                return self._erro(f"A senha de acesso {problema}.", self.acesso_nova)
         if not nome:
             return self._erro("Informe o usuário.", self.usuario)
 

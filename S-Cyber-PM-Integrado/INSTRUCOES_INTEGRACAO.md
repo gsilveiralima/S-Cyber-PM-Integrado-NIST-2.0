@@ -1,11 +1,12 @@
-# S-Cyber PM — Cópia integrada ao NIST Intelligence (v0.4.0)
+# S-Cyber PM — Cópia integrada ao NIST Intelligence (v0.5.0)
 
 ## Escopo
 
-Cópia derivada do ZIP `S-Cyber-prj-main.zip` fornecido para integração. O repositório
-`Leonidiojr/S-Cyber-prj` não foi modificado. A única alteração em arquivo fonte
-preexistente é `appSCyberPM.py`; os demais módulos preexistentes tiveram seus
-SHA-256 preservados. O manifesto em `../MANIFESTO_ATUALIZACAO_CERTIFICADO.json` (referente à v0.3.1) permite conferir.
+Cópia derivada do ZIP `S-Cyber-prj-main.zip`, desenvolvida em conjunto pelo MAJ Leonídio e pelo
+SGT Gabriel para uso autorizado nos sistemas da PMGO. O repositório `Leonidiojr/S-Cyber-prj` não foi
+modificado. O manifesto em `docs/MANIFESTO_ATUALIZACAO_CERTIFICADO.json` registra os arquivos da
+v0.3.1. A partir da preparação para produção (`docs/PRODUCAO_SEGURANCA.md`), `appSCyberPM.py`,
+`formOpcoes.py` e `formLogin.py` também foram alterados, e foi criado o `formTrocaSenha.py`.
 
 ## O que foi integrado
 

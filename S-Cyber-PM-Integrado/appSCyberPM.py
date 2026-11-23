@@ -70,8 +70,8 @@ MARCA D'ÁGUA:
 Dependências:  pip install pillow cryptography
 ------------------------------------------------------------------------------
 
-Usuário padrão: agente
-Senha padrão: not#_12345_senhorAgenteC
+Usuário padrão: agente. A senha de fábrica precisa ser trocada no primeiro acesso
+(formTrocaSenha.py): ela está no código-fonte, que é público.
 
 ------------------------------------------------------------------------------
 """
@@ -110,11 +110,31 @@ from modRibbon import BarraStatus, Ribbon, foto_icone
 # CONFIGURAÇÃO
 # ==========================================================
 
-# Impressão digital (SHA-1) do certificado autorizado: 40 caracteres hexadecimais.
-CERT_THUMBPRINT = "ECD4B39DE69C171732449C0D8378F312661482DA"
+# Certificados autorizados, pela impressão digital (SHA-1, 40 caracteres hexadecimais).
+# Cada usuário pode ter o seu: o aplicativo usa o primeiro desta lista que estiver no
+# repositório Pessoal do usuário do Windows, com a chave privada e dentro da validade.
+CERTIFICADOS_AUTORIZADOS = [
+    "ECD4B39DE69C171732449C0D8378F312661482DA",   # CN=S-Cyber PM (MAJ Leonídio), vence em 14/11/2027
+]
 
-# True = o Windows precisa confirmar a cadeia até uma raiz confiável e a revogação.
+# Autoridades certificadoras aceitas (impressão digital SHA-1 da AC raiz ou intermediária).
+# Um certificado emitido por uma destas ACs também é aceito, mas SEMPRE com cadeia válida
+# e revogação conferida on-line, independentemente de EXIGIR_CADEIA_VALIDA.
+# ATENÇÃO: use apenas a AC PRÓPRIA da instituição. Uma AC pública da ICP-Brasil emite
+# certificados para qualquer cidadão: nesse caso, cadastre os certificados um a um na
+# lista acima, ou preencha TITULAR_DEVE_CONTER.
+ACS_AUTORIZADAS = []
+
+# Texto que o titular (Subject) do certificado aceito por AC precisa conter, por exemplo
+# "O=Policia Militar do Estado de Goias". Vazio = não confere o titular.
+TITULAR_DEVE_CONTER = ""
+
+# True = os certificados da lista acima também precisam de cadeia confiável e revogação
+# conferida (deixe False para certificados autoassinados de laboratório).
 EXIGIR_CADEIA_VALIDA = False
+
+# Compatibilidade com versões anteriores, que tinham um único certificado.
+CERT_THUMBPRINT = CERTIFICADOS_AUTORIZADOS[0] if CERTIFICADOS_AUTORIZADOS else ""
 
 BASE_DIR = Path(__file__).resolve().parent
 WATERMARK_NOME = "watermark.png"
@@ -249,26 +269,75 @@ class ResultadoValidacao:
     def __init__(self, ok, mensagem):
         self.ok = ok
         self.mensagem = mensagem
+        self.thumb = None     # certificado aceito (quando ok)
+
+
+def _normalizar(thumb):
+    # Remove espaços e caracteres invisíveis que vêm junto ao copiar do certmgr
+    t = re.sub(r"[^0-9A-Fa-f]", "", thumb or "").upper()
+    return t if re.fullmatch(r"[0-9A-F]{40}", t) else None
+
+
+def _lista_normalizada(lista):
+    vistos = []
+    for item in lista:
+        t = _normalizar(item)
+        if t and t not in vistos:
+            vistos.append(t)
+    return vistos
+
+
+# Certificado efetivamente validado nesta execução (definido por validar_certificado()).
+_CERT_EM_USO = {"thumb": None}
 
 
 def _thumbprint_normalizado():
-    # Remove espaços e caracteres invisíveis que vêm junto ao copiar do certmgr
-    t = re.sub(r"[^0-9A-Fa-f]", "", CERT_THUMBPRINT).upper()
-    if not re.fullmatch(r"[0-9A-F]{40}", t):
-        return None
-    return t
+    """Certificado em uso: o validado na abertura ou, antes disso, o primeiro da lista."""
+    if _CERT_EM_USO["thumb"]:
+        return _CERT_EM_USO["thumb"]
+    lista = _lista_normalizada(CERTIFICADOS_AUTORIZADOS) or _lista_normalizada([CERT_THUMBPRINT])
+    return lista[0] if lista else None
 
 
-def _script_assinatura(thumbprint, nonce_b64, exigir_cadeia=EXIGIR_CADEIA_VALIDA):
+def _script_assinatura(thumbprints, nonce_b64, exigir_cadeia=EXIGIR_CADEIA_VALIDA, acs=()):
+    """Escolhe o certificado (lista fixa primeiro, depois ACs) e assina o desafio.
+    thumbprints/acs: listas de hexadecimais já validados; nonce: base64 já validado.
+    Não há como injetar comandos no PowerShell por aqui."""
+    if isinstance(thumbprints, str):
+        thumbprints = [thumbprints]
+    lista = ",".join(f"'{t}'" for t in thumbprints) or "''"
+    lista_acs = ",".join(f"'{t}'" for t in acs) or "''"
     # Verify() consulta a revogação pela rede e pode demorar: só roda se for exigido
     verificar = "$c.Verify()" if exigir_cadeia else "$false"
-    # thumbprint (só hexadecimal) e nonce (só base64) já foram validados:
-    # não há como injetar comandos no PowerShell por aqui.
     return f"""
 $ErrorActionPreference = 'Stop'
-$c = Get-Item -Path 'Cert:\\CurrentUser\\My\\{thumbprint}' -ErrorAction SilentlyContinue
-if (-not $c) {{ @{{erro='CERT_NAO_ENCONTRADO'}} | ConvertTo-Json -Compress; exit }}
-if (-not $c.HasPrivateKey) {{ @{{erro='SEM_CHAVE_PRIVADA'}} | ConvertTo-Json -Compress; exit }}
+$permitidos = @({lista}) | Where-Object {{ $_ }}
+$acs = @({lista_acs}) | Where-Object {{ $_ }}
+$agora = Get-Date
+$todos = @(Get-ChildItem -Path 'Cert:\\CurrentUser\\My')
+$c = $null; $via = ''; $cadeia = $false; $semChave = $false
+foreach ($t in $permitidos) {{
+    $x = $todos | Where-Object {{ $_.Thumbprint -eq $t }} | Select-Object -First 1
+    if ($x -and -not $x.HasPrivateKey) {{ $semChave = $true; continue }}
+    if ($x -and $agora -ge $x.NotBefore -and $agora -le $x.NotAfter) {{ $c = $x; $via = 'lista'; break }}
+}}
+if ($c) {{ $cadeia = {verificar} }}
+if (-not $c -and $acs.Count -gt 0) {{
+    $candidatos = $todos | Where-Object {{ $_.HasPrivateKey -and $agora -ge $_.NotBefore -and $agora -le $_.NotAfter }} |
+        Sort-Object NotAfter -Descending
+    foreach ($x in $candidatos) {{
+        $ch = New-Object System.Security.Cryptography.X509Certificates.X509Chain
+        $ch.ChainPolicy.RevocationMode = [System.Security.Cryptography.X509Certificates.X509RevocationMode]::Online
+        $ch.ChainPolicy.RevocationFlag = [System.Security.Cryptography.X509Certificates.X509RevocationFlag]::EntireChain
+        if (-not $ch.Build($x)) {{ continue }}
+        $emissores = @($ch.ChainElements | Select-Object -Skip 1 | ForEach-Object {{ $_.Certificate.Thumbprint }})
+        if (@($emissores | Where-Object {{ $acs -contains $_ }}).Count -gt 0) {{ $c = $x; $via = 'ac'; $cadeia = $true; break }}
+    }}
+}}
+if (-not $c) {{
+    if ($semChave) {{ @{{erro='SEM_CHAVE_PRIVADA'}} | ConvertTo-Json -Compress; exit }}
+    @{{erro='CERT_NAO_ENCONTRADO'}} | ConvertTo-Json -Compress; exit
+}}
 $rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($c)
 if (-not $rsa) {{ @{{erro='CHAVE_NAO_RSA'}} | ConvertTo-Json -Compress; exit }}
 $dados = [Convert]::FromBase64String('{nonce_b64}')
@@ -278,7 +347,8 @@ $sig = $rsa.SignData($dados,
 @{{
     cert   = [Convert]::ToBase64String($c.RawData)
     sig    = [Convert]::ToBase64String($sig)
-    cadeia = {verificar}
+    cadeia = [bool]$cadeia
+    via    = $via
 }} | ConvertTo-Json -Compress
 """
 
@@ -300,25 +370,40 @@ def _executar_powershell(script):
 
 
 MENSAGENS_ERRO = {
-    "CERT_NAO_ENCONTRADO": "O certificado autorizado não está instalado neste usuário.",
+    "CERT_NAO_ENCONTRADO": "Nenhum certificado autorizado e dentro da validade está instalado neste usuário.",
     "SEM_CHAVE_PRIVADA": "O certificado está instalado, mas sem a chave privada.",
     "CHAVE_NAO_RSA": "A chave do certificado não é RSA.",
 }
 
 
-def verificar_resposta(resposta, nonce, thumbprint, exigir_cadeia=EXIGIR_CADEIA_VALIDA):
-    """Confere, em Python, a resposta assinada. Separada para poder ser testada."""
+def verificar_resposta(resposta, nonce, thumbprint, exigir_cadeia=EXIGIR_CADEIA_VALIDA,
+                       titular_deve_conter=None):
+    """Confere, em Python, a resposta assinada. Separada para poder ser testada.
+
+    thumbprint: um thumbprint ou a lista de autorizados. A resposta 'via ac' vale
+    só com cadeia e revogação confirmadas pelo Windows."""
     if "erro" in resposta:
         return ResultadoValidacao(False, MENSAGENS_ERRO.get(resposta["erro"], resposta["erro"]))
+    permitidos = [thumbprint] if isinstance(thumbprint, str) else list(thumbprint)
+    titular_deve_conter = TITULAR_DEVE_CONTER if titular_deve_conter is None else titular_deve_conter
 
     der = base64.b64decode(resposta["cert"])
     assinatura = base64.b64decode(resposta["sig"])
+    thumb = hashlib.sha1(der).hexdigest().upper()
+    via = resposta.get("via") or "lista"
 
-    # 1. É exatamente o certificado esperado?
-    if hashlib.sha1(der).hexdigest().upper() != thumbprint:
+    # 1. É um certificado autorizado?
+    if via == "ac":
+        if not resposta.get("cadeia"):
+            return ResultadoValidacao(
+                False, "A cadeia do certificado não é confiável ou o certificado foi revogado.")
+    elif thumb not in permitidos:
         return ResultadoValidacao(False, "O certificado apresentado não é o autorizado.")
 
     cert = x509.load_der_x509_certificate(der)
+    if via == "ac" and titular_deve_conter and \
+            titular_deve_conter.lower() not in cert.subject.rfc4514_string().lower():
+        return ResultadoValidacao(False, "O titular do certificado não pertence à instituição autorizada.")
 
     # 2. Está dentro da validade?
     agora = datetime.now(timezone.utc)
@@ -339,29 +424,35 @@ def verificar_resposta(resposta, nonce, thumbprint, exigir_cadeia=EXIGIR_CADEIA_
     except InvalidSignature:
         return ResultadoValidacao(False, "A assinatura do desafio é inválida.")
 
-    # 4. Cadeia e revogação (opcional)
+    # 4. Cadeia e revogação (opcional para a lista fixa)
     if exigir_cadeia and not resposta.get("cadeia"):
         return ResultadoValidacao(
             False, "A cadeia do certificado não é confiável ou o certificado foi revogado.")
 
-    return ResultadoValidacao(True, "Certificado validado.")
+    resultado = ResultadoValidacao(True, "Certificado validado.")
+    resultado.thumb = thumb
+    return resultado
 
 
 def validar_certificado():
     if sys.platform != "win32":
         return ResultadoValidacao(False, "Esta validação só funciona no Windows.")
 
-    thumbprint = _thumbprint_normalizado()
-    if not thumbprint:
+    permitidos = _lista_normalizada(CERTIFICADOS_AUTORIZADOS) or _lista_normalizada([CERT_THUMBPRINT])
+    acs = _lista_normalizada(ACS_AUTORIZADAS)
+    if not permitidos and not acs:
         return ResultadoValidacao(
-            False, "CERT_THUMBPRINT não está configurado (precisa ter 40 caracteres hexadecimais).")
+            False, "Nenhum certificado autorizado configurado (CERTIFICADOS_AUTORIZADOS ou ACS_AUTORIZADAS).")
 
     nonce = os.urandom(32)
     nonce_b64 = base64.b64encode(nonce).decode("ascii")
 
     try:
-        resposta = _executar_powershell(_script_assinatura(thumbprint, nonce_b64))
-        return verificar_resposta(resposta, nonce, thumbprint)
+        resposta = _executar_powershell(_script_assinatura(permitidos, nonce_b64, EXIGIR_CADEIA_VALIDA, acs))
+        resultado = verificar_resposta(resposta, nonce, permitidos)
+        if resultado.ok:
+            _CERT_EM_USO["thumb"] = resultado.thumb
+        return resultado
     except FileNotFoundError:
         return ResultadoValidacao(False, "PowerShell não encontrado.")
     except subprocess.TimeoutExpired:
