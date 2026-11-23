@@ -894,7 +894,7 @@ def main():
     menu_nist.add_command(label="Abrir painel NIST Intelligence", accelerator="Ctrl+Shift+N", command=abrir_nist)
     menu_nist.add_separator()
     for _aba in ("Avaliação CSF 2.0", "Plano de ação", "Coleta técnica", "Riscos", "Incidentes",
-                 "Evidências e custódia", "Consultas SEI", "Relatório", "Auditoria"):
+                 "Evidências e custódia", "Consultas SEI", "Consolidação", "Relatório", "Auditoria"):
         menu_nist.add_command(label=_aba, command=lambda a=_aba: nist.selecionar_aba(a))
     menu_nist.add_separator()
     menu_nist.add_command(label="Voltar à tela principal", command=voltar_inicio_nist)
@@ -1009,6 +1009,8 @@ def main():
              ["risco", "riscos", "mapa de calor", "matriz de risco"]),
             ("NIST: incidentes", "resposta a incidentes e prazo da ANPD", "Incidentes",
              ["incidente", "incidentes", "anpd", "lgpd", "vazamento"]),
+            ("NIST: consolidação", "junta pacotes assinados de várias unidades", "Consolidação",
+             ["consolidacao", "consolidar", "unidades", "pacote nist", "juntar dados"]),
             ("NIST: relatório", "gera o relatório PDF de governança assinado", "Relatório",
              ["relatorio nist", "relatorio de governanca", "pdf nist"]),
             ("NIST: auditoria", "trilha de quem alterou o quê no painel", "Auditoria",
@@ -1121,6 +1123,8 @@ def main():
         # depois do certificado e do login, como qualquer outra abertura.
         if "--nist" in sys.argv[1:]:
             root.after(300, abrir_nist)
+        # Cópia diária do banco NIST e avisos (ANPD, ações vencidas, certificado), em segundo plano.
+        root.after(2000, nist.ao_entrar)
 
     # Splash (certificado) -> login -> formulário principal
     SplashScreen(root, on_success=lambda: FormLogin(

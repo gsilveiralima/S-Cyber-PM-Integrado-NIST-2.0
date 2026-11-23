@@ -30,7 +30,7 @@ from .crypto import InvalidTag
 from .catalog import (CATEGORIES, FUNCTIONS, MATURITY, SUB_BY_CATEGORY,  # noqa: F401
                       SUBCATEGORIES, TIERS, category_of, function_of)
 
-VERSION = '1.1.0'
+VERSION = '1.2.0'
 
 # Mesma pasta de dados do S-Cyber PM (%APPDATA%\SCyberPM), numa subpasta própria.
 _APPDATA = Path(os.environ.get('APPDATA') or (Path.home() / '.config'))
@@ -69,11 +69,15 @@ SENSITIVE = {
     'collections': ('host', 'user', 'raw'),
     'findings': ('detail',),
     'audit_log': ('actor', 'summary'),
+    'consolidated': ('unit', 'signer', 'payload'),
 }
 
 AUTO_COLLECT_DAYS = 7          # o painel refaz a coleta técnica quando a última é mais antiga
 # Maturidade sugerida a partir da coleta técnica (o operador confirma ou ajusta).
 SUGGESTED_MATURITY = {'OK': 3, 'Atenção': 2, 'Falha': 1}
+HOLIDAY_KINDS = ('Estadual', 'Municipal', 'Ponto facultativo', 'Outro')
+AUTO_BACKUP_KEEP = 7           # cópias automáticas diárias guardadas
+COLLECTION_FORMAT = 'scyber-nist-coleta'
 
 
 class NistConnection(sqlite3.Connection):
@@ -206,6 +210,15 @@ def connect(path=DB, key=None):
       id INTEGER PRIMARY KEY, at TEXT NOT NULL, actor TEXT NOT NULL, entity TEXT NOT NULL,
       action TEXT NOT NULL, ref TEXT NOT NULL, summary TEXT NOT NULL,
       prev_hash TEXT NOT NULL, hash TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS holidays(
+      day TEXT PRIMARY KEY, name TEXT NOT NULL, kind TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS sub_evidence(
+      sub_code TEXT NOT NULL, evidence_id INTEGER NOT NULL REFERENCES evidence(id),
+      linked_at TEXT NOT NULL, PRIMARY KEY(sub_code, evidence_id));
+    CREATE TABLE IF NOT EXISTS consolidated(
+      id INTEGER PRIMARY KEY, imported_at TEXT NOT NULL, unit TEXT NOT NULL, signer TEXT NOT NULL,
+      thumb TEXT NOT NULL, trusted INTEGER NOT NULL, created_at TEXT NOT NULL,
+      package_sha256 TEXT NOT NULL UNIQUE, payload TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS findings(
       id INTEGER PRIMARY KEY, collection_id INTEGER NOT NULL REFERENCES collections(id),
       check_id TEXT NOT NULL, title TEXT NOT NULL, status TEXT NOT NULL,
@@ -222,6 +235,7 @@ def connect(path=DB, key=None):
         ('personal_data', 'INTEGER NOT NULL DEFAULT 0'), ('detected_on', "TEXT NOT NULL DEFAULT ''"),
         ('anpd_deadline', "TEXT NOT NULL DEFAULT ''"), ('anpd_notified_on', "TEXT NOT NULL DEFAULT ''"),
         ('subcategory', "TEXT NOT NULL DEFAULT ''"), ('sei_process', "TEXT NOT NULL DEFAULT ''")])
+    _add_columns(db, 'collections', [('source', "TEXT NOT NULL DEFAULT 'Local'")])
     _add_columns(db, 'evidence', [
         ('path', "TEXT NOT NULL DEFAULT ''"), ('size', 'INTEGER NOT NULL DEFAULT 0'),
         ('description', "TEXT NOT NULL DEFAULT ''"), ('custodian', "TEXT NOT NULL DEFAULT ''"),
@@ -468,14 +482,97 @@ def heat_map(db, residual=False):
 
 
 # ============================================================ incidentes
-def add_business_days(start, days):
-    """Soma dias úteis (seg–sex). Feriados não são descontados."""
+def easter(year):
+    """Domingo de Páscoa (algoritmo de Meeus/Jones/Butcher, calendário gregoriano)."""
+    a, b, c = year % 19, year // 100, year % 100
+    d, e = b // 4, b % 4
+    g = (8 * b + 13) // 25
+    h = (19 * a + b - d - g + 15) % 30
+    i, k = c // 4, c % 4
+    l_ = (32 + 2 * e + 2 * i - h - k) % 7
+    m = (a + 11 * h + 19 * l_) // 433
+    month = (h + l_ - 7 * m + 90) // 25
+    day = (h + l_ - 7 * m + 33 * month + 19) % 32
+    return date(year, month, day)
+
+
+def national_holidays(year):
+    """Feriados nacionais: Lei 662/1949, Lei 6.802/1980, Lei 9.093/1995 (Paixão de Cristo)
+    e Lei 14.759/2023 (20 de novembro). Carnaval e Corpus Christi são ponto facultativo:
+    cadastre-os em holidays se a unidade não trabalhar nesses dias."""
+    fixed = {(1, 1): 'Confraternização Universal', (4, 21): 'Tiradentes', (5, 1): 'Dia do Trabalho',
+             (9, 7): 'Independência do Brasil', (10, 12): 'Nossa Senhora Aparecida', (11, 2): 'Finados',
+             (11, 15): 'Proclamação da República', (11, 20): 'Dia Nacional de Zumbi e da Consciência Negra',
+             (12, 25): 'Natal'}
+    out = {date(year, m, d): name for (m, d), name in fixed.items()}
+    out[easter(year) - timedelta(days=2)] = 'Paixão de Cristo'
+    return out
+
+
+def add_holiday(db, day, name, kind='Estadual'):
+    day = _date(day, 'Data do feriado', required=True)
+    name = _text(name, 'Nome do feriado')
+    if kind not in HOLIDAY_KINDS:
+        raise ValueError('Tipo de feriado inválido')
+    db.execute('INSERT INTO holidays(day,name,kind) VALUES(?,?,?) ON CONFLICT(day) DO UPDATE SET '
+               'name=excluded.name, kind=excluded.kind', (day, name, kind))
+    audit(db, 'Feriados', 'Cadastrar', day, f'{name} ({kind})')
+    changed = recalc_anpd_deadlines(db)
+    db.commit()
+    return changed
+
+
+def remove_holiday(db, day):
+    day = _date(day, 'Data do feriado', required=True)
+    db.execute('DELETE FROM holidays WHERE day=?', (day,))
+    audit(db, 'Feriados', 'Remover', day)
+    changed = recalc_anpd_deadlines(db)
+    db.commit()
+    return changed
+
+
+def holidays(db, year=None):
+    """[(data ISO, nome, tipo)] dos feriados nacionais do ano e dos cadastrados."""
+    year = year or date.today().year
+    rows = [(d.isoformat(), n, 'Nacional') for d, n in national_holidays(year).items()]
+    rows += db.execute("SELECT day,name,kind FROM holidays WHERE day LIKE ?", (f'{year}-%',)).fetchall()
+    return sorted(rows)
+
+
+def _holiday_set(db, years):
+    out = set()
+    for y in years:
+        out.update(national_holidays(y))
+    if db is not None:
+        out.update(date.fromisoformat(d) for (d,) in db.execute('SELECT day FROM holidays'))
+    return out
+
+
+def add_business_days(start, days, db=None):
+    """Soma dias úteis: pula sábados, domingos, feriados nacionais e os cadastrados (db)."""
+    off = _holiday_set(db, (start.year, start.year + 1))
     current = start
     while days > 0:
         current += timedelta(days=1)
-        if current.weekday() < 5:
+        if current.weekday() < 5 and current not in off:
             days -= 1
     return current
+
+
+def recalc_anpd_deadlines(db):
+    """Recalcula o prazo ANPD dos incidentes com dados pessoais ainda não comunicados
+    (depois de mudar o calendário de feriados). Devolve quantos mudaram."""
+    changed = 0
+    for iid, detected, deadline in db.execute(
+            "SELECT id,detected_on,anpd_deadline FROM incidents WHERE personal_data=1 AND anpd_notified_on='' "
+            "AND detected_on<>''").fetchall():
+        new = add_business_days(date.fromisoformat(detected), ANPD_BUSINESS_DAYS, db).isoformat()
+        if new != deadline:
+            db.execute('UPDATE incidents SET anpd_deadline=? WHERE id=?', (new, iid))
+            _append_chain(db, 'incident_log', (iid, now(), 'Prazo', f'Prazo ANPD recalculado: {_br(deadline)} → '
+                                                                   f'{_br(new)} (calendário de feriados)'))
+            changed += 1
+    return changed
 
 
 def _br(iso):
@@ -511,7 +608,7 @@ def save_incident(db, title, status_or_phase='Detecção', notes='', severity='M
     detected = _date(detected_on, 'Data de conhecimento') or date.today().isoformat()
     deadline = ''
     if personal_data:
-        deadline = add_business_days(date.fromisoformat(detected), ANPD_BUSINESS_DAYS).isoformat()
+        deadline = add_business_days(date.fromisoformat(detected), ANPD_BUSINESS_DAYS, db).isoformat()
     status = 'Encerrado' if phase == 'Encerrado' else 'Em análise' if phase != 'Detecção' else 'Pendente'
     cur = db.execute('INSERT INTO incidents(title,status,notes,created_at,severity,phase,personal_data,'
                      'detected_on,anpd_deadline,subcategory) VALUES(?,?,?,?,?,?,?,?,?,?)',
@@ -638,6 +735,38 @@ def custody_log(db, evidence_id):
                       'WHERE evidence_id=? ORDER BY id', (int(evidence_id),)).fetchall()
 
 
+def link_evidence(db, sub_code, evidence_id):
+    """Anexa uma evidência da cadeia de custódia como prova da avaliação da subcategoria."""
+    if sub_code not in SUB_CODES:
+        raise ValueError('Subcategoria NIST não reconhecida')
+    if not db.execute('SELECT 1 FROM evidence WHERE id=?', (int(evidence_id),)).fetchone():
+        raise ValueError('Evidência não encontrada')
+    cur = db.execute('INSERT OR IGNORE INTO sub_evidence(sub_code,evidence_id,linked_at) VALUES(?,?,?)',
+                     (sub_code, int(evidence_id), now()))
+    if cur.rowcount:
+        audit(db, 'Avaliação', 'Anexar evidência', sub_code, f'evidência #{evidence_id}')
+    db.commit()
+    return bool(cur.rowcount)
+
+
+def unlink_evidence(db, sub_code, evidence_id):
+    cur = db.execute('DELETE FROM sub_evidence WHERE sub_code=? AND evidence_id=?', (sub_code, int(evidence_id)))
+    if cur.rowcount:
+        audit(db, 'Avaliação', 'Remover evidência', sub_code, f'evidência #{evidence_id}')
+    db.commit()
+    return bool(cur.rowcount)
+
+
+def evidence_for_sub(db, sub_code):
+    return db.execute('SELECT e.id,dec(e.file_name),e.sha256,e.recorded_at FROM sub_evidence s '
+                      'JOIN evidence e ON e.id=s.evidence_id WHERE s.sub_code=? ORDER BY e.id',
+                      (sub_code,)).fetchall()
+
+
+def evidence_counts(db):
+    return dict(db.execute('SELECT sub_code,COUNT(*) FROM sub_evidence GROUP BY sub_code').fetchall())
+
+
 EVIDENCE_COLS = 'id,file_name,sha256,size,path,description,custodian,incident_id,source,recorded_at'
 
 
@@ -653,11 +782,12 @@ def evidence(db, evidence_id):
 
 
 # ============================================================ coleta técnica
-def save_collection(db, meta, raw, results):
+def save_collection(db, meta, raw, results, source='Local', run_at=None):
     raw_text = json.dumps(raw, ensure_ascii=False, sort_keys=True)
-    cur = db.execute('INSERT INTO collections(run_at,host,user,admin,raw,sha256) VALUES(?,?,?,?,?,?)',
-                     (now(), db.E(meta.get('host', '')), db.E(meta.get('user', '')), int(bool(meta.get('admin'))),
-                      db.E(raw_text), hashlib.sha256(raw_text.encode('utf-8')).hexdigest()))
+    cur = db.execute('INSERT INTO collections(run_at,host,user,admin,raw,sha256,source) VALUES(?,?,?,?,?,?,?)',
+                     (run_at or now(), db.E(meta.get('host', '')), db.E(meta.get('user', '')),
+                      int(bool(meta.get('admin'))), db.E(raw_text),
+                      hashlib.sha256(raw_text.encode('utf-8')).hexdigest(), source))
     for r in results:
         db.execute('INSERT INTO findings(collection_id,check_id,title,status,detail,subcategories) '
                    'VALUES(?,?,?,?,?,?)', (cur.lastrowid, r['id'], r['title'], r['status'], db.E(r['detail']),
@@ -665,7 +795,7 @@ def save_collection(db, meta, raw, results):
     counts = {}
     for r in results:
         counts[r['status']] = counts.get(r['status'], 0) + 1
-    audit(db, 'Coleta técnica', 'Executar', cur.lastrowid,
+    audit(db, 'Coleta técnica', 'Executar' if source == 'Local' else 'Importar', cur.lastrowid,
           f"{meta.get('host', '')}: " + ', '.join(f'{v} {k}' for k, v in sorted(counts.items())))
     db.commit()
     return cur.lastrowid
@@ -684,20 +814,65 @@ def latest_findings(db):
 _STATUS_RANK = {'Falha': 3, 'Atenção': 2, 'OK': 1, 'Indisponível': 0}
 
 
+def collections_by_host(db):
+    """Última coleta de cada computador: [(id, run_at, host, user, admin, sha256, source, contagens)]."""
+    seen, out = set(), []
+    for cid, run_at, host, user, admin, digest, source in db.execute(
+            'SELECT id,run_at,dec(host),dec(user),admin,sha256,source FROM collections ORDER BY id DESC'):
+        key = (host or '?').upper()
+        if key in seen:
+            continue
+        seen.add(key)
+        counts = dict(db.execute('SELECT status,COUNT(*) FROM findings WHERE collection_id=? GROUP BY status',
+                                 (cid,)).fetchall())
+        out.append((cid, run_at, host, user, admin, digest, source, counts))
+    return out
+
+
+def findings_for(db, collection_id):
+    return db.execute('SELECT check_id,title,status,dec(detail),subcategories FROM findings WHERE collection_id=? '
+                      'ORDER BY id', (int(collection_id),)).fetchall()
+
+
 def findings_by_subcategory(db):
-    """Pior situação técnica por subcategoria na última coleta."""
-    _, items = latest_findings(db)
+    """Pior situação técnica por subcategoria, entre as últimas coletas de cada computador."""
     result = {}
-    for _, _, status, _, subs in items:
-        for sub in filter(None, subs.split(',')):
-            if _STATUS_RANK.get(status, 0) > _STATUS_RANK.get(result.get(sub), -1):
-                result[sub] = status
+    for entry in collections_by_host(db):
+        for _, _, status, _, subs in findings_for(db, entry[0]):
+            for sub in filter(None, subs.split(',')):
+                if _STATUS_RANK.get(status, 0) > _STATUS_RANK.get(result.get(sub), -1):
+                    result[sub] = status
     return result
 
 
+def import_collection(db, path):
+    """Importa o arquivo gerado pelo coletor avulso (coletor_nist.ps1) num computador sem o
+    aplicativo. O conteúdo é avaliado aqui, com as mesmas regras da coleta local."""
+    from . import collector
+    path = Path(path)
+    if path.stat().st_size > 2 * 1024 * 1024:
+        raise ValueError('Arquivo grande demais para uma coleta.')
+    try:
+        data = json.loads(path.read_text(encoding='utf-8-sig'))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError(f'Arquivo de coleta inválido: {exc}') from exc
+    if not isinstance(data, dict) or data.get('formato') != COLLECTION_FORMAT or not isinstance(data.get('dados'), dict):
+        raise ValueError('Este arquivo não é uma coleta do S-Cyber NIST Intelligence.')
+    raw = data['dados']
+    meta = collector.meta(raw)
+    if not meta['host']:
+        raise ValueError('A coleta não identifica o computador.')
+    when = str(data.get('gerado') or '')[:19]
+    try:
+        when = datetime.fromisoformat(when).replace(tzinfo=None).isoformat(timespec='seconds')
+    except ValueError:
+        when = None
+    return save_collection(db, meta, raw, collector.evaluate(raw), source='Importada', run_at=when)
+
+
 def last_collection_age_days(db, today=None):
-    """Dias desde a última coleta técnica (None se nunca houve)."""
-    row = db.execute('SELECT run_at FROM collections ORDER BY id DESC LIMIT 1').fetchone()
+    """Dias desde a última coleta técnica DESTE computador (None se nunca houve)."""
+    row = db.execute("SELECT run_at FROM collections WHERE source='Local' ORDER BY id DESC LIMIT 1").fetchone()
     if not row:
         return None
     today = today or date.today()
@@ -710,24 +885,30 @@ def collection_needed(db, today=None):
 
 
 def compare_collections(db):
-    """Mudanças entre as duas últimas coletas: [{check, title, before, after, change}].
-    Itens 'Indisponível' (sem permissão) não contam como melhora ou piora."""
-    ids = [r[0] for r in db.execute('SELECT id FROM collections ORDER BY id DESC LIMIT 2')]
-    if len(ids) < 2:
-        return []
+    """Mudanças entre as duas últimas coletas de CADA computador:
+    [{host, check, title, before, after, change}]. 'Indisponível' não conta como mudança."""
+    by_host = {}
+    for cid, host in db.execute('SELECT id,dec(host) FROM collections ORDER BY id DESC'):
+        ids = by_host.setdefault((host or '?').upper(), [host, []])[1]
+        if len(ids) < 2:
+            ids.append(cid)
 
     def load(cid):
         return {c: (t, st) for c, t, st in db.execute(
             'SELECT check_id,title,status FROM findings WHERE collection_id=?', (cid,))}
-    new, old = load(ids[0]), load(ids[1])
     out = []
-    for check, (title, after) in new.items():
-        before = old.get(check, (title, None))[1]
-        if before is None or before == after or 'Indisponível' in (before, after):
+    for host, ids in by_host.values():
+        if len(ids) < 2:
             continue
-        change = 'piorou' if _STATUS_RANK[after] > _STATUS_RANK[before] else 'melhorou'
-        out.append({'check': check, 'title': title, 'before': before, 'after': after, 'change': change})
-    return sorted(out, key=lambda c: (c['change'] != 'piorou', c['title']))
+        new, old = load(ids[0]), load(ids[1])
+        for check, (title, after) in new.items():
+            before = old.get(check, (title, None))[1]
+            if before is None or before == after or 'Indisponível' in (before, after):
+                continue
+            change = 'piorou' if _STATUS_RANK[after] > _STATUS_RANK[before] else 'melhorou'
+            out.append({'host': host, 'check': check, 'title': title, 'before': before, 'after': after,
+                        'change': change})
+    return sorted(out, key=lambda c: (c['change'] != 'piorou', c['host'] or '', c['title']))
 
 
 def apply_findings(db, target=3):
@@ -773,6 +954,73 @@ def backup(db, destination):
     return destination
 
 
+def _db_file(db):
+    row = db.execute('PRAGMA database_list').fetchone()
+    return Path(row[2]) if row and row[2] else None
+
+
+def auto_backup(db, folder=None, keep=AUTO_BACKUP_KEEP, today=None):
+    """Uma cópia por dia na pasta backups ao lado do banco, guardando as últimas `keep`.
+    Devolve o caminho criado, ou None se a de hoje já existe."""
+    base = _db_file(db)
+    folder = Path(folder) if folder else (base.parent / 'backups' if base else None)
+    if folder is None:
+        return None
+    folder.mkdir(parents=True, exist_ok=True)
+    today = today or date.today()
+    target = folder / f'nist_auto_{today:%Y%m%d}.db'
+    created = None
+    if not target.exists():
+        created = backup(db, target)
+    for old in sorted(folder.glob('nist_auto_*.db'))[:-keep or None]:
+        try:
+            old.unlink()
+        except OSError:
+            pass
+    return created
+
+
+def purge_closed_incidents(db, older_than_days, archive=None, today=None):
+    """Retenção (LGPD): exclui incidentes ENCERRADOS há mais de `older_than_days` dias,
+    com a linha do tempo deles. Antes, guarda um backup completo em `archive`.
+
+    A cadeia da linha do tempo é recalculada para os incidentes que ficam; por isso a
+    operação só roda com a cadeia íntegra (nunca "lava" uma adulteração) e fica na
+    trilha de auditoria com o hash anterior e o novo. Devolve quantos foram excluídos."""
+    older_than_days = int(older_than_days)
+    if older_than_days < 30:
+        raise ValueError('O prazo de retenção mínimo é de 30 dias.')
+    ok, bad = verify_chain(db, 'incident_log')
+    if not ok:
+        raise ValueError(f'A linha do tempo está adulterada (registro {bad}): retenção bloqueada.')
+    today = today or date.today()
+    limit = (today - timedelta(days=older_than_days)).isoformat()
+    ids = [r[0] for r in db.execute(
+        "SELECT i.id FROM incidents i WHERE i.phase='Encerrado' AND "
+        "(SELECT MAX(at) FROM incident_log l WHERE l.incident_id=i.id) < ?", (limit,))]
+    if not ids:
+        return 0
+    if archive:
+        backup(db, archive)
+    old_head = (db.execute('SELECT hash FROM incident_log ORDER BY id DESC LIMIT 1').fetchone() or [GENESIS])[0]
+    marks = ','.join('?' * len(ids))
+    db.execute(f'DELETE FROM incident_log WHERE incident_id IN ({marks})', ids)
+    db.execute(f'UPDATE evidence SET incident_id=NULL WHERE incident_id IN ({marks})', ids)
+    db.execute(f'DELETE FROM incidents WHERE id IN ({marks})', ids)
+    fields = _CHAINS['incident_log']
+    prev = GENESIS
+    for row in db.execute(f'SELECT id,{_sel("incident_log", ",".join(fields))} FROM incident_log ORDER BY id'
+                          ).fetchall():
+        digest = _entry_hash(prev, dict(zip(fields, row[1:], strict=True)))
+        db.execute('UPDATE incident_log SET prev_hash=?, hash=? WHERE id=?', (prev, digest, row[0]))
+        prev = digest
+    audit(db, 'Retenção', 'Excluir incidentes encerrados', '',
+          f'{len(ids)} incidente(s) encerrados há mais de {older_than_days} dias; cadeia recalculada '
+          f'({old_head[:16]}… → {prev[:16]}…)' + (f'; arquivo {Path(archive).name}' if archive else ''))
+    db.commit()
+    return len(ids)
+
+
 def restore(source, destination=DB, key=None):
     """Restaura um backup sobre o banco do usuário.
 
@@ -805,6 +1053,63 @@ def restore(source, destination=DB, key=None):
     finally:
         db.close()
     return saved
+
+
+# ============================================================ consolidação
+def save_consolidated(db, manifest, payload, package_sha256, trusted):
+    if db.execute('SELECT 1 FROM consolidated WHERE package_sha256=?', (package_sha256,)).fetchone():
+        raise ValueError('Este pacote já foi importado.')
+    cur = db.execute('INSERT INTO consolidated(imported_at,unit,signer,thumb,trusted,created_at,package_sha256,'
+                     'payload) VALUES(?,?,?,?,?,?,?,?)',
+                     (now(), db.E(manifest['unidade']), db.E(manifest['assinante']), manifest['thumbprint'],
+                      int(bool(trusted)), manifest['criado_em'], package_sha256,
+                      db.E(json.dumps(payload, ensure_ascii=False))))
+    audit(db, 'Consolidação', 'Importar pacote', cur.lastrowid,
+          f"{manifest['unidade']} — assinado por {manifest['assinante']}"
+          + ('' if trusted else ' (certificado FORA da lista de autorizados)'))
+    db.commit()
+    return cur.lastrowid
+
+
+def consolidated_list(db):
+    rows = db.execute('SELECT id,imported_at,dec(unit),dec(signer),thumb,trusted,created_at,dec(payload) '
+                      'FROM consolidated ORDER BY id').fetchall()
+    out = []
+    for cid, imported, unit, signer, thumb, trusted, created, payload in rows:
+        try:
+            data = json.loads(payload)
+        except (TypeError, json.JSONDecodeError):
+            data = {}
+        out.append({'id': cid, 'imported_at': imported, 'unit': unit, 'signer': signer, 'thumb': thumb,
+                    'trusted': bool(trusted), 'created_at': created, 'data': data})
+    return out
+
+
+def remove_consolidated(db, cid):
+    db.execute('DELETE FROM consolidated WHERE id=?', (int(cid),))
+    audit(db, 'Consolidação', 'Remover pacote', cid)
+    db.commit()
+
+
+def consolidated_view(db, own_unit='Este computador'):
+    """Linhas por unidade: maturidade média por função, riscos altos, incidentes abertos e
+    prazos ANPD vencidos; inclui os dados locais e uma linha de média."""
+    def row(unit, maturity, risks_, incidents_):
+        high = sum(1 for r in risks_ if r['likelihood'] * r['impact'] >= 6 and r['status'] in ('Aberto', 'Em tratamento'))
+        open_inc = [i for i in incidents_ if i['phase'] != 'Encerrado']
+        overdue = sum(1 for i in open_inc if anpd_status(i).startswith('VENCIDO'))
+        return {'unit': unit, 'maturity': {f: maturity[f][0] for f, _ in FUNCTIONS},
+                'high_risks': high, 'open_incidents': len(open_inc), 'anpd_overdue': overdue}
+    rows = [row(own_unit, maturity_by_function(db), risks(db), incidents(db))]
+    for c in consolidated_list(db):
+        d = c['data']
+        mat = {f: (d.get('maturidade', {}).get(f, [0])[0], 0, 0, 0) for f, _ in FUNCTIONS}
+        rows.append(row(c['unit'], mat, d.get('riscos', []), d.get('incidentes', [])))
+    avg = {f: round(sum(r['maturity'][f] for r in rows) / len(rows), 2) for f, _ in FUNCTIONS}
+    rows.append({'unit': 'MÉDIA', 'maturity': avg, 'high_risks': sum(r['high_risks'] for r in rows),
+                 'open_incidents': sum(r['open_incidents'] for r in rows),
+                 'anpd_overdue': sum(r['anpd_overdue'] for r in rows)})
+    return rows
 
 
 # ============================================================ OSINT e geral
@@ -872,7 +1177,8 @@ def alerts(db, today=None):
             out.append((f'INTEGRIDADE: {nome} adulterada a partir do registro {bad}', 'alto'))
     for c in compare_collections(db):
         if c['change'] == 'piorou':
-            out.append((f"Coleta técnica: {c['title']} piorou ({c['before']} → {c['after']})", 'alto'))
+            out.append((f"Coleta técnica ({c['host']}): {c['title']} piorou ({c['before']} → {c['after']})",
+                        'alto'))
     age = last_collection_age_days(db, today)
     if age is not None and age >= AUTO_COLLECT_DAYS:
         out.append((f'Coleta técnica desatualizada: a última tem {age} dia(s)', 'médio'))
@@ -900,6 +1206,7 @@ EXPORTS = {
     'incidents': ('id,title,severity,phase,personal_data,detected_on,anpd_deadline,anpd_notified_on,'
                   'subcategory,sei_process,notes,created_at', 'incidents'),
     'audit': ('id,at,actor,entity,action,ref,summary,prev_hash,hash', 'audit_log'),
+    'holidays': ('day,name,kind', 'holidays'),
     'evidence': ('id,file_name,sha256,size,path,description,custodian,incident_id,source,recorded_at', 'evidence'),
     'custody': ('id,evidence_id,at,action,actor,note,sha256,prev_hash,hash', 'custody_log'),
     'findings': ('collection_id,check_id,title,status,detail,subcategories', 'findings'),

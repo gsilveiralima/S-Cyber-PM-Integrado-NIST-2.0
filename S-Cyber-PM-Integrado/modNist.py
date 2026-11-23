@@ -3,7 +3,11 @@
 O painel é carregado sob demanda e ocupa o lugar da tela principal (`fundo`);
 o S-Cyber PM original, sua autenticação e seus módulos continuam independentes.
 """
+import logging
+import threading
 from tkinter import messagebox
+
+log = logging.getLogger(__name__)
 
 
 class PainelNist:
@@ -52,3 +56,38 @@ class PainelNist:
     def voltar_se_aberto(self):
         if self.aberto:
             self.voltar()
+
+    def ao_entrar(self):
+        """Depois do certificado e do login: cópia diária do banco NIST e avisos (prazo ANPD,
+        ações vencidas, validade do certificado) numa notificação do Windows. Em segundo
+        plano, sem atrasar a abertura; qualquer falha só fica no log."""
+        try:
+            from formNISTIntelligence import preparar_rotina_de_entrada
+            rotina = preparar_rotina_de_entrada()
+        except Exception:
+            log.warning("Rotina de entrada do NIST indisponível", exc_info=True)
+            return
+        if rotina is None:
+            return
+        resultado = []
+
+        def trabalho():
+            try:
+                resultado.append(rotina())
+            except Exception as erro:
+                log.warning("Falha na rotina de entrada do NIST", exc_info=True)
+                resultado.append(erro)
+
+        def conferir():
+            if not resultado:
+                self.root.after(500, conferir)
+                return
+            r = resultado[0]
+            if isinstance(r, Exception) or self.aberto:
+                return
+            _, avisos = r
+            if avisos:
+                self.status.mensagem(f"NIST: {len(avisos)} aviso(s) — {avisos[0][0]}"
+                                     + (" (veja o painel NIST)" if len(avisos) > 1 else ""))
+        threading.Thread(target=trabalho, daemon=True).start()
+        self.root.after(500, conferir)

@@ -53,7 +53,16 @@ laboratório (sem PKI), o comando de criação está no cabeçalho de `appSCyber
 ## Testes
 `tests/test_seguranca.py` (8 testes): política de senha, troca obrigatória (inclusive arquivo antigo e
 troca pelas Opções), lista de certificados, aceite por AC com cadeia e titular, assinatura do desafio
-e proteção contra injeção no script do PowerShell. Total do projeto: 53 testes.
+e proteção contra injeção no script do PowerShell. Total do projeto: 76 testes.
+
+## Consolidação, retenção e cópias (v1.2)
+- Os pacotes de consolidação são aceitos sem confirmação somente quando o certificado de quem
+  assinou está em `CERTIFICADOS_AUTORIZADOS`. Mantenha essa lista atualizada.
+- A senha do pacote é combinada **por outro canal**, nunca no mesmo e-mail do arquivo.
+- Defina por escrito o prazo de guarda dos incidentes (política de retenção da unidade) e use-o em
+  *Relatório → Retenção de dados*. Guarde o backup gerado antes da exclusão conforme essa política.
+- As cópias automáticas (`%APPDATA%\SCyberPM\nist\backups`) continuam cifradas com o certificado.
+  Para recuperar um desastre no computador, guarde também uma cópia fora dele.
 
 ## Validação no Windows
 Validado em 22/11/2026 (`VALIDACAO_WINDOWS_2026-11-22.md`): certificado da lista, troca obrigatória

@@ -66,6 +66,52 @@ if ($env:SCYBER_THUMB) { T certificado { $c=Get-Item "Cert:\CurrentUser\My\$env:
 $r | ConvertTo-Json -Depth 5 -Compress
 '''
 
+_STANDALONE_HEAD = r'''# ==============================================================================
+#  S-Cyber NIST Intelligence - coletor avulso (SOMENTE LEITURA)
+# ------------------------------------------------------------------------------
+#  Para computadores SEM o S-Cyber PM instalado. Faz as mesmas consultas da
+#  aba "Coleta tecnica", nao altera nada no Windows e grava um arquivo
+#  coleta_<COMPUTADOR>_<data>.json na mesma pasta deste script.
+#
+#  Como usar: clique duas vezes em coletar_nist_windows.bat (ou rode
+#    powershell -NoProfile -ExecutionPolicy Bypass -File coletor_nist.ps1)
+#  Como Administrador a coleta fica completa (BitLocker, SMB, Secure Boot).
+#  Leve o .json ao computador com o S-Cyber PM e use
+#    NIST > Coleta tecnica > Importar coleta de outro computador.
+#
+#  ARQUIVO GERADO PELO APLICATIVO (collector.standalone_script): nao edite.
+# ==============================================================================
+'''
+
+_STANDALONE_TAIL = r'''
+$saida = [ordered]@{ formato='scyber-nist-coleta'; versao=1; gerado=(Get-Date).ToString('s'); dados=$r }
+$pasta = if ($PSScriptRoot) { $PSScriptRoot } else { (Get-Location).Path }
+$arquivo = Join-Path $pasta ('coleta_{0}_{1}.json' -f $env:COMPUTERNAME, (Get-Date).ToString('yyyyMMdd_HHmm'))
+[IO.File]::WriteAllText($arquivo, ($saida | ConvertTo-Json -Depth 6 -Compress), [Text.UTF8Encoding]::new($false))
+Write-Host ''
+Write-Host "Coleta gravada em: $arquivo"
+Write-Host 'Leve este arquivo ao computador com o S-Cyber PM (Coleta tecnica > Importar).'
+'''
+
+
+STANDALONE_BAT = (
+    '@echo off\n'
+    'REM Coletor avulso do S-Cyber NIST Intelligence (somente leitura) para computadores\n'
+    'REM sem o S-Cyber PM. Gera coleta_<COMPUTADOR>_<data>.json nesta pasta.\n'
+    'REM Para coleta completa: clique com o botao direito > Executar como administrador.\n'
+    'cd /d "%~dp0"\n'
+    'powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0coletor_nist.ps1"\n'
+    'pause\n')
+
+
+def standalone_script():
+    """Script PowerShell avulso (coletor_nist.ps1): as mesmas consultas de _PS, gravando
+    {formato, versao, gerado, dados} num .json para core.import_collection."""
+    body = _PS.strip('\n').splitlines()
+    assert body[-1].startswith('$r | ConvertTo-Json')
+    return _STANDALONE_HEAD + '\n'.join(body[:-1]) + '\n' + _STANDALONE_TAIL
+
+
 RISKY_PORTS = {21: 'FTP', 23: 'Telnet', 135: 'RPC', 139: 'NetBIOS', 445: 'SMB', 3389: 'RDP', 5985: 'WinRM'}
 
 
