@@ -17,6 +17,8 @@
 param([switch]$Desinstalar, [switch]$SemTestes)
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
+$env:PYTHONUTF8 = '1'; $env:PYTHONIOENCODING = 'utf-8'
+try { [Console]::OutputEncoding = [Text.Encoding]::UTF8 } catch { }
 $saida = Join-Path ([Environment]::GetFolderPath('Desktop')) ('validacao_scyber_{0:yyyyMMdd_HHmm}' -f (Get-Date))
 New-Item -ItemType Directory -Force $saida | Out-Null
 $r = [ordered]@{}
@@ -30,6 +32,19 @@ function Etapa($nome, [scriptblock]$bloco) {
   $sw.Stop()
   [void]$etapas.Add([ordered]@{ etapa = $nome; ok = $ok; segundos = [math]::Round($sw.Elapsed.TotalSeconds, 1); detalhe = $msg })
   return $ok
+}
+
+# Roda um programa externo gravando stdout+stderr no log e devolve o codigo de
+# saida. No Windows PowerShell 5.1, com ErrorActionPreference=Stop, a primeira
+# linha que um programa escreve no stderr (unittest e PyInstaller escrevem o
+# progresso normal ali) vira excecao e interrompe a etapa. Aqui o stderr e
+# apenas texto; quem decide se falhou e o codigo de saida.
+function Rodar([string]$log, [string]$exe, [string[]]$argumentos, [switch]$Anexar) {
+  $ErrorActionPreference = 'Continue'
+  $texto = & $exe @argumentos 2>&1 | ForEach-Object { "$_" }
+  $codigo = $LASTEXITCODE
+  if ($Anexar) { $texto | Add-Content $log -Encoding UTF8 } else { $texto | Set-Content $log -Encoding UTF8 }
+  return $codigo
 }
 
 $py = Join-Path $PSScriptRoot '.venv-build\Scripts\python.exe'
@@ -49,10 +64,9 @@ Etapa 'Ambiente' {
 
 $depsOk = Etapa 'Ambiente Python isolado (.venv-build) com as versoes travadas' {
   if (-not (Test-Path $py)) { & py -3 -m venv .venv-build; if ($LASTEXITCODE) { throw 'venv falhou' } }
-  & $py -m pip install --disable-pip-version-check -q -r requirements-lock.txt *> (Join-Path $saida 'pip.txt')
-  if ($LASTEXITCODE) { throw 'pip install -r requirements-lock.txt falhou (veja pip.txt)' }
-  & $py -m pip install --disable-pip-version-check -q pyinstaller *>> (Join-Path $saida 'pip.txt')
-  if ($LASTEXITCODE) { throw 'pip install pyinstaller falhou' }
+  $log = Join-Path $saida 'pip.txt'
+  if (Rodar $log $py @('-m','pip','install','--disable-pip-version-check','-q','-r','requirements-lock.txt')) { throw 'pip install -r requirements-lock.txt falhou (veja pip.txt)' }
+  if (Rodar $log $py @('-m','pip','install','--disable-pip-version-check','-q','pyinstaller') -Anexar) { throw 'pip install pyinstaller falhou (veja pip.txt)' }
   & $py -m pip freeze | Set-Content (Join-Path $saida 'pip_freeze.txt')
   $r.python_build = (& $py --version) 2>&1
 }
@@ -60,16 +74,16 @@ $depsOk = Etapa 'Ambiente Python isolado (.venv-build) com as versoes travadas' 
 if ($depsOk -and -not $SemTestes) {
   Etapa 'Testes automaticos (inclui consulta real as fontes publicas)' {
     $env:SCYBER_FONTES_REAIS = '1'
-    & $py -m unittest discover -s tests -v *> (Join-Path $saida 'testes.txt')
-    $fim = Get-Content (Join-Path $saida 'testes.txt') -Tail 4
+    $codigo = Rodar (Join-Path $saida 'testes.txt') $py @('-m','unittest','discover','-s','tests','-v')
+    $fim = Get-Content (Join-Path $saida 'testes.txt') -Tail 6
     $r.testes = ($fim | Where-Object { $_ -match '^(Ran|OK|FAILED)' }) -join ' | '
-    if ($LASTEXITCODE) { throw "testes com falha: $($r.testes)" }
+    if ($codigo) { throw "testes com falha: $($r.testes) (veja testes.txt)" }
   } | Out-Null
 }
 
 $exeOk = $depsOk -and (Etapa 'Executavel (PyInstaller)' {
-  & $py gerarExe.py *> (Join-Path $saida 'build_exe.txt')
-  if ($LASTEXITCODE -or -not (Test-Path 'dist\SCyberPM.exe')) { throw 'gerarExe.py falhou (veja build_exe.txt)' }
+  $codigo = Rodar (Join-Path $saida 'build_exe.txt') $py @('gerarExe.py')
+  if ($codigo -or -not (Test-Path 'dist\SCyberPM.exe')) { throw "gerarExe.py falhou com codigo $codigo (veja build_exe.txt)" }
   $r.exe_mb = [math]::Round((Get-Item 'dist\SCyberPM.exe').Length / 1MB, 1)
 })
 
@@ -83,8 +97,7 @@ if ($exeOk) {
   } else {
     $setupOk = Etapa 'Instalador (Inno Setup)' {
       $versao = & $py -c "from formAbout import APP_VERSAO; print(APP_VERSAO)"
-      & $iscc "/DAppVersion=$versao" instalador\SCyberPM.iss *> (Join-Path $saida 'build_instalador.txt')
-      if ($LASTEXITCODE) { throw 'ISCC falhou (veja build_instalador.txt)' }
+      if (Rodar (Join-Path $saida 'build_instalador.txt') $iscc @("/DAppVersion=$versao", 'instalador\SCyberPM.iss')) { throw 'ISCC falhou (veja build_instalador.txt)' }
       $script:setup = (Get-Item "dist\SCyberPM-Setup-$versao.exe").FullName
       $r.instalador_mb = [math]::Round((Get-Item $script:setup).Length / 1MB, 1)
       $r.versao = $versao

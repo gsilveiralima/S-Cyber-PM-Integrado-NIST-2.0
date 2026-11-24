@@ -141,3 +141,7 @@ class ScriptValidacaoTests(unittest.TestCase):
         for trecho in ('requirements-lock.txt', 'gerarExe.py', 'ISCC.exe', '--diagnostico', 'RESULTADO.txt'):
             self.assertIn(trecho, texto)
         self.assertNotIn('git push', texto)
+        # Windows PowerShell 5.1 + ErrorActionPreference=Stop: redirecionar o stderr de um
+        # programa externo com *> transforma a 1a linha de progresso em erro (falso FALHOU).
+        self.assertNotIn('*>', texto)
+        self.assertIn('function Rodar', texto)
