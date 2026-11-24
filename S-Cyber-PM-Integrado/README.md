@@ -121,7 +121,10 @@ As opções e os dados de usuário são armazenados separadamente em `%APPDATA%\
 
 - `appSCyberPM.py` — inicialização, autenticação e janela principal.
 - `form*.py` — formulários e ferramentas da interface.
-- `mod*.py` — componentes sem interface: certificados, recursos compartilhados, impressão, áudio e outros. Entre eles:
+- `mod*.py` — componentes sem interface: certificados, recursos compartilhados, impressão e outros. Entre eles:
+  - `modPowerShell.py` — execução única do PowerShell (tempo limite, UTF-8, sem janela);
+  - `modCaminhos.py` — fonte única das pastas de dados, do NIST e da instalação;
+  - `modRecursos.py` — recursos compartilhados, inclusive `em_segundo_plano` (tarefas demoradas sem travar a tela) e `pedir_senha` (senha em janela protegida contra captura);
   - `modPDFDividir.py` — leitor e gravador de PDF em Python puro (dividir, extrair, remover, juntar, comprimir e conferir);
   - `modPDFProtegido.py` — assinatura digital e senha AES-256 dos PDFs gerados.
 - `gerarExe.py` — geração do executável com PyInstaller.

@@ -258,9 +258,27 @@ Esses binários não são assinados (S8) e não são reproduzíveis byte a byte,
 - `admin_licencas iniciar` só confere se os arquivos das listas existem, sem checar a validade. A corrigir na Fase 7.
 - Nas máquinas de outros usuários, a ativação depende de as listas estarem publicadas na `main` do repositório original. Isso exige push, que depende de autorização expressa.
 
-## 11. Próximo passo proposto
-1. Fazer o teste manual da interface (itens 1 a 4 do RESULTADO.txt) para fechar a Fase 2.
-2. Fase 3, refatoração estrutural (só local):
-   - unificar os executores de PowerShell (M4) e as pastas de dados (M5);
-   - tirar da interface as chamadas que a travam (M8);
-   - remover o código morto (M9) depois da aprovação.
+## 11. Fase 3: refatoração estrutural (executada localmente em 24/11/2026)
+
+Feita só na cópia local, sem nenhuma operação remota. A remoção do código morto e da música foi aprovada expressamente pelo usuário.
+
+| Item | O que mudou | Prova automatizada | Situação |
+|---|---|---|---|
+| M9 | Removidos o `formSplashScreen.py` (morto), a trilha `Surveillance Pulse.mp3` (4,7 MB) e o `modSom.py`, que só tocava essa música. A Corujinha continua igual, mas sem som. | `test_fase3.RemovidosTests` | Implementado e testado |
+| M4 | Novo `modPowerShell.py`, o único lugar que chama o PowerShell, com 10 módulos migrados. Garante: tempo limite sempre (a tela de usuários podia esperar para sempre); saída em UTF-8 (acentos corretos); sem o `PSModulePath` herdado do PowerShell 7; dados passados por variáveis de ambiente ou pela entrada padrão; erros em português. | `test_fase3.PowerShellTests` e `UmSoExecutorTests`, que varre o código e falha se aparecer chamada avulsa | Implementado e testado. No Windows, `test_windows_v12`, o coletor e a assinatura usam o adaptador de verdade |
+| M5 | Novo `modCaminhos.py`, fonte única das pastas de dados, do NIST e da instalação, com os mesmos caminhos de antes no Windows. Também ganhou `definir_organizacao()`, que isola os dados por organização (a licença e a identidade continuam na pasta da instalação); ninguém a usa ainda e a Fase 7 vai ligá-la à licença. | `test_fase3.CaminhosTests`, que varre o código e falha se alguém montar a pasta a partir do APPDATA | Implementado e testado |
+| M8 | Novo `modRecursos.em_segundo_plano`, executor único para tarefas demoradas. Passaram a rodar em segundo plano: adicionar e excluir certificado; listar e alterar usuários (com proteção contra clique duplo); Windows Hello nas Opções e no login, que agora abre na hora; Pwned Passwords na criação e na troca de senha. | `test_fase3.SegundoPlanoTests` (thread de trabalho × thread da tela, erro, janela fechada) e `SemTravarTests` | Implementado; não homologado na interface |
+| Teste manual | As senhas da recuperação e do arquivo PFX agora são pedidas por `pedir_senha`, uma janela protegida contra captura como a do login | `SemTravarTests` | Implementado; não homologado na interface |
+
+**Exceção registrada no M4:** os processos paralelos da Corujinha (Popen com encerramento próprio) continuam como estão. Serão revistos na Fase 4, junto com o S7 (processos ocultos e "protegidos contra captura", que dependem de aprovação).
+
+**Testes:** 132, todos OK, com 8 pulados (exigem Windows, tkinter ou a consulta real às fontes). O lint do CI (E9, F) ficou limpo, e a tela simulada repete os resultados das fases anteriores.
+
+**Pendente no Windows:** rodar o `validar_no_windows.ps1` com o pacote da Fase 3. Ele confirma o adaptador nos testes reais e no diagnóstico e mede o tamanho do instalador sem a música.
+
+## 12. Próximo passo proposto
+1. Validar a Fase 3 no Windows (script) e fazer o teste manual de certificados, usuários e Windows Hello.
+2. Fase 4, integração operacional:
+   - diagnóstico inteligente em um clique, com formato padronizado e estados;
+   - deduplicação, recomendações por regras e nova verificação com comparação;
+   - unificar o diagnóstico da Corujinha com o do coletor (M6) e decidir o S7.
