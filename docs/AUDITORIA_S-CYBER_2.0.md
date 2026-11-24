@@ -295,7 +295,13 @@ Feita só na cópia local, sem nenhuma operação remota. A remoção do código
 - A ativação continuou valendo depois da atualização (`LIC-9F1EE9A144F9`), porque a licença fica na pasta da instalação.
 - SHA-256 do instalador: `35b8ecd1…7f7221`.
 
-**Situação da Fase 3:** os itens M4, M5 e M9 estão implementados e testados no Windows real. No M8, o executor está testado, mas falta a homologação manual de três telas: certificados (adicionar e excluir), usuários e Windows Hello.
+**Teste manual da Fase 3 (24/11/2026, 15:14–15:20, gravação de tela):**
+- **Certificados:** a tela abre; exportar de ROOT e adicionar ou excluir em "Pessoas confiáveis" funcionam sem travar. Confirmação do usuário.
+- **Gerenciador de usuários:** abre e lista os 8 usuários com o gráfico, sem congelar a janela.
+- **Opções → Windows Hello:** a consulta termina e mostra "Não cadastrado.", com "Cadastrar e ativar" habilitado. A mensagem "Verificando…" dura menos de 1 s e quase não aparece. O cadastro do Hello em si não foi testado, porque não era necessário.
+- **Observação:** a janela de Opções aparece em gravações, ao contrário do login. Os campos de senha ficam mascarados, mas a proteção é inconsistente. A rever junto com as telas, na Fase 6.
+
+**Situação da Fase 3:** os itens M4, M5, M8 e M9 estão implementados e testados no Windows real e homologados pela interface.
 
 ## 12. Próximo passo proposto
 1. Validar a Fase 3 no Windows (script) e fazer o teste manual de certificados, usuários e Windows Hello.
