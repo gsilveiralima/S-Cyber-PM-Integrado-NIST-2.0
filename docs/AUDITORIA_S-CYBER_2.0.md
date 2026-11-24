@@ -434,6 +434,25 @@ O ativo recebe o rótulo `[SIMULADO]`, a origem da coleta fica "Nuvem (simulada)
 - **Achado corrigido (local):** com 0 contas de armazenamento, o texto da criptografia dizia "Só HTTPS e TLS 1.2", o que afirmava algo que não foi verificado. Agora diz "nada a verificar", e um teste impede a volta do texto antigo.
 - **Situação:** a parte de nuvem do §18 está implementada, testada e homologada com assinatura real.
 
+## 14. Regulamento do INOVA 2026 e mudança de prioridade (24/11/2026)
+
+O regulamento foi lido pelo navegador do usuário, já que a leitura automática falhou, na página `programadereconhecimento.dn.senac.br/regulamento`, item 6.1.
+
+- **Categoria:** INOVA, Soluções Inovadoras para o Mercado. É para Projetos Integradores de cursos QP ou HPTNM desenvolvidos entre 01/12/2025 e 30/11/2026.
+- **Equipe:** de 2 a 5 alunos mais 1 docente.
+- **Pitch:** até 3 minutos, no YouTube, apresentado só pelos alunos.
+- **Evidências:** obrigatórias.
+- **Critérios:** originalidade 0,30; organização 0,25; adequação ao comércio de bens, serviços e turismo 0,20; viabilidade 0,15; resultados 0,10.
+- **Desclassificação:** inclui descumprir a LGPD.
+- **Prazo da equipe junto ao Regional: 30/11/2026.**
+- **Decisões do usuário:**
+  - inscrever o projeto nesta edição, pelo professor;
+  - homologar só o Windows;
+  - autorizar as Fases 6, 7, 5b e 9 e a publicação no GitHub, que fica para o fim.
+- **Consequência:**
+  - o material do INOVA (proposta, roteiro do pitch, evidências) foi feito antes das demais fases, no documento "S-Cyber Business — Proposta INOVA 2026";
+  - o INOVA concorre com a modalidade **Business**, para PMEs do comércio, e não com a PM.
+
 ## 14. Próximo passo proposto
 1. Testar no Windows a demonstração de nuvem (Diagnóstico → "Verificar nuvem (Azure)…" → Não) e, quando houver, a assinatura real.
 2. Fase 5, parte 2 (só trabalho local):
