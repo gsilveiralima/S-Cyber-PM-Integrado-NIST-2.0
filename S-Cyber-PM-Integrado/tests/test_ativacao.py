@@ -361,3 +361,23 @@ class AberturaIntegradaTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PublicacaoDoRepositorioTests(unittest.TestCase):
+    """O que está em licencas/ precisa ter sido assinado por um administrador de verdade."""
+
+    def test_assinaturas_publicadas(self):
+        pasta = APP_DIR / "licencas"
+        pub = L.Publicacao(pasta_cache=Path(tempfile.gettempdir()) / "scyber_sem_cache", pasta_pacote=pasta,
+                           online=False)
+        for arq in pasta.glob("*.scsig"):
+            self.assertIsNotNone(pub.documento(arq.stem), f"{arq.name} sem assinatura de administrador válida")
+        reg = pasta / "registro.jsonl"
+        if reg.exists():
+            for linha in filter(None, reg.read_bytes().splitlines()):
+                L.abrir(linha, pub.administradores())
+
+    def test_ferramenta_admin_fora_do_executavel(self):
+        texto = (APP_DIR / "gerarExe.py").read_text(encoding="utf-8")
+        self.assertIn('"--exclude-module", "admin_licencas"', texto)
+        self.assertNotIn("admin_licencas", (APP_DIR / "appSCyberPM.py").read_text(encoding="utf-8"))

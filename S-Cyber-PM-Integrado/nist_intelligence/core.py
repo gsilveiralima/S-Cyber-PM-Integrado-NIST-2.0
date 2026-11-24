@@ -30,7 +30,7 @@ from .crypto import InvalidTag
 from .catalog import (CATEGORIES, FUNCTIONS, MATURITY, SUB_BY_CATEGORY,  # noqa: F401
                       SUBCATEGORIES, TIERS, category_of, function_of)
 
-VERSION = '1.2.0'
+VERSION = '1.3.0'
 
 # Mesma pasta de dados do S-Cyber PM (%APPDATA%\SCyberPM), numa subpasta própria.
 _APPDATA = Path(os.environ.get('APPDATA') or (Path.home() / '.config'))
