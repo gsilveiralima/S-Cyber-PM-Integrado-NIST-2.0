@@ -151,6 +151,23 @@ class LicencaTests(Base):
                (self.pub_dir / "registro.jsonl").read_bytes().splitlines()]
         self.assertGreaterEqual(len(ops), 5)
 
+    def test_modalidade_business_assinada_e_mantida(self):
+        """S-Cyber 2.0: a modalidade vem da licença ASSINADA; renovar e transferir a mantêm."""
+        adm = self.admin()
+        adm.iniciar()
+        lic, chave = adm.emitir(self.pedido(), "Empresa Fictícia", dias=30, modalidade="business")
+        self.assertEqual(lic["modalidade"], "business")
+        ativada = L.ativar(chave, self.inst_dir, self.pub())
+        self.assertEqual(L.nome_produto(ativada), "S-Cyber Business")
+        self.assertFalse(L.recurso_liberado(ativada, "sei"))               # integração da PM fica fora
+        self.assertTrue(L.recurso_liberado(ativada, "diagnostico"))
+        nova, _ = adm.renovar(chave, dias=60)
+        self.assertEqual(nova["modalidade"], "business")
+        self.assertEqual(L.modalidade({}), "pm")                          # licença antiga, sem o campo
+        self.assertTrue(L.recurso_liberado({}, "sei"))
+        with self.assertRaises(L.ErroLicenca):
+            adm.emitir(self.pedido(), "x", modalidade="gratis")
+
     def test_registro_adulterado_e_detectado(self):
         adm = self.admin()
         adm.iniciar()

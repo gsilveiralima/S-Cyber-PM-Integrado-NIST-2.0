@@ -101,21 +101,24 @@ class Admin:
         self._registrar("iniciar", detalhes=", ".join(feitos) or "listas já existiam")
         return feitos
 
-    def _licenca(self, instalacao, maquina, unidade, titular, dias, operacao, origem=""):
+    def _licenca(self, instalacao, maquina, unidade, titular, dias, operacao, origem="", modalidade="pm"):
         if not (instalacao and maquina):
             raise L.ErroLicenca("invalida", "Pedido sem instalação ou máquina.")
+        if modalidade not in L.MODALIDADES:
+            raise L.ErroLicenca("invalida", f"Modalidade inválida: use {', '.join(L.MODALIDADES)}.")
         lic = {"tipo": "licenca", "versao": 1, "licenca_id": "LIC-" + secrets.token_hex(6).upper(),
                "instalacao": instalacao, "maquina": maquina, "unidade": unidade, "titular": titular,
                "emitida_em": _agora(), "valida_ate": (self.hoje + timedelta(days=int(dias))).isoformat(),
-               "operacao": operacao, "substitui": origem, "emitida_por": self.nome}
+               "operacao": operacao, "substitui": origem, "emitida_por": self.nome, "modalidade": modalidade}
         chave = L.para_chave(L.empacotar(lic, self.assinador))
         self._registrar(operacao, lic["licenca_id"], instalacao,
-                        f"unidade {unidade}; até {lic['valida_ate']}" + (f"; substitui {origem}" if origem else ""))
+                        f"{L.MODALIDADES[modalidade]}; unidade {unidade}; até {lic['valida_ate']}"
+                        + (f"; substitui {origem}" if origem else ""))
         return lic, chave
 
-    def emitir(self, pedido, unidade, titular="", dias=365):
+    def emitir(self, pedido, unidade, titular="", dias=365, modalidade="pm"):
         p = L.ler_pedido(pedido)
-        return self._licenca(p["instalacao"], p["maquina"], unidade, titular, dias, "emitir")
+        return self._licenca(p["instalacao"], p["maquina"], unidade, titular, dias, "emitir", modalidade=modalidade)
 
     def _abrir_chave(self, chave):
         lic, _ = L.abrir(L.de_chave(chave), self.pub.administradores())
@@ -126,7 +129,7 @@ class Admin:
     def renovar(self, chave, dias=365):
         lic = self._abrir_chave(chave)
         nova = self._licenca(lic["instalacao"], lic["maquina"], lic.get("unidade", ""), lic.get("titular", ""),
-                             dias, "renovar", lic["licenca_id"])
+                             dias, "renovar", lic["licenca_id"], L.modalidade(lic))
         return nova
 
     def transferir(self, chave, pedido_novo, motivo="transferência"):
@@ -135,7 +138,7 @@ class Admin:
         self.revogar(lic["licenca_id"], f"{motivo} para {p['instalacao']}", lic["instalacao"])
         return self._licenca(p["instalacao"], p["maquina"], lic.get("unidade", ""), lic.get("titular", ""),
                              (datetime.fromisoformat(lic["valida_ate"]).date() - self.hoje).days or 1,
-                             "transferir", lic["licenca_id"])
+                             "transferir", lic["licenca_id"], L.modalidade(lic))
 
     def revogar(self, licenca_id, motivo, instalacao=""):
         doc = self._lista("revogacoes")
@@ -236,6 +239,8 @@ def main(argv=None):
     e.add_argument("--unidade", required=True)
     e.add_argument("--titular", default="")
     e.add_argument("--dias", type=int, default=365)
+    e.add_argument("--modalidade", choices=list(L.MODALIDADES), default="pm",
+                   help="business = S-Cyber Business (empresas, sem integrações da PM); pm = S-Cyber PM")
     e.add_argument("--saida")
     r = sub.add_parser("renovar")
     r.add_argument("--chave", required=True, help="arquivo .sclic ou o texto SCPM1....")
@@ -274,7 +279,7 @@ def main(argv=None):
         if args.cmd == "iniciar":
             print("Listas criadas:", adm.iniciar() or "nenhuma (já existiam)")
         elif args.cmd == "emitir":
-            lic, chave = adm.emitir(args.pedido, args.unidade, args.titular, args.dias)
+            lic, chave = adm.emitir(args.pedido, args.unidade, args.titular, args.dias, args.modalidade)
         elif args.cmd == "renovar":
             lic, chave = adm.renovar(_texto(args.chave), args.dias)
         elif args.cmd == "transferir":

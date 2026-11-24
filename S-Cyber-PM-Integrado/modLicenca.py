@@ -49,6 +49,23 @@ VALIDADE_LISTA_DIAS = 30          # prazo máximo até uma revogação valer sem
 FORMATO = "scyber-assinado"
 PREFIXO_CHAVE = "SCPM1."
 PAPEIS = ("usuario", "revisor")
+# S-Cyber 2.0: um produto, duas modalidades, definidas na licença ASSINADA (o usuário não troca).
+# Licenças antigas, sem o campo, continuam como "pm" (comportamento de antes).
+MODALIDADES = {"pm": "S-Cyber PM", "business": "S-Cyber Business"}
+EXCLUSIVO_PM = ("sei",)          # integrações institucionais que a modalidade Business não carrega
+
+
+def modalidade(licenca):
+    m = (licenca or {}).get("modalidade", "pm")
+    return m if m in MODALIDADES else "pm"
+
+
+def nome_produto(licenca):
+    return MODALIDADES[modalidade(licenca)]
+
+
+def recurso_liberado(licenca, recurso):
+    return not (recurso in EXCLUSIVO_PM and modalidade(licenca) != "pm")
 
 
 class ErroLicenca(Exception):

@@ -897,6 +897,12 @@ def main():
         _abrir_unica("dividir_pdf", lambda: FormDividirPdf(root))
 
     def abrir_sei(_evento=None):
+        import modLicenca
+        if not modLicenca.recurso_liberado(LICENCA_EM_USO, "sei"):
+            messagebox.showinfo("SEI", "A consulta ao SEI é uma integração institucional, exclusiva da "
+                                "modalidade S-Cyber PM. Esta instalação está licenciada como "
+                                f"{modLicenca.nome_produto(LICENCA_EM_USO)}.", parent=root)
+            return
         from formSei import FormSei
         _abrir_unica("sei", lambda: FormSei(root))
 
@@ -1177,6 +1183,14 @@ def main():
     fundo.bind("<Configure>", centralizar, add="+")
 
     def mostrar_principal():
+        # Modalidade da licença assinada: muda o nome do produto na janela (S-Cyber Business / PM)
+        try:
+            import modLicenca
+            produto = modLicenca.nome_produto(LICENCA_EM_USO)
+            root.title(produto)
+            fundo.itemconfigure(titulo, text=f"{produto} - aplicação principal")
+        except Exception:
+            pass
         root.deiconify()
         root.lift()
         root.focus_force()
