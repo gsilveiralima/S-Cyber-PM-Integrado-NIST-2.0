@@ -129,7 +129,7 @@ class DiagnosticoTests(Base):
 
         def cancelar():
             chamadas.append(1)
-            return len(chamadas) >= 3          # cancela depois da coleta, antes de gravar
+            return len(chamadas) >= 3          # cancela durante a coleta: o resultado é descartado
 
         with self.assertRaises(D.Cancelado):
             self.rodar(RAW_RUIM, cancelado=cancelar)
@@ -194,6 +194,26 @@ class CorujinhaTransparenteTests(unittest.TestCase):
         self.assertNotIn('self.protecao = proteger_contra_captura(self.win)', self.fonte)
         self.assertIn('capturas.pids[n] = processos[-1].pid', self.fonte)
         self.assertIn('PowerShell PID', self.fonte)
+
+
+class InterfaceTests(unittest.TestCase):
+    """O botão de um clique existe na Ribbon, no menu e no painel; a aba usa o mesmo motor.
+    (A interface é exercitada com Tk simulado no harness da tela; aqui, a ligação no código.)"""
+
+    def test_ligacoes(self):
+        main = (BASE / 'nist_intelligence' / 'main.py').read_text(encoding='utf-8')
+        self.assertIn('class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame)', main)
+        self.assertIn("self.t_diag = self.add_tab('Diagnóstico')", main)
+        self.assertIn('command=self.iniciar_diagnostico', main)          # botão na visão geral
+        ui = (BASE / 'nist_intelligence' / 'diagnostico_ui.py').read_text(encoding='utf-8')
+        self.assertIn('D.registrar(self.db, raw', ui)                      # banco só na thread da tela
+        self.assertIn('return collector.run(thumb)', ui)                   # coleta na thread de trabalho
+        self.assertIn('Confirma a verificação DESTE computador?', ui)   # escopo confirmado antes
+        self.assertIn('Diagnóstico cancelado: nada foi gravado.', ui)
+        app = (BASE / 'appSCyberPM.py').read_text(encoding='utf-8')
+        self.assertIn('grupo_nist.botao("Diagnóstico\\ninteligente", "nist", diagnostico_nist', app)
+        self.assertIn('command=diagnostico_nist', app)
+        self.assertIn('self.painel.iniciar_diagnostico()', (BASE / 'modNist.py').read_text(encoding='utf-8'))
 
 
 if __name__ == '__main__':

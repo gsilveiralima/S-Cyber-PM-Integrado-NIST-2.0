@@ -313,7 +313,7 @@ ESCOPO = ('Este computador, somente leitura: antivírus, firewall, UAC, Área de
           'BitLocker, Secure Boot, atualizações, administradores e contas locais, política de senha, bloqueio '
           'de tela, logs, SmartScreen, backup, portas em escuta e o certificado do S-Cyber PM. Nada é alterado '
           'e nada é enviado para a internet. Como administrador, mais itens podem ser verificados.')
-ETAPAS = ('Preparando o ativo', 'Coletando (somente leitura)', 'Avaliando', 'Registrando a evidência',
+ETAPAS = ('Preparando', 'Coletando no Windows (somente leitura)', 'Avaliando', 'Registrando a evidência',
           'Atualizando os achados', 'Montando as recomendações', 'Comparando com o diagnóstico anterior')
 
 
@@ -322,9 +322,10 @@ class Cancelado(Exception):
 
 
 def executar(db, thumb=None, evidence_folder=None, progresso=None, cancelado=None, coletar=None):
-    """Roda o diagnóstico completo. progresso(n, etapa) informa a etapa; cancelado() é consultado
-    entre as etapas (a consulta ao Windows em andamento termina sozinha e é DESCARTADA).
-    Devolve {'coleta_id','anterior_id','ativo','itens','comparacao','resumo','admin'}."""
+    """Roda o diagnóstico completo numa só thread (testes, linha de comando). A interface usa
+    coletar() numa thread e registrar() na thread da tela, porque o banco pertence a ela.
+    progresso(n, etapa) informa a etapa; cancelado() é consultado até a gravação começar
+    (a consulta ao Windows em andamento termina sozinha e é DESCARTADA)."""
     progresso = progresso or (lambda n, etapa: None)
     cancelado = cancelado or (lambda: False)
     coletar = coletar or collector.run
@@ -334,13 +335,22 @@ def executar(db, thumb=None, evidence_folder=None, progresso=None, cancelado=Non
             raise Cancelado('Diagnóstico cancelado: nada foi gravado.')
         progresso(n, ETAPAS[n])
 
-    passo(0)                     # nada é gravado antes da etapa 3: cancelar não deixa resto
+    passo(0)                     # nada é gravado antes da etapa 2: cancelar não deixa resto
     passo(1)
     raw = coletar(thumb)
-    passo(2)
+    if cancelado():
+        raise Cancelado('Diagnóstico cancelado: nada foi gravado.')
+    return registrar(db, raw, evidence_folder, progresso)
+
+
+def registrar(db, raw, evidence_folder=None, progresso=None):
+    """Da coleta bruta ao resultado: avalia, grava a evidência, atualiza os achados, monta as
+    recomendações e compara com o diagnóstico anterior do mesmo computador."""
+    progresso = progresso or (lambda n, etapa: None)
+    progresso(2, ETAPAS[2])
     resultados = collector.evaluate(raw)
     meta = collector.meta(raw)
-    passo(3)                     # último ponto de cancelamento; daqui em diante grava
+    progresso(3, ETAPAS[3])
     ativo = garantir_ativo(db, meta['host'] or 'este-computador')
     coleta_id = core.save_collection(db, meta, raw, resultados)
     progresso(4, ETAPAS[4])

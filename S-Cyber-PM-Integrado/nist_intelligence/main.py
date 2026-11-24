@@ -11,6 +11,7 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 from . import achados as ach
 from . import collector, core, package, report
 from .achados_ui import AchadosMixin
+from .diagnostico_ui import DiagnosticoMixin
 from .bridge import ReadOnlySEIBridge
 from .catalog import CATEGORIES, FUNCTIONS, MATURITY, SUB_BY_CATEGORY, TIERS, function_of
 
@@ -58,7 +59,7 @@ def _br(iso):
     return f'{iso[8:10]}/{iso[5:7]}/{iso[:4]}' if iso and len(iso) >= 10 else ''
 
 
-class NISTPanel(AchadosMixin, ttk.Frame):
+class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
     """Painel embutível no Tk raiz do S-Cyber PM."""
 
     def __init__(self, parent, original_root=None, embedded=False, on_back=None, db_path=core.DB, key=None,
@@ -101,6 +102,7 @@ class NISTPanel(AchadosMixin, ttk.Frame):
         self.tabs = nist_Notebook(self)
         self.tabs.pack(fill='both', expand=True, padx=12, pady=(0, 10))
         self.t_dash = self.add_tab('Painel')
+        self.t_diag = self.add_tab('Diagnóstico')
         self.t_achados = self.add_tab('Ativos e achados')
         self.t_assess = self.add_tab('Avaliação CSF 2.0')
         self.t_plan = self.add_tab('Plano de ação')
@@ -113,7 +115,7 @@ class NISTPanel(AchadosMixin, ttk.Frame):
         self.t_cons = self.add_tab('Consolidação')
         self.t_report = self.add_tab('Relatório')
         self.t_audit = self.add_tab('Auditoria')
-        for build in (self.make_dashboard, self.make_achados, self.make_assessment, self.make_plan, self.make_collect,
+        for build in (self.make_dashboard, self.make_diagnostico, self.make_achados, self.make_assessment, self.make_plan, self.make_collect,
                       self.make_risks, self.make_incidents, self.make_evidence, self.make_osint,
                       self.make_sei, self.make_consolidation, self.make_report, self.make_audit):
             build()
@@ -249,6 +251,8 @@ class NISTPanel(AchadosMixin, ttk.Frame):
         f = self.t_dash
         self.title_label(f, 'Situação da segurança cibernética — NIST CSF 2.0',
                          'Maturidade média por função (0–4). Subcategorias ainda não avaliadas contam como 0.')
+        nist_Button(f, text='▶  Diagnóstico Inteligente S-Cyber (um clique)',
+                    command=self.iniciar_diagnostico).pack(anchor='w', padx=14, pady=(0, 6))
         grid = nist_Frame(f)
         grid.pack(fill='x', padx=12)
         self.cards = {}
@@ -1705,7 +1709,8 @@ class NISTPanel(AchadosMixin, ttk.Frame):
     def refresh(self):
         for part in (self.refresh_assessment, self.refresh_plan, self.refresh_collect, self.refresh_risks,
                      self.refresh_incidents, self.refresh_evidence, self.refresh_osint, self.refresh_consolidation,
-                     self.refresh_audit, self.refresh_achados, self.refresh_pending, self.refresh_dashboard):
+                     self.refresh_audit, self.refresh_achados, self.refresh_pending, self.refresh_dashboard,
+                     self.refresh_diagnostico):
             part()
         self.refresh_header()
 

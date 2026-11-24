@@ -903,6 +903,7 @@ def main():
     # EXTENSÃO NIST (modNist.py): carregada sob demanda, na mesma janela Tk.
     nist = PainelNist(root, fundo, status, BASE_DIR)
     abrir_nist = nist.abrir
+    diagnostico_nist = nist.diagnostico
     voltar_inicio_nist = nist.voltar
 
     # Mesma ordem e mesmos grupos da aba Ferramentas da Ribbon, separados por linhas
@@ -948,6 +949,7 @@ def main():
     # Comando exclusivo da cópia integrada; não existe no repositório original.
     menu_nist = tk.Menu(menus, tearoff=False)
     menu_nist.add_command(label="Abrir painel NIST Intelligence", accelerator="Ctrl+Shift+N", command=abrir_nist)
+    menu_nist.add_command(label="Diagnóstico Inteligente (um clique)...", command=diagnostico_nist)
     menu_nist.add_separator()
     for _aba in ("Avaliação CSF 2.0", "Plano de ação", "Coleta técnica", "Riscos", "Incidentes",
                  "Evidências e custódia", "Consultas SEI", "Consolidação", "Relatório", "Auditoria"):
@@ -1035,9 +1037,12 @@ def main():
                                  "Fecha o S-Cyber PM")
 
     aba = ribbon.aba("NIST Intelligence")
-    aba.grupo("Governança cibernética").botao(
-        "Painel\nNIST CSF", "nist", abrir_nist,
-        "Acessar o S-Cyber NIST Intelligence integrado (Ctrl+Shift+N)")
+    grupo_nist = aba.grupo("Governança cibernética")
+    grupo_nist.botao("Diagnóstico\ninteligente", "nist", diagnostico_nist,
+                     "Diagnóstico Inteligente S-Cyber: verifica este computador (somente leitura), "
+                     "prioriza os problemas, recomenda a correção e compara com o anterior")
+    grupo_nist.botao("Painel\nNIST CSF", "nist", abrir_nist,
+                     "Acessar o S-Cyber NIST Intelligence integrado (Ctrl+Shift+N)")
     aba.grupo("Navegação").botao(
         "Tela\ninicial", "sair", voltar_inicio_nist,
         "Retornar à tela principal sem encerrar o S-Cyber PM")
