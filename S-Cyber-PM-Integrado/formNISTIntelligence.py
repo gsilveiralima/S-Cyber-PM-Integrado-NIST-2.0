@@ -47,12 +47,19 @@ def _certificados_autorizados():
     return app._lista_normalizada(app.CERTIFICADOS_AUTORIZADOS)
 
 
+def _papel_em_uso():
+    app = sys.modules.get('__main__')
+    if not hasattr(app, 'PAPEL_EM_USO'):
+        import appSCyberPM as app
+    return app.PAPEL_EM_USO.get('papel', 'usuario')
+
+
 def criar_painel(parent, _base_dir, ao_voltar):
     # _base_dir: mantido só para compatibilidade com a chamada do appSCyberPM.py.
     thumb = _certificado_em_uso()
     return NISTPanel(parent, embedded=True, on_back=ao_voltar, key=_chave_do_certificado(),
                      actor=_quem_esta_usando(), signer=signing.windows_signer(thumb) if thumb else None,
-                     trusted_thumbs=_certificados_autorizados(), cert_thumb=thumb)
+                     trusted_thumbs=_certificados_autorizados(), cert_thumb=thumb, role=_papel_em_uso())
 
 
 def preparar_rotina_de_entrada(db_path=core.DB):
