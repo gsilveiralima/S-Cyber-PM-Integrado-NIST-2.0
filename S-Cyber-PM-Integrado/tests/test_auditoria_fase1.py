@@ -145,3 +145,6 @@ class ScriptValidacaoTests(unittest.TestCase):
         # programa externo com *> transforma a 1a linha de progresso em erro (falso FALHOU).
         self.assertNotIn('*>', texto)
         self.assertIn('function Rodar', texto)
+        # Validação de 24/11: com o programa aberto o instalador sai com 5 e o diagnóstico media a versão antiga
+        self.assertIn('Get-Process -Name SCyberPM', texto)
+        self.assertIn('if ($instOk) {', texto)

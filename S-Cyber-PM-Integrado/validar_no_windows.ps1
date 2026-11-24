@@ -112,12 +112,16 @@ if ($exeOk) {
 
 $exeInst = Join-Path $env:LOCALAPPDATA 'Programs\S-Cyber PM\SCyberPM.exe'
 if ($setupOk) {
-  Etapa 'Instalacao silenciosa por usuario' {
+  $instOk = Etapa 'Instalacao silenciosa por usuario' {
+    # Com o programa aberto o instalador nao consegue trocar o .exe, desfaz tudo e sai com 5
+    $abertos = @(Get-Process -Name SCyberPM -ErrorAction SilentlyContinue)
+    if ($abertos.Count) { throw "o S-Cyber PM esta ABERTO (PID $($abertos.Id -join ', ')). Feche-o e rode o script de novo." }
     $p = Start-Process $script:setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER',"/LOG=$saida\instalacao.log" -Wait -PassThru
     if ($p.ExitCode) { throw "instalador saiu com $($p.ExitCode)" }
     if (-not (Test-Path $exeInst)) { throw "nao instalou em $exeInst" }
-  } | Out-Null
-  Etapa 'Programa instalado: diagnostico de abertura (3 vezes)' {
+  }
+  # Sem instalar a versao nova, medir o programa instalado seria medir a versao ANTIGA
+  if ($instOk) { Etapa 'Programa instalado: diagnostico de abertura (3 vezes)' {
     $tempos = @()
     foreach ($i in 1..3) {
       $arq = Join-Path $saida "diagnostico_$i.txt"
@@ -129,8 +133,8 @@ if ($setupOk) {
     $r.diagnostico_s = (($tempos | ForEach-Object { [math]::Round($_, 2) }) -join ' / ')
     $txt = Get-Content (Join-Path $saida 'diagnostico_1.txt') -Raw -Encoding UTF8
     $r.diagnostico_resumo = (($txt -split "`n") | Where-Object { $_ -match '^(Vers|Ativa|Certificados em|PR)' }) -join ' | '
-  } | Out-Null
-  if ($Desinstalar) {
+  } | Out-Null }
+  if ($instOk -and $Desinstalar) {
     Etapa 'Desinstalacao (dados do usuario devem ficar)' {
       $unins = Get-ChildItem (Split-Path $exeInst) -Filter 'unins*.exe' | Select-Object -First 1
       Start-Process $unins.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait

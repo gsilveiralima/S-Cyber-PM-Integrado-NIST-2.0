@@ -274,7 +274,12 @@ Feita só na cópia local, sem nenhuma operação remota. A remoção do código
 
 **Testes:** 132, todos OK, com 8 pulados (exigem Windows, tkinter ou a consulta real às fontes). O lint do CI (E9, F) ficou limpo, e a tela simulada repete os resultados das fases anteriores.
 
-**Pendente no Windows:** rodar o `validar_no_windows.ps1` com o pacote da Fase 3. Ele confirma o adaptador nos testes reais e no diagnóstico e mede o tamanho do instalador sem a música.
+**Validação no Windows (24/11/2026, 14:47–14:51), primeira rodada:**
+- **Testes:** 132 executados, todos OK, em 28,8 s. Incluem os testes do Windows (assinatura .NET, coletor) e a consulta real às fontes, já passando pelo `modPowerShell`.
+- **Tamanho:** o executável ficou com 53,6 MB (antes 58,2) e o instalador com 54,8 MB (antes 59,5). A redução de 4,7 MB vem da música.
+- **Instalação silenciosa: falhou com o código 5.** O log mostra que o S-Cyber PM estava aberto. O instalador pediu que ele fechasse (Restart Manager), esperou 35 s, não conseguiu e desfez a instalação. O diagnóstico seguinte rodou sobre a versão **antiga** ainda instalada, então os tempos dessa rodada não valem para a Fase 3.
+- **Correção no script (local):** a etapa agora recusa rodar com o programa aberto, dizendo o PID, e não mede o programa instalado se a instalação falhar.
+- **Achado para a Fase 8 (atualização):** o aplicativo não fecha quando o Windows pede. Para atualizar sem reinstalar, o programa precisa responder ao pedido de encerramento, ou o instalador precisa pedir ao usuário que feche o programa, com uma mensagem clara.
 
 ## 12. Próximo passo proposto
 1. Validar a Fase 3 no Windows (script) e fazer o teste manual de certificados, usuários e Windows Hello.
