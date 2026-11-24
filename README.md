@@ -54,7 +54,9 @@ py -3 -m venv .venv
 
 **Validação completa numa máquina Windows:** rode `powershell -ExecutionPolicy Bypass -File .\validar_no_windows.ps1`. Ele executa os testes, gera o executável e o instalador, instala, mede a abertura e grava o `RESULTADO.txt` na Área de Trabalho. Feche o S-Cyber PM antes.
 
-**Publicar uma versão:** o CI (GitHub Actions) testa e gera o instalador em todo push. Uma tag `v*`, por exemplo `git tag v2.0.0-beta.2 && git push origin v2.0.0-beta.2`, publica o instalador testado numa Release.
+**Publicar uma versão:** o CI (GitHub Actions) testa e gera o instalador em todo push. Há dois jeitos de publicar:
+- **Pelo site:** abra *Releases → Draft a new release*, digite uma tag nova (por exemplo `v2.0.0-beta.2`) sobre a `main`, marque *Set as a pre-release* e publique. O CI gera o instalador e o anexa à Release em cerca de 5 minutos.
+- **Pelo terminal:** rode `git tag v2.0.0-beta.2 && git push origin v2.0.0-beta.2`. O CI cria a Release sozinho.
 
 O passo a passo antigo, com problemas encontrados e soluções, está em [docs/INSTALACAO_WINDOWS.md](docs/INSTALACAO_WINDOWS.md).
 
