@@ -473,7 +473,9 @@ O regulamento foi lido pelo navegador do usuário, já que a leitura automática
 - **Como foi publicado:**
   - os commits da cópia local foram para o branch `s-cyber-2.0`;
   - o PR #11 passou pelo CI (testes e geração do instalador no `windows-latest`) antes do merge na `main`;
-  - a tag `v2.0.0-beta.1` dispara o job `release`, que publica como **pré-release** o mesmo instalador gerado e testado pelo CI, com o `SHA256SUMS.txt`.
+  - o envio da tag `v2.0.0-beta.1` a partir desta sessão foi **recusado com HTTP 403**, porque a política da sessão reserva a publicação de versões ao autor. A recusa não foi contornada;
+  - o PR #12 fez o workflow aceitar Releases criadas pelo site (`release: published`): o autor publica a Release e o CI anexa o mesmo instalador testado, com o `SHA256SUMS.txt`;
+  - **pendente, ação do autor:** criar a Release `v2.0.0-beta.1` (pré-lançamento) sobre a `main`.
 - **Listas assinadas publicadas** em `S-Cyber-PM-Integrado/licencas/` (administradores, credenciamentos, revogações e registro):
   - assinatura conferida antes de publicar e válidas até **24/12/2026**;
   - precisam ser reassinadas e republicadas antes dessa data, senão o aplicativo passa a usar só o cache.
