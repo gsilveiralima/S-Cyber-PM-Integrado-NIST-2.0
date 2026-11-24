@@ -16,6 +16,7 @@ from tkinter import messagebox, ttk
 from . import achados as A
 from . import collector, core
 from . import diagnostico as D
+from . import nuvem
 
 COLUNAS_BASICO = ('Prioridade', 'Situação', 'Verificação', 'Estado', 'Evolução')
 COLUNAS_AVANCADO = COLUNAS_BASICO + ('Detalhe técnico', 'NIST CSF 2.0')
@@ -40,6 +41,9 @@ class DiagnosticoMixin:
         self.diag_cancelar = ttk.Button(bar, text='Cancelar', style='NIST.TButton',
                                         command=self.cancelar_diagnostico, state='disabled')
         self.diag_cancelar.pack(side='left', padx=8)
+        self.diag_nuvem = ttk.Button(bar, text='☁  Verificar nuvem (Azure)…', style='NIST.TButton',
+                                     command=self.iniciar_nuvem)
+        self.diag_nuvem.pack(side='left')
         self.diag_avancado = tk.BooleanVar(value=False)
         ttk.Checkbutton(bar, text='Modo avançado (evidências e detalhes técnicos)', variable=self.diag_avancado,
                         style='NIST.TCheckbutton', command=self._diag_trocar_modo).pack(side='left', padx=12)
@@ -109,6 +113,36 @@ class DiagnosticoMixin:
 
         self._thread(coletar, lambda raw, erro: self._diag_coletado(raw, erro, cancelar))
 
+    def iniciar_nuvem(self):
+        """Nuvem (Azure), somente leitura: assinatura real pelo Azure CLI ou demonstração simulada."""
+        if self._diag_cancelar is not None:
+            return
+        escolha = messagebox.askyesnocancel(
+            'Verificar nuvem (Azure) — somente leitura',
+            'O S-Cyber verifica a assinatura do Azure SEM alterar nada: exposição pública do armazenamento, '
+            'criptografia, regras de rede abertas à internet, proprietários, backup e exportação de logs.\n\n'
+            'SIM: assinatura REAL, pela conta já conectada no Azure CLI ("az login"; basta o papel Leitor/Reader).\n'
+            'NÃO: DEMONSTRAÇÃO SIMULADA, com dados sintéticos de uma empresa fictícia (identificados como simulados).\n'
+            'CANCELAR: não verificar.', parent=self)
+        if escolha is None:
+            return
+        self.tabs.select(self.t_diag)
+        cancelar = threading.Event()
+        self._diag_cancelar = cancelar
+        for botao in (self.diag_botao, self.diag_nuvem):
+            botao.state(['disabled'])
+        self.diag_cancelar.state(['!disabled'])
+        self._diag_progresso(0, D.ETAPAS[0])
+
+        def coletar():
+            self._after_safe(lambda: self._diag_progresso(1, 'Consultando o Azure (somente leitura)'))
+            return nuvem.coletar_azure()
+
+        if escolha:
+            self._thread(coletar, lambda raw, erro: self._diag_coletado(raw, erro, cancelar, nuvem=True))
+        else:
+            self._diag_coletado(nuvem.ambiente_simulado(), None, cancelar, nuvem=True)
+
     def cancelar_diagnostico(self):
         if self._diag_cancelar is not None:
             self._diag_cancelar.set()
@@ -120,9 +154,10 @@ class DiagnosticoMixin:
         self.diag_etapa.set(f'Etapa {n + 1} de {len(D.ETAPAS)}: {etapa}…')
         self.update_idletasks()
 
-    def _diag_coletado(self, raw, erro, cancelar):
+    def _diag_coletado(self, raw, erro, cancelar, nuvem=False):
         self._diag_cancelar = None
         self.diag_botao.state(['!disabled'])
+        self.diag_nuvem.state(['!disabled'])
         self.diag_cancelar.state(['disabled'])
         if cancelar.is_set():
             self.diag_barra['value'] = 0
@@ -134,7 +169,7 @@ class DiagnosticoMixin:
             self._error('Diagnóstico Inteligente', erro)
             return
         try:
-            self._diag = D.registrar(self.db, raw, self._evid_dir(), self._diag_progresso)
+            self._diag = D.registrar(self.db, raw, self._evid_dir(), self._diag_progresso, nuvem=nuvem)
         except Exception as exc:  # noqa: BLE001 — mostra o motivo, nada some calado
             self.diag_etapa.set(f'Falha ao registrar o diagnóstico: {exc}')
             self._error('Diagnóstico Inteligente', exc)
@@ -179,7 +214,12 @@ class DiagnosticoMixin:
                       + (f", {t['Sem comparação']} sem comparação (indisponível em um dos dois)"
                          if t.get('Sem comparação') else '')
                       + (f", {t['Nova']} nova(s)" if t.get('Nova') else '') + '.')
-        if not r.get('admin'):
+        if r.get('simulado'):
+            texto = ('DEMONSTRAÇÃO SIMULADA — dados sintéticos de uma empresa fictícia, não de um ambiente real.\n'
+                     + texto)
+        elif r.get('nuvem'):
+            texto += '\nNuvem Azure consultada somente com leitura (nada foi alterado na assinatura).'
+        elif not r.get('admin'):
             texto += ('\nExecutado sem privilégio de Administrador: alguns itens ficam indisponíveis '
                       '(e não contam como aprovados).')
         self.diag_resumo.set(texto)
@@ -215,6 +255,8 @@ class DiagnosticoMixin:
              ('Prioridade: ', 'rotulo'), ((item['prioridade'] or 'sem prioridade (nada a corrigir agora)') + '\n', None),
              ('Estado: ', 'rotulo'), (item['estado'] + '\n', None)]
         if item['situacao'] in ('Falha', 'Atenção', 'Indisponível'):
+            if self._diag.get('simulado'):
+                p.insert(1, ('[DEMONSTRAÇÃO SIMULADA — dados sintéticos]\n', 'rotulo'))
             p += [('Consequências: ', 'rotulo'), (rec['risco'] + '\n', None),
                   ('Solução recomendada: ', 'rotulo'), (rec['corrigir'] + '\n', None),
                   ('Próxima ação: ', 'rotulo'),

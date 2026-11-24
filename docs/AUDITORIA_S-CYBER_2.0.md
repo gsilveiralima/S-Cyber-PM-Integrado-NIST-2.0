@@ -382,11 +382,51 @@ Feita só na cópia local, sem nenhuma operação remota. A mudança na Corujinh
   - **Ajuste local na tela:** o resumo da comparação agora também mostra "sem comparação" quando a execução anterior teve itens indisponíveis, por exemplo do usuário comum para o administrador. Esses itens não contam como melhora, e um teste confere isso.
 - **Situação da Fase 4:** implementada, testada e homologada no Windows real, como usuário comum e como administrador.
 
-## 13. Próximo passo proposto
-1. Validar a Fase 4 no Windows (script e teste manual do diagnóstico e da Corujinha).
-2. Fase 5, inteligência e nuvem. Estas partes dependem só de trabalho local:
-   - OSV.dev e Google DNS no `fontes.py`, com cache e limite de consultas;
-   - monitoramento durante o uso;
-   - retentativa nas fontes.
+## 13. Fase 5 (parte 1): segurança em nuvem, Microsoft Azure (executada localmente em 24/11/2026)
 
-   Para as verificações de nuvem, falta a escolha do provedor e de uma conta autorizada, somente leitura.
+**Provedor escolhido pelo usuário:** Microsoft Azure. A implementação está em `nist_intelligence/nuvem.py` e entra no **mesmo** fluxo do Diagnóstico Inteligente: ativo "Nuvem (assinatura)" → coleta → evidência com SHA-256 → achados → prioridade → NIST → recomendação → nova verificação → auditoria.
+
+| Verificação (§18) | O que é consultado (GET no Azure Resource Manager) | NIST CSF 2.0 |
+|---|---|---|
+| Exposição pública do armazenamento | `allowBlobPublicAccess`, `publicNetworkAccess` e `networkAcls.defaultAction` das contas de armazenamento | PR.DS-01, PR.AA-05, PR.IR-01 |
+| Criptografia | `supportsHttpsTrafficOnly`, `minimumTlsVersion` e `encryption.keySource` | PR.DS-01, PR.DS-02 |
+| Configuração de rede | Regras de entrada dos NSGs liberadas para `*`/`Internet`/`0.0.0.0/0` em SSH, RDP, SMB, bancos de dados, WinRM, Telnet e FTP, inclusive em faixas de portas | PR.IR-01, DE.CM-01 |
+| Permissões de acesso | Atribuições do papel Owner na assinatura (mais de 3 = Atenção) | PR.AA-05, GV.RR-02 |
+| Backup | Cofres do Azure Backup frente às máquinas virtuais | PR.DS-11, RC.RP-03 |
+| Registro de eventos | Configurações de diagnóstico que exportam o Log de Atividades | PR.PS-04, DE.CM-03 |
+
+**Acesso e segurança:**
+- **Autenticação:** pelo Azure CLI já conectado pelo próprio usuário (`az login`). O S-Cyber usa só `az account show` e `az account get-access-token`.
+- **Token:** fica só na memória e nunca vai para a evidência nem para o banco. Um teste confere isso.
+- **Permissão:** basta o papel **Leitor (Reader)**. Todas as chamadas são GET, e um teste confere que não há chamadas de escrita.
+- **Credenciais:** nenhuma é guardada.
+- **Falhas:** um 403 ou outro erro deixa a verificação **Indisponível**, nunca aprovada.
+
+**Demonstração (exigida pelo tema gerador do PI):** o `AMBIENTE_SIMULADO` traz dados **sintéticos** de uma "Empresa Fictícia Ltda", no formato da API, e não usa dados da PMGO. Os achados da demonstração são:
+- blob público;
+- TLS 1.0;
+- RDP aberto à internet;
+- 4 proprietários;
+- VM sem backup;
+- log não exportado.
+
+O ativo recebe o rótulo `[SIMULADO]`, a origem da coleta fica "Nuvem (simulada)" e a tela mostra "DEMONSTRAÇÃO SIMULADA — dados sintéticos" no resumo e em cada item.
+
+**Recomendações:** uma por verificação, com o caminho no Portal do Azure e o comando `az` de correção, executado pelo usuário e não pelo S-Cyber, mais a referência no Microsoft Learn.
+
+**Testes:**
+- `test_fase5_nuvem.py`, 9 testes: a avaliação, as faixas de porta, a falha que nunca aprova, a paginação (`nextLink`), o token fora da evidência, o CLI só de leitura e o fluxo com a melhoria comprovada após a correção.
+- A tela simulada executa a demonstração (6 de 6 verificações: Falha 3, Atenção 3).
+- Total: 154 testes OK.
+
+**Limitações e pendências:**
+- **Versões da API:** as versões do Azure Resource Manager (`API` em `nuvem.py`) não puderam ser conferidas daqui, porque este ambiente não tem acesso ao Azure. Uma versão recusada aparece como Indisponível, com o motivo. **Validar com uma assinatura real**, que depende de conta autorizada, somente leitura.
+- **Azure CLI:** precisa estar instalado no computador para verificar a assinatura real. A demonstração funciona sem ele e sem internet.
+
+## 14. Próximo passo proposto
+1. Testar no Windows a demonstração de nuvem (Diagnóstico → "Verificar nuvem (Azure)…" → Não) e, quando houver, a assinatura real.
+2. Fase 5, parte 2 (só trabalho local):
+   - OSV.dev (dependências) e Google DNS no `fontes.py`;
+   - cache e limite de consultas;
+   - retentativa para falhas passageiras (5xx e rede);
+   - monitoramento durante o uso.

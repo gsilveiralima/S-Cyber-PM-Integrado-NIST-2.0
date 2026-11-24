@@ -28,7 +28,7 @@ from pathlib import Path
 from . import core
 
 ASSET_KINDS = ('Computador', 'Servidor', 'Domínio/Serviço web', 'Repositório', 'Sistema/Aplicação',
-               'Equipamento de rede', 'Outro')
+               'Equipamento de rede', 'Nuvem (assinatura)', 'Outro')
 CRITICALITY = ('Baixa', 'Média', 'Alta', 'Crítica')
 PRIORITIES = ('Crítica', 'Alta', 'Média', 'Baixa')
 STATES = ('Novo', 'Descartado', 'Confirmado', 'Correção registrada', 'Encerrado')
@@ -320,7 +320,8 @@ def from_collection(db, collection_id, evidence_folder=None):
     if not head:
         return []
     host, run_at, digest = head
-    alvo = asset_by_identifier(db, 'Computador', host) or asset_by_identifier(db, 'Servidor', host)
+    alvo = (asset_by_identifier(db, 'Computador', host) or asset_by_identifier(db, 'Servidor', host)
+            or asset_by_identifier(db, 'Nuvem', host))
     if not alvo:
         return []
     out = []

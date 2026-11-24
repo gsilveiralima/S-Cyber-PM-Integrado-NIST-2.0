@@ -54,10 +54,11 @@ def estado_exibicao(situacao, estado_achado=None):
 GRAVIDADE = {'Falha': 3, 'Atenção': 2}
 PESO_CRITICIDADE = {'Baixa': 0, 'Média': 1, 'Alta': 2, 'Crítica': 3}
 # Verificações cuja falha deixa o computador alcançável pela rede (exposição)
-EXPOSTOS = frozenset({'firewall', 'rdp', 'smb1', 'ports'})
+EXPOSTOS = frozenset({'firewall', 'rdp', 'smb1', 'ports', 'az_storage_public', 'az_nsg'})
 METODOLOGIA_PRIORIDADE = (
     'Pontuação = gravidade observada (Falha 3, Atenção 2) + criticidade do ativo (Baixa 0, Média 1, '
-    'Alta 2, Crítica 3) + exposição à rede (1 para firewall, RDP, SMBv1 e portas). '
+    'Alta 2, Crítica 3) + exposição à rede (1 para firewall, RDP, SMBv1, portas e, na nuvem, armazenamento '
+    'público e regras de rede abertas). '
     'Prioridade: 6 ou mais = Crítica; 5 = Alta; 3 ou 4 = Média; até 2 = Baixa. '
     'É uma sugestão para ordenar o trabalho: quem confirma o achado define a prioridade final, '
     'com justificativa. Não é uma nota de segurança do computador.')
@@ -219,6 +220,53 @@ RECOMENDACOES = {
         'Usuário e administrador do S-Cyber PM', 'Novo diagnóstico: "Certificado do S-Cyber PM" em OK.',
         'NIST CSF 2.0 PR.AA-01 e PR.AA-03'),
 }
+_AZ_LEITOR = 'Proprietário ou Colaborador da assinatura no Azure (o S-Cyber só lê, com o papel Leitor)'
+RECOMENDACOES.update({
+    'az_storage_public': _rec(
+        'Blobs com acesso anônimo podem ser baixados por qualquer pessoa que descubra o endereço; contas de '
+        'armazenamento abertas a todas as redes ficam expostas a força bruta e a vazamento de chaves.',
+        'Portal do Azure > Conta de armazenamento > Configuração: "Permitir acesso anônimo a Blob" = Desabilitado. '
+        'Em Rede: "Habilitado de redes virtuais e endereços IP selecionados" (ou ponto de extremidade privado). '
+        'CLI: az storage account update -n <conta> -g <grupo> --allow-blob-public-access false --default-action Deny',
+        _AZ_LEITOR, 'Nova verificação de nuvem: "Azure: exposição pública do armazenamento" em OK.',
+        'Microsoft Learn: Impedir o acesso de leitura anônimo a contêineres e blobs; Configurar firewalls e redes '
+        'virtuais do Armazenamento do Azure'),
+    'az_storage_crypto': _rec(
+        'Sem exigir HTTPS, ou aceitando TLS 1.0/1.1, os dados podem trafegar sem criptografia ou com protocolos '
+        'com falhas conhecidas.',
+        'Conta de armazenamento > Configuração: "Transferência segura necessária" = Habilitado e "Versão mínima do '
+        'TLS" = 1.2. CLI: az storage account update -n <conta> -g <grupo> --https-only true --min-tls-version TLS1_2. '
+        'A criptografia em repouso já é sempre ativa; chave do cliente (Key Vault) é opcional, conforme a política.',
+        _AZ_LEITOR, 'Nova verificação de nuvem: "Azure: criptografia do armazenamento" em OK.',
+        'Microsoft Learn: Exigir transferência segura; Impor uma versão mínima obrigatória do TLS'),
+    'az_nsg': _rec(
+        'SSH, RDP, SMB ou bancos de dados liberados para qualquer origem da internet são varridos e atacados em '
+        'minutos por força bruta e por exploração de falhas conhecidas.',
+        'Remova a regra de entrada ou restrinja a origem aos endereços da organização. Para administração remota, '
+        'use Azure Bastion ou acesso Just-in-Time do Microsoft Defender para Nuvem, nunca a porta aberta.',
+        _AZ_LEITOR, 'Nova verificação de nuvem: "Azure: regras de rede expostas à internet" em OK.',
+        'Microsoft Learn: Grupos de segurança de rede; Azure Bastion; acesso just-in-time às VMs'),
+    'az_owners': _rec(
+        'Cada Proprietário (Owner) a mais é uma conta cujo comprometimento dá controle total da assinatura, '
+        'inclusive para apagar backups.',
+        'Mantenha no máximo 3 proprietários; use papéis menores (Colaborador, Leitor) e, se houver, o Privileged '
+        'Identity Management (acesso de proprietário só quando necessário). Exija MFA de todos.',
+        'Proprietário da assinatura', 'Nova verificação de nuvem: "Azure: proprietários da assinatura" em OK.',
+        'Microsoft Learn: Práticas recomendadas do Azure RBAC; NIST CSF 2.0 PR.AA-05'),
+    'az_backup': _rec(
+        'Sem backup, uma exclusão acidental ou um ransomware na nuvem causa perda definitiva dos dados.',
+        'Crie um Cofre dos Serviços de Recuperação e habilite o Azure Backup nas máquinas virtuais e nos dados '
+        'críticos; TESTE uma restauração e registre a evidência.',
+        _AZ_LEITOR, 'Nova verificação de nuvem: "Azure: backup" em OK, mais uma restauração de teste registrada.',
+        'Microsoft Learn: O que é o serviço Backup do Azure?; NIST CSF 2.0 PR.DS-11'),
+    'az_logging': _rec(
+        'Sem exportar o Log de Atividades, quem fez o quê na assinatura só fica disponível por 90 dias: um incidente '
+        'descoberto depois não pode ser investigado.',
+        'Monitor > Log de atividades > Exportar Logs de Atividades > Adicionar configuração de diagnóstico, enviando '
+        'para um workspace do Log Analytics ou uma conta de armazenamento com retenção definida pela política.',
+        _AZ_LEITOR, 'Nova verificação de nuvem: "Azure: exportação do Log de Atividades" em OK.',
+        'Microsoft Learn: Log de atividades do Azure Monitor (configurações de diagnóstico)'),
+})
 SEM_REGRA = _rec('Verificação sem regra de recomendação cadastrada.', 'Consulte o detalhe técnico e o suporte.',
                  'A definir', 'Novo diagnóstico.', '—')
 
@@ -228,12 +276,14 @@ def recomendacao(check_id):
 
 
 # ------------------------------------------------------------------ ativo, itens e comparação
-def garantir_ativo(db, host):
-    """Ativo 'Computador' deste host (cria na 1ª vez, criticidade Média). Devolve o dict do ativo."""
-    alvo = ach.asset_by_identifier(db, 'Computador', host) or ach.asset_by_identifier(db, 'Servidor', host)
-    if alvo:
-        return alvo
-    novo = ach.save_asset(db, f'Este computador ({host})', 'Computador', host, '', 'Média',
+def garantir_ativo(db, host, tipo='Computador', nome=None):
+    """Ativo deste host/assinatura (cria na 1ª vez, criticidade Média). Devolve o dict do ativo."""
+    prefixos = ('Nuvem',) if tipo.startswith('Nuvem') else ('Computador', 'Servidor')
+    for prefixo in prefixos:
+        alvo = ach.asset_by_identifier(db, prefixo, host)
+        if alvo:
+            return alvo
+    novo = ach.save_asset(db, nome or f'Este computador ({host})', tipo, host, '', 'Média',
                           notes='Cadastrado pelo Diagnóstico Inteligente. Ajuste a criticidade e o responsável.')
     return ach.asset(db, novo)
 
@@ -343,16 +393,24 @@ def executar(db, thumb=None, evidence_folder=None, progresso=None, cancelado=Non
     return registrar(db, raw, evidence_folder, progresso)
 
 
-def registrar(db, raw, evidence_folder=None, progresso=None):
+def registrar(db, raw, evidence_folder=None, progresso=None, nuvem=False):
     """Da coleta bruta ao resultado: avalia, grava a evidência, atualiza os achados, monta as
-    recomendações e compara com o diagnóstico anterior do mesmo computador."""
+    recomendações e compara com o diagnóstico anterior do mesmo computador (ou assinatura,
+    com nuvem=True: dados de nist_intelligence.nuvem, mesmo fluxo)."""
+    from . import nuvem as nv
     progresso = progresso or (lambda n, etapa: None)
     progresso(2, ETAPAS[2])
-    resultados = collector.evaluate(raw)
-    meta = collector.meta(raw)
+    resultados = nv.evaluate(raw) if nuvem else collector.evaluate(raw)
+    meta = nv.meta(raw) if nuvem else collector.meta(raw)
     progresso(3, ETAPAS[3])
-    ativo = garantir_ativo(db, meta['host'] or 'este-computador')
-    coleta_id = core.save_collection(db, meta, raw, resultados)
+    if nuvem:
+        origem = 'Nuvem (simulada)' if meta['simulado'] else 'Nuvem Azure'
+        ativo = garantir_ativo(db, meta['host'], 'Nuvem (assinatura)',
+                               f"Azure: {meta['nome'] or meta['host']}" + (' [SIMULADO]' if meta['simulado'] else ''))
+    else:
+        origem = 'Local'
+        ativo = garantir_ativo(db, meta['host'] or 'este-computador')
+    coleta_id = core.save_collection(db, meta, raw, resultados, source=origem)
     progresso(4, ETAPAS[4])
     ach.from_collection(db, coleta_id, evidence_folder)
     progresso(5, ETAPAS[5])
@@ -368,7 +426,8 @@ def registrar(db, raw, evidence_folder=None, progresso=None):
                + (f'; comparado com a coleta #{anterior}' if anterior else ''))
     db.commit()
     return {'coleta_id': coleta_id, 'anterior_id': anterior, 'ativo': ativo, 'itens': lista,
-            'comparacao': comparacao, 'resumo': res, 'admin': meta['admin']}
+            'comparacao': comparacao, 'resumo': res, 'admin': meta['admin'], 'nuvem': nuvem,
+            'simulado': bool(meta.get('simulado'))}
 
 
 def ultimo(db):

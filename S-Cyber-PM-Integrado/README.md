@@ -10,6 +10,9 @@ Aplicativo desktop para fins didáticos e de pesquisa sobre certificados digitai
 ## Funcionalidades
 
 - **Diagnóstico Inteligente S-Cyber (um clique):** verifica este computador somente com leitura e transforma cada problema em achado ligado ao NIST CSF 2.0. Cada achado vem com prioridade (regra documentada), recomendação de correção e forma de confirmar. Na nova verificação, o diagnóstico compara com o anterior. Fica na Ribbon, em NIST Intelligence → Diagnóstico inteligente.
+- **Segurança em nuvem (Microsoft Azure, somente leitura):** verifica a exposição pública do armazenamento, a criptografia, as regras de rede abertas à internet, os proprietários da assinatura, o backup e a exportação do Log de Atividades. Os resultados entram no mesmo fluxo do diagnóstico.
+  - Para verificar uma assinatura real, use o Azure CLI já conectado (`az login`, com o papel Leitor). O token fica só na memória.
+  - Para uma demonstração, há um ambiente simulado com dados sintéticos, sempre identificado como simulado.
 - Corujinha (inventário detalhado): só roda com o consentimento do usuário. Câmera, captura de tela e internet vêm desligadas por padrão.
 - Autenticação por certificado digital com desafio e resposta usando a chave privada do Windows.
 - Login local com senha e suporte opcional a Windows Hello, como PIN ou biometria.
