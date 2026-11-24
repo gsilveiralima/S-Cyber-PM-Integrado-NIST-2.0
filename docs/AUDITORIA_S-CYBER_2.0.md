@@ -303,9 +303,67 @@ Feita só na cópia local, sem nenhuma operação remota. A remoção do código
 
 **Situação da Fase 3:** os itens M4, M5, M8 e M9 estão implementados e testados no Windows real e homologados pela interface.
 
-## 12. Próximo passo proposto
-1. Validar a Fase 3 no Windows (script) e fazer o teste manual de certificados, usuários e Windows Hello.
-2. Fase 4, integração operacional:
-   - diagnóstico inteligente em um clique, com formato padronizado e estados;
-   - deduplicação, recomendações por regras e nova verificação com comparação;
-   - unificar o diagnóstico da Corujinha com o do coletor (M6) e decidir o S7.
+## 12. Fase 4: integração operacional (executada localmente em 24/11/2026)
+
+Feita só na cópia local, sem nenhuma operação remota. A mudança na Corujinha (S7) foi aprovada expressamente pelo usuário.
+
+**Diagnóstico Inteligente S-Cyber (um clique).** O motor fica em `nist_intelligence/diagnostico.py` e a aba "Diagnóstico" em `diagnostico_ui.py`. O fluxo pedido no §11 já existia em partes e foi ligado de ponta a ponta, sem criar um segundo mecanismo:
+
+| Passo do §11 | Onde está |
+|---|---|
+| Ativo | `garantir_ativo`: o computador vira um ativo "Computador" na primeira execução, com criticidade Média, ajustável |
+| Coleta | `collector.run`: 17 verificações somente de leitura, já existentes |
+| Evidência | `core.save_collection`: os dados brutos são gravados com SHA-256, e cada achado ganha um instantâneo na cadeia de custódia |
+| Achado | `achados.from_collection`: deduplicado por ativo + fonte + verificação; a decisão humana nunca é sobrescrita |
+| Risco / prioridade | `diagnostico.prioridade`: regra documentada em `METODOLOGIA_PRIORIDADE` (gravidade + criticidade do ativo + exposição à rede). É uma sugestão; quem confirma o achado define a prioridade final |
+| NIST | Subcategorias do CSF 2.0 de cada verificação, todas validadas contra o catálogo |
+| Recomendação | `RECOMENDACOES`: uma regra por verificação, com o risco, como corrigir (caminho no Windows ou comando), a permissão necessária, como confirmar e a referência técnica. As referências são citadas por título (Microsoft Learn, CIS, NIST, CISA), sem links não conferidos |
+| Correção autorizada | O S-Cyber orienta, mas não altera o computador. A correção é registrada no fluxo de achados, com evidência e revisão |
+| Nova verificação | `comparar`: Melhorou / Piorou / Igual / Nova / Sem comparação. Indisponível em uma das duas execuções não conta como melhora |
+| Auditoria | `core.audit('Diagnóstico', 'Executar', …)`: cobertura e contagens na trilha encadeada |
+
+**Estados do S-Cyber 2.0:**
+- Resultado observado sem falha.
+- Suspeita (avaliação pendente), quando o achado está Novo.
+- Falso positivo, quando foi descartado com justificativa.
+- Achado confirmado.
+- Correção registrada.
+- Risco tratado, quando o achado foi encerrado.
+- Verificação indisponível. Nunca conta como aprovada, não vira achado e fica fora da cobertura ("15 de 16 verificações feitas").
+
+**Interface:**
+- Onde está o botão: na Ribbon (NIST Intelligence → "Diagnóstico inteligente"), no menu NIST, no Painel e na aba "Diagnóstico".
+- Antes de começar: o escopo precisa ser confirmado.
+- Durante a coleta: ela roda numa thread de trabalho, com barra de progresso de 7 etapas e botão de cancelar. Cancelar durante a coleta descarta tudo e não grava nada.
+- Banco de dados: só é usado na thread da tela, porque o SQLite pertence a ela.
+- Modo básico: mostra o problema, a prioridade, as consequências, a solução, a próxima ação e o resultado da correção.
+- Modo avançado: acrescenta a evidência (com o SHA-256), o identificador, as subcategorias NIST com os nomes, o cálculo da prioridade, a metodologia, a referência e o histórico do achado.
+- Os dois modos usam os mesmos dados, e o avançado não concede nenhuma permissão a mais.
+
+**Corujinha transparente (S7):**
+- **Consentimento:** antes de começar, a Corujinha diz o que vai fazer e pede autorização.
+- **Privacidade por padrão:** foto da câmera, captura da tela e internet (raspagem e imagens de páginas) vêm desmarcadas e só rodam se o usuário marcar.
+- **Processos identificados:** o andamento mostra o PID de cada processo do PowerShell, igual ao do Gerenciador de Tarefas.
+- **Animação visível:** a coruja não se esconde mais das capturas. O relatório continua protegido, porque tem dados sensíveis.
+- **Cancelar:** fecha sem executar nada.
+
+**M6 (Corujinha × coletor):** o risco é avaliado por um único motor, o `collector`, com o diagnóstico em cima dele. A Corujinha passa a ser o inventário detalhado opcional, transparente e com consentimento. Levar para o coletor as verificações que só ela tem (persistência, tarefas agendadas, programas sem assinatura, pendrives) fica no backlog, para não aumentar o escopo antes de estabilizar o fluxo principal.
+
+**Testes:**
+- `test_fase4.py`, 12 testes: o fluxo do ativo à recomendação, a nova verificação com melhoria, a decisão humana com divergência, o cancelamento sem resto, a regra de prioridade, a recomendação para toda verificação do coletor, o S7 e as ligações da interface.
+- A tela simulada executa o diagnóstico (16 linhas), os modos básico e avançado e a reverificação ("4 melhorou, 0 piorou, 12 igual").
+- Total: 144 testes OK, 8 pulados.
+
+**Pendente no Windows:**
+- Rodar o diagnóstico de verdade, uma vez como usuário comum e outra como administrador, e conferir os itens indisponíveis.
+- Conferir o consentimento da Corujinha.
+- Medir o tempo do diagnóstico.
+
+## 13. Próximo passo proposto
+1. Validar a Fase 4 no Windows (script e teste manual do diagnóstico e da Corujinha).
+2. Fase 5, inteligência e nuvem. Estas partes dependem só de trabalho local:
+   - OSV.dev e Google DNS no `fontes.py`, com cache e limite de consultas;
+   - monitoramento durante o uso;
+   - retentativa nas fontes.
+
+   Para as verificações de nuvem, falta a escolha do provedor e de uma conta autorizada, somente leitura.

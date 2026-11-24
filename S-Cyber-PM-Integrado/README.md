@@ -1,7 +1,7 @@
 # S-Cyber PM
 
 **Cryptography and Digital Certificate Framework**<br>
-Versão 1.4
+Versão 1.6 (a versão vem de `formAbout.APP_VERSAO`). S-Cyber 2.0 em desenvolvimento.
 
 Aplicativo desktop para fins didáticos e de pesquisa sobre certificados digitais, criptografia e recursos de segurança do Windows. Ele reúne gestão de certificados, validação de acesso, assinatura de documentos, relatórios em PDF e demonstrações práticas em uma interface gráfica baseada em Tkinter.
 
@@ -9,6 +9,8 @@ Aplicativo desktop para fins didáticos e de pesquisa sobre certificados digitai
 
 ## Funcionalidades
 
+- **Diagnóstico Inteligente S-Cyber (um clique):** verifica este computador somente com leitura e transforma cada problema em achado ligado ao NIST CSF 2.0. Cada achado vem com prioridade (regra documentada), recomendação de correção e forma de confirmar. Na nova verificação, o diagnóstico compara com o anterior. Fica na Ribbon, em NIST Intelligence → Diagnóstico inteligente.
+- Corujinha (inventário detalhado): só roda com o consentimento do usuário. Câmera, captura de tela e internet vêm desligadas por padrão.
 - Autenticação por certificado digital com desafio e resposta usando a chave privada do Windows.
 - Login local com senha e suporte opcional a Windows Hello, como PIN ou biometria.
 - Consulta e gestão de certificados instalados no repositório pessoal do Windows.
