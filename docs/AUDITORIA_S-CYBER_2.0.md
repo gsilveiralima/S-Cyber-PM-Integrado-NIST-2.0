@@ -376,7 +376,11 @@ Feita só na cópia local, sem nenhuma operação remota. A mudança na Corujinh
   - Foto da câmera e imagens de páginas apareceram como "--" (não feitas), o que está correto.
   - **Achado:** a raspagem da Wikipédia aparecia como "OK" mesmo sem internet, porque o marcador `web.ok` é gravado sempre. Corrigido localmente: sem autorização, sem internet ou com erro, a raspagem grava `web.falhou` e o andamento mostra "--". Um teste impede a volta.
   - O formulário do relatório não aparece na gravação porque é protegido contra captura (contém dados sensíveis), como previsto.
-- **Ainda pendente:** o diagnóstico como administrador, que deve preencher BitLocker, SMBv1, Secure Boot e backup, e a medição do tempo do diagnóstico. A gravação mostra que ele termina em poucos segundos.
+- **Diagnóstico como administrador (16:14):**
+  - **Cobertura:** 17 de 17 verificações feitas, sem nenhuma indisponível.
+  - **Resultado:** Falha 1 (BitLocker: disco do sistema sem criptografia; prioridade Média = Falha 3 + criticidade Média 1), Atenção 4 (as mesmas de antes) e OK 12 (Secure Boot, SMBv1, backup, RDP, UAC, firewall e outros).
+  - **Ajuste local na tela:** o resumo da comparação agora também mostra "sem comparação" quando a execução anterior teve itens indisponíveis, por exemplo do usuário comum para o administrador. Esses itens não contam como melhora, e um teste confere isso.
+- **Situação da Fase 4:** implementada, testada e homologada no Windows real, como usuário comum e como administrador.
 
 ## 13. Próximo passo proposto
 1. Validar a Fase 4 no Windows (script e teste manual do diagnóstico e da Corujinha).

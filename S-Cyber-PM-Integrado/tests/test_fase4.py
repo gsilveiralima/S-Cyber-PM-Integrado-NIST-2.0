@@ -115,6 +115,16 @@ class DiagnosticoTests(Base):
         refs = [a['ref'] for a in A.achados(self.db, asset_id=primeiro['ativo']['id'])]
         self.assertEqual(len(refs), len(set(refs)))
 
+    def test_indisponivel_que_passa_a_ser_verificado_nao_conta_como_melhora(self):
+        """Usuário comum (indisponível) e depois administrador (verificado): 'Sem comparação'."""
+        sem_admin = copy.deepcopy(RAW_RUIM)
+        sem_admin['bitlocker'] = {'erro': 'Acesso negado'}
+        self.rodar(sem_admin)
+        r = self.rodar(RAW_RUIM)
+        tend = {c: t for c, _, _, _, t in r['comparacao']}
+        self.assertEqual(tend['bitlocker'], 'Sem comparação')
+        self.assertEqual(r['resumo']['tendencias'].get('Sem comparação'), 1)
+
     def test_decisao_humana_prevalece_e_divergencia_aparece(self):
         r = self.rodar(RAW_RUIM)
         smb = next(i for i in r['itens'] if i['id'] == 'smb1')

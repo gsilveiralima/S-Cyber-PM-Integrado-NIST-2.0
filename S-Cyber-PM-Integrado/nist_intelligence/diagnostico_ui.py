@@ -175,7 +175,10 @@ class DiagnosticoMixin:
         if r['anterior_id']:
             t = res['tendencias']
             texto += (f"\nEm relação ao diagnóstico anterior: {t.get('Melhorou', 0)} melhorou, "
-                      f"{t.get('Piorou', 0)} piorou, {t.get('Igual', 0)} igual.")
+                      f"{t.get('Piorou', 0)} piorou, {t.get('Igual', 0)} igual"
+                      + (f", {t['Sem comparação']} sem comparação (indisponível em um dos dois)"
+                         if t.get('Sem comparação') else '')
+                      + (f", {t['Nova']} nova(s)" if t.get('Nova') else '') + '.')
         if not r.get('admin'):
             texto += ('\nExecutado sem privilégio de Administrador: alguns itens ficam indisponíveis '
                       '(e não contam como aprovados).')
