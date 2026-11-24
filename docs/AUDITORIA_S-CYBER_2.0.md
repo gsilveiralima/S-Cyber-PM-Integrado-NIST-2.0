@@ -281,6 +281,22 @@ Feita só na cópia local, sem nenhuma operação remota. A remoção do código
 - **Correção no script (local):** a etapa agora recusa rodar com o programa aberto, dizendo o PID, e não mede o programa instalado se a instalação falhar.
 - **Achado para a Fase 8 (atualização):** o aplicativo não fecha quando o Windows pede. Para atualizar sem reinstalar, o programa precisa responder ao pedido de encerramento, ou o instalador precisa pedir ao usuário que feche o programa, com uma mensagem clara.
 
+**Validação no Windows (24/11/2026, 15:04–15:06), segunda rodada, com o programa fechado:**
+
+| Etapa | Resultado | Tempo |
+|---|---|---|
+| Testes automáticos (incluem os do Windows e a consulta real às fontes) | 132 executados, todos OK | 32,4 s |
+| Executável | OK, 53,6 MB | 67,4 s |
+| Instalador | OK, 54,8 MB | 6,2 s |
+| Instalação silenciosa por usuário | OK | 2,2 s |
+| Programa instalado, em modo diagnóstico, aberto 3 vezes | OK | 4,19 / 3,02 / 4,04 s |
+
+- O diagnóstico do programa instalado listou os 10 certificados pelo `modPowerShell`, com os acentos corretos. Ele também mostrou a nova próxima ação, "Nenhuma falha encontrada: instalação ativa e certificado pronto", o que confirma que a versão da Fase 3 é a que está instalada.
+- A ativação continuou valendo depois da atualização (`LIC-9F1EE9A144F9`), porque a licença fica na pasta da instalação.
+- SHA-256 do instalador: `35b8ecd1…7f7221`.
+
+**Situação da Fase 3:** os itens M4, M5 e M9 estão implementados e testados no Windows real. No M8, o executor está testado, mas falta a homologação manual de três telas: certificados (adicionar e excluir), usuários e Windows Hello.
+
 ## 12. Próximo passo proposto
 1. Validar a Fase 3 no Windows (script) e fazer o teste manual de certificados, usuários e Windows Hello.
 2. Fase 4, integração operacional:
