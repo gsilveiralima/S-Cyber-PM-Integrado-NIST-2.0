@@ -194,6 +194,8 @@ class CorujinhaTransparenteTests(unittest.TestCase):
         self.assertNotIn('self.protecao = proteger_contra_captura(self.win)', self.fonte)
         self.assertIn('capturas.pids[n] = processos[-1].pid', self.fonte)
         self.assertIn('PowerShell PID', self.fonte)
+        # Validação de 24/11: o cabeçalho da animação ainda dizia "protegida contra captura"
+        self.assertNotIn('(protegida contra captura)', self.fonte)
 
 
 class InterfaceTests(unittest.TestCase):

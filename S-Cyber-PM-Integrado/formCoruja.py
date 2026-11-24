@@ -79,11 +79,11 @@ As coletas de segurança são somente de leitura: nada é alterado e nenhuma
 senha (nem de Wi-Fi) é lida. Sem Administrador, alguns itens ficam limitados
 e o relatório diz quais.
 A coruja fica na frente até o relatório ficar pronto (repetindo o scan e
-mostrando o andamento) e, como o formulário do relatório, a visualização de
-impressão e as imagens ampliadas, é protegida contra captura de tela
-(modRecursos.proteger_contra_captura): continua visível no monitor, mas some
-de Print Screen, gravadores e programas espiões. Esc ou clique pulam a coruja;
-o formulário então mostra o andamento.
+mostrando o andamento, com o PID de cada processo) e aparece normalmente em
+capturas de tela. Só o formulário do relatório, a visualização de impressão e
+as imagens ampliadas, que têm dados sensíveis, são protegidos contra captura
+(modRecursos.proteger_contra_captura). Esc ou clique pulam a coruja; o
+formulário então mostra o andamento.
 
 O RELATÓRIO É TEMPORÁRIO E CIFRADO: fica na pasta da execução, cifrado
 (modCriptoTemp), e o texto só existe aberto na memória do formulário. Ele é
@@ -358,7 +358,7 @@ class AsciiSplash:
         d = ImageDraw.Draw(frame)
         f = self.fonte_status
         n = len(self.status_linhas)
-        cabecalho = "CORUJINHA - trabalhando em segundo plano (protegida contra captura)"
+        cabecalho = "CORUJINHA - trabalhando com a sua autorização (processos e PIDs abaixo)"
         linhas = [cabecalho] + [f"[ {s} ] {txt}" for s, txt in self.status_linhas]
         largura = max(int(d.textlength(linha, font=f)) for linha in linhas)
         x = max(int(self.width * 0.04), (self.width - largura) // 2)

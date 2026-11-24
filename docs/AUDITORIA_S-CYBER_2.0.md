@@ -354,10 +354,25 @@ Feita só na cópia local, sem nenhuma operação remota. A mudança na Corujinh
 - A tela simulada executa o diagnóstico (16 linhas), os modos básico e avançado e a reverificação ("4 melhorou, 0 piorou, 12 igual").
 - Total: 144 testes OK, 8 pulados.
 
-**Pendente no Windows:**
-- Rodar o diagnóstico de verdade, uma vez como usuário comum e outra como administrador, e conferir os itens indisponíveis.
-- Conferir o consentimento da Corujinha.
-- Medir o tempo do diagnóstico.
+**Validação no Windows (24/11/2026, 15:35–15:45, script e gravação de tela):**
+
+| Etapa | Resultado |
+|---|---|
+| Testes automáticos (incluem os do Windows e a consulta real às fontes) | 144 executados, todos OK, em 27,3 s |
+| Executável e instalador | 53,6 MB e 54,9 MB |
+| Instalação silenciosa | 2,2 s |
+| Programa instalado, em modo diagnóstico, aberto 3 vezes | 4,17 / 3,04 / 4,06 s |
+
+- **Diagnóstico real, como usuário comum:** 14 de 17 verificações feitas. Resultado: Falha 0, Atenção 4 (bloqueio de tela, política de senha, portas, logs), OK 10, Indisponível 3, que exigem administrador e não contam como aprovadas. O aviso "executado sem privilégio de Administrador" apareceu.
+- **Comparação na reexecução:** "0 melhorou, 0 piorou, 17 igual", correto porque nada foi corrigido entre as duas.
+- **Prioridade:** os quatro itens em Atenção, num ativo de criticidade Média, ficaram com prioridade Média, de acordo com a regra documentada.
+- **Modo básico:** mostra o problema, a consequência, a solução, a próxima ação, como confirmar e o resultado da correção.
+- **Corujinha:**
+  - a janela de consentimento abriu antes de tudo, com as três opções desmarcadas por padrão (o usuário marcou as três no teste);
+  - a animação apareceu na gravação, com o PID de cada PowerShell (por exemplo, inventário 21068 e disco 25144), igual ao do Gerenciador de Tarefas;
+  - o relatório saiu em PDF assinado e protegido por senha.
+- **Achado corrigido (local):** o cabeçalho da animação ainda dizia "(protegida contra captura)". Agora diz "trabalhando com a sua autorização (processos e PIDs abaixo)", e um teste impede o texto antigo de voltar.
+- **Ainda pendente:** o diagnóstico como administrador, que deve preencher BitLocker, SMBv1, Secure Boot e backup, e a medição do tempo do diagnóstico. A gravação mostra que ele termina em poucos segundos.
 
 ## 13. Próximo passo proposto
 1. Validar a Fase 4 no Windows (script e teste manual do diagnóstico e da Corujinha).
