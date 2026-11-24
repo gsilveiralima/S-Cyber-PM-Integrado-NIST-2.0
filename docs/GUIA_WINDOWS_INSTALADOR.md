@@ -6,7 +6,7 @@ têm um guia próprio: [ADMINISTRACAO_LICENCAS.md](ADMINISTRACAO_LICENCAS.md).
 Você não precisa instalar Python, editar código nem cadastrar impressões digitais à mão.
 
 ## 1. Instalar
-1. Baixe `SCyberPM-Setup-1.6.exe` e confira o SHA-256 dele com o do arquivo `SHA256SUMS.txt`.
+1. Abra a página **[Releases](https://github.com/gsilveiralima/S-Cyber-PM-Integrado-NIST-2.0/releases)** do repositório e baixe, da versão mais recente, o `SCyberPM-Setup-<versão>.exe` e o `SHA256SUMS.txt`. Confira o SHA-256 no PowerShell: `Get-FileHash .\SCyberPM-Setup-2.0.0.exe -Algorithm SHA256`.
 2. Dê dois cliques no instalador. Ele não pede administrador: o programa vai para
    `%LOCALAPPDATA%\Programs\S-Cyber PM`.
 3. O instalador ainda não é assinado. Se o Windows mostrar *"O Windows protegeu o computador"*,

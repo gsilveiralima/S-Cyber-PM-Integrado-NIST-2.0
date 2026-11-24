@@ -1,7 +1,7 @@
 # S-Cyber PM
 
 **Cryptography and Digital Certificate Framework**<br>
-Versão 1.6 (a versão vem de `formAbout.APP_VERSAO`). S-Cyber 2.0 em desenvolvimento.
+Versão 1.4
 
 Aplicativo desktop para fins didáticos e de pesquisa sobre certificados digitais, criptografia e recursos de segurança do Windows. Ele reúne gestão de certificados, validação de acesso, assinatura de documentos, relatórios em PDF e demonstrações práticas em uma interface gráfica baseada em Tkinter.
 
@@ -9,11 +9,6 @@ Aplicativo desktop para fins didáticos e de pesquisa sobre certificados digitai
 
 ## Funcionalidades
 
-- **Diagnóstico Inteligente S-Cyber (um clique):** verifica este computador somente com leitura e transforma cada problema em achado ligado ao NIST CSF 2.0. Cada achado vem com prioridade (regra documentada), recomendação de correção e forma de confirmar. Na nova verificação, o diagnóstico compara com o anterior. Fica na Ribbon, em NIST Intelligence → Diagnóstico inteligente.
-- **Segurança em nuvem (Microsoft Azure, somente leitura):** verifica a exposição pública do armazenamento, a criptografia, as regras de rede abertas à internet, os proprietários da assinatura, o backup e a exportação do Log de Atividades. Os resultados entram no mesmo fluxo do diagnóstico.
-  - Para verificar uma assinatura real, use o Azure CLI já conectado (`az login`, com o papel Leitor). O token fica só na memória.
-  - Para uma demonstração, há um ambiente simulado com dados sintéticos, sempre identificado como simulado.
-- Corujinha (inventário detalhado): só roda com o consentimento do usuário. Câmera, captura de tela e internet vêm desligadas por padrão.
 - Autenticação por certificado digital com desafio e resposta usando a chave privada do Windows.
 - Login local com senha e suporte opcional a Windows Hello, como PIN ou biometria.
 - Consulta e gestão de certificados instalados no repositório pessoal do Windows.
@@ -126,15 +121,13 @@ As opções e os dados de usuário são armazenados separadamente em `%APPDATA%\
 
 - `appSCyberPM.py` — inicialização, autenticação e janela principal.
 - `form*.py` — formulários e ferramentas da interface.
-- `mod*.py` — componentes sem interface: certificados, recursos compartilhados, impressão e outros. Entre eles:
-  - `modPowerShell.py` — execução única do PowerShell (tempo limite, UTF-8, sem janela);
-  - `modCaminhos.py` — fonte única das pastas de dados, do NIST e da instalação;
-  - `modRecursos.py` — recursos compartilhados, inclusive `em_segundo_plano` (tarefas demoradas sem travar a tela) e `pedir_senha` (senha em janela protegida contra captura);
+- `mod*.py` — componentes sem interface: certificados, recursos compartilhados, impressão, áudio e outros. Entre eles:
   - `modPDFDividir.py` — leitor e gravador de PDF em Python puro (dividir, extrair, remover, juntar, comprimir e conferir);
   - `modPDFProtegido.py` — assinatura digital e senha AES-256 dos PDFs gerados.
 - `gerarExe.py` — geração do executável com PyInstaller.
 - `requirements.txt` — dependências Python.
 - `watermark.png`, `logo.png` e `espia.png` — imagens utilizadas pela interface.
+- `Surveillance Pulse.mp3` — trilha sonora da demonstração da Corujinha.
 
 ## Autoria
 
