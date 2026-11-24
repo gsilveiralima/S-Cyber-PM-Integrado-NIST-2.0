@@ -157,10 +157,12 @@ def relatorio(versao, programa, autorizados, etapa=None, erro=None, thumb_atual=
 
     # Ativação
     import modLicenca as L
+    ativa = None                                   # None = não deu para verificar
     try:
         inst = L.instalacao()
         publicacao = publicacao or L.Publicacao()
         ok, lic, exc = L.estado(publicacao=publicacao)
+        ativa = bool(ok)
         linhas.append(f"Instalação         : {inst['id']} (máquina {inst['maquina'][:12]}…)")
         linhas.append("Ativação           : " + (f"ATIVA — licença {lic['licenca_id']}, válida até {lic['valida_ate']}"
                                                 if ok else f"NÃO ATIVA — {exc}"))
@@ -217,8 +219,15 @@ def relatorio(versao, programa, autorizados, etapa=None, erro=None, thumb_atual=
         acao = ("Abra o ASSISTENTE DE PERFIL: se um certificado acessível abre os arquivos, ele migra para o "
                 "certificado atual (cópia, conferência e restauração de teste antes de trocar). Sem a chave "
                 "antiga, os arquivos são guardados e um perfil novo só é criado se você escolher.")
+    elif geral != "pronto":
+        acao = PROXIMA_ACAO.get(geral, "Confira os certificados acima.")
+    elif ativa is False:
+        acao = ("Ative esta instalação: abra o S-Cyber PM, use Copiar pedido na tela de ativação, envie o "
+                "pedido ao administrador e cole a chave recebida.")
+    elif ativa is None:
+        acao = "Não foi possível verificar a ativação (veja a mensagem acima); repita o diagnóstico."
     else:
-        acao = "Nenhuma falha informada." if geral == "pronto" else PROXIMA_ACAO.get(geral, "")
+        acao = "Nenhuma falha encontrada: instalação ativa e certificado pronto."
     linhas += ["PRÓXIMA AÇÃO:", f"  {acao}"]
     return "\n".join(linhas)
 

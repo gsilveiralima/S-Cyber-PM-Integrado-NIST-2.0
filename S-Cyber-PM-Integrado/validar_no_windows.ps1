@@ -41,7 +41,12 @@ function Etapa($nome, [scriptblock]$bloco) {
 # apenas texto; quem decide se falhou e o codigo de saida.
 function Rodar([string]$log, [string]$exe, [string[]]$argumentos, [switch]$Anexar) {
   $ErrorActionPreference = 'Continue'
-  $texto = & $exe @argumentos 2>&1 | ForEach-Object { "$_" }
+  $texto = & $exe @argumentos 2>&1 | ForEach-Object {
+    if ($_ -is [Management.Automation.ErrorRecord]) {
+      $m = $_.Exception.Message                  # linha vazia do stderr chega como 'RemoteException'
+      if ($m -eq 'System.Management.Automation.RemoteException') { '' } else { $m }
+    } else { "$_" }
+  }
   $codigo = $LASTEXITCODE
   if ($Anexar) { $texto | Add-Content $log -Encoding UTF8 } else { $texto | Set-Content $log -Encoding UTF8 }
   return $codigo
@@ -75,8 +80,8 @@ if ($depsOk -and -not $SemTestes) {
   Etapa 'Testes automaticos (inclui consulta real as fontes publicas)' {
     $env:SCYBER_FONTES_REAIS = '1'
     $codigo = Rodar (Join-Path $saida 'testes.txt') $py @('-m','unittest','discover','-s','tests','-v')
-    $fim = Get-Content (Join-Path $saida 'testes.txt') -Tail 6
-    $r.testes = ($fim | Where-Object { $_ -match '^(Ran|OK|FAILED)' }) -join ' | '
+    # stdout e stderr chegam fora de ordem: procura no arquivo inteiro, nao so no fim
+    $r.testes = (Get-Content (Join-Path $saida 'testes.txt') | Where-Object { $_ -match '^(Ran \d|OK|FAILED)' }) -join ' | '
     if ($codigo) { throw "testes com falha: $($r.testes) (veja testes.txt)" }
   } | Out-Null
 }

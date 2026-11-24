@@ -186,7 +186,7 @@ Cada fase termina com testes verdes e evidência. Não se avança com falha crí
 | S1 | Papel da **sessão autenticada** dentro da conexão (`definir_sessao`, definido uma vez só). As regras de achados e fontes leem `db.papel`; a interface não passa mais o papel | `test_achados.SessaoTests` e o fluxo completo com outra sessão para o revisor | Implementado e testado |
 | S2 | **Recuperação sem licença:** certificado + senha → backup cifrado, CSVs e MANIFESTO com SHA-256; registrado na auditoria | `test_auditoria_fase1.RecuperacaoSemLicencaTests` | Implementado; não homologado na interface |
 | S5 | **Sem senha de fábrica:** num perfil novo, o titular cria as senhas logo após o certificado. Arquivos antigos são reconhecidos pelo SHA-256 da senha antiga e obrigados a trocar | `test_seguranca` (a senha antiga não está mais no código) | Implementado e testado; interface pendente |
-| M1 | Script de validação usa `requirements-lock.txt` num ambiente isolado e grava o `pip freeze` | `test_auditoria_fase1.ScriptValidacaoTests` | Implementado; **execução no Windows pendente** |
+| M1 | Script de validação usa `requirements-lock.txt` num ambiente isolado e grava o `pip freeze` | `test_auditoria_fase1.ScriptValidacaoTests` + execução real (seção 10) | Implementado e testado no Windows 11 |
 | M2 | `numpy` fora das diretas; `selenium` e `pypdfium2` em `requirements-opcionais.txt` | `ConsistenciaTests.test_dependencias_declaradas` (lê as importações do código) | Implementado e testado |
 | M3 | Versão só em `formAbout.APP_VERSAO`; 35 cabeçalhos corrigidos | `ConsistenciaTests.test_versao_fonte_unica` | Implementado e testado |
 
@@ -199,6 +199,57 @@ Pendente no Windows (executar `validar_no_windows.ps1`):
 - recuperação pela tela;
 - papéis pela interface.
 
-## 10. Próximo passo proposto
-Executar a **Fase 2** localmente (S1, S2, S5, M1, M2, M3), com testes de regressão para cada item.
-Validar no Windows quando o caminho (a) ou (b) do bloqueio 1 for definido.
+## 10. Validação no Windows real (24/11/2026, 14:01–14:04)
+
+**Ambiente:** Windows 11 Pro 10.0.26300 x64, Intel Core i3-13100F, 64 GB de RAM, Python 3.14.8.
+Origem: zip da Fase 2, sem git. Executado com `validar_no_windows.ps1` na máquina do usuário.
+
+| Etapa | Resultado | Tempo |
+|---|---|---|
+| Ambiente isolado com `requirements-lock.txt` + PyInstaller 6.22.3 | OK | 83,8 s |
+| Testes automáticos, incluindo os específicos do Windows e a consulta real às fontes | **117 executados, todos OK, nenhum pulado** | 32 s (30,5 s de suíte) |
+| Executável (PyInstaller) | OK, 58,2 MB | 66,3 s |
+| Instalador (Inno Setup 6.7.3) | OK, `SCyberPM-Setup-1.6.exe` de 59,5 MB | 8,9 s |
+| Instalação silenciosa por usuário (sem administrador) | OK | 3,3 s |
+| Programa **instalado**, modo diagnóstico, 3 aberturas | OK | 6,33 / 4,07 / 4,04 s |
+
+**Fontes reais consultadas pelos testes:**
+- CISA KEV: correspondência;
+- HIBP, catálogo de vazamentos: correspondência;
+- Pwned Passwords: correspondência para uma senha de teste pública, consultada por k-anonimato.
+
+**SHA-256 dos binários desta execução:**
+- executável: `57d5fbb8…f79f44`;
+- instalador: `294b1102…54bb20`.
+
+Esses binários não são assinados (S8) e não são reproduzíveis byte a byte, por isso servem só como referência.
+
+**Leitura das metas da seção 26:**
+- Instalação: 3,3 s, bem abaixo da meta de cinco minutos.
+- Abertura: a meta de até 5 s foi atingida a partir da segunda abertura (cerca de 4 s); a primeira, a frio, levou 6,3 s. O modo diagnóstico não abre a interface nem pede o certificado, então é uma medida aproximada da abertura. A abertura completa pela interface ainda precisa ser cronometrada manualmente.
+- Tamanho: 59,5 MB, contra os 123 MB do artefato antigo do CI, que juntava executável e instalador.
+
+**Achados da execução e o que foi corrigido (somente na cópia local):**
+1. **Falso FALHOU no script.** No PowerShell 5.1, uma linha que o programa escreve no stderr virava exceção. Corrigido com a função `Rodar`; um teste agora proíbe o redirecionamento `*>`.
+2. **Resumo dos testes vazio no RESULTADO e linhas `RemoteException` no log.** O stdout e o stderr chegam fora de ordem, e as linhas vazias do stderr apareciam como `RemoteException`. Corrigido no script.
+3. **Diagnóstico contraditório.** O texto mostrava "NÃO ATIVA" e, logo abaixo, "Nenhuma falha informada". Agora a próxima ação pede a ativação. Teste: `test_ativacao.DiagnosticoTests.test_sem_ativacao_a_proxima_acao_e_ativar`.
+4. **Observações sem defeito no código:**
+   - Na conta do Gabriel, o certificado do Major aparece "sem a chave privada", o que é esperado.
+   - O B330B18E… aparece PRONTO PARA USO.
+   - 7 certificados de outros aplicativos aparecem como não autorizados, corretamente.
+   - Os testes de fontes geram `ResourceWarning`, porque os `HTTPError` simulados não são fechados. É apenas limpeza, a fazer na Fase 5.
+
+**Ainda pendente (teste manual pela interface):**
+- ativação;
+- criação das senhas no primeiro acesso;
+- recuperação sem licença;
+- papéis (usuário comum × revisor);
+- tempo de abertura completa;
+- desinstalação com `-Desinstalar`.
+
+## 11. Próximo passo proposto
+1. Fazer o teste manual da interface (itens 1 a 4 do RESULTADO.txt) para fechar a Fase 2.
+2. Fase 3, refatoração estrutural (só local):
+   - unificar os executores de PowerShell (M4) e as pastas de dados (M5);
+   - tirar da interface as chamadas que a travam (M8);
+   - remover o código morto (M9) depois da aprovação.

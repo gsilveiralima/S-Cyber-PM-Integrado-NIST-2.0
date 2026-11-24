@@ -243,6 +243,18 @@ class DiagnosticoTests(unittest.TestCase):
                        "NAO_AUTORIZADO", "PRÓXIMA AÇÃO", "pedido de credenciamento"):
             self.assertIn(trecho, texto)
 
+    def test_sem_ativacao_a_proxima_acao_e_ativar(self):
+        # Validação no Windows (24/11/2026): "NÃO ATIVA" aparecia junto de "Nenhuma falha informada".
+        with tempfile.TemporaryDirectory() as tmp:
+            with mock.patch.dict(os.environ, {"APPDATA": tmp, "LOCALAPPDATA": tmp}):
+                texto = modDiagnostico.relatorio("1.6", Path(tmp) / "app.py", ["A" * 40],
+                                                 publicacao=L.Publicacao(pasta_cache=Path(tmp) / "c",
+                                                                         pasta_pacote=Path(tmp) / "p", online=False),
+                                                 certificados=[self._c("A" * 40)], analisar_perfil=False)
+        self.assertIn("NÃO ATIVA", texto)
+        self.assertNotIn("Nenhuma falha", texto)
+        self.assertIn("Ative esta instalação", texto.split("PRÓXIMA AÇÃO:")[1])
+
     def test_nome_do_certificado_sem_injecao(self):
         self.assertEqual(modDiagnostico.nome_certificado('SGT Fulano, O=Hack"'), "S-Cyber PM - SGT Fulano OHack")
         with self.assertRaises(ValueError):
