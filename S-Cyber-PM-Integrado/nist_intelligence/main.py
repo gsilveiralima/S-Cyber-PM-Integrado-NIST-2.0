@@ -8,7 +8,9 @@ from datetime import date
 from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
+from . import achados as ach
 from . import collector, core, package, report
+from .achados_ui import AchadosMixin
 from .bridge import ReadOnlySEIBridge
 from .catalog import CATEGORIES, FUNCTIONS, MATURITY, SUB_BY_CATEGORY, TIERS, function_of
 
@@ -56,17 +58,18 @@ def _br(iso):
     return f'{iso[8:10]}/{iso[5:7]}/{iso[:4]}' if iso and len(iso) >= 10 else ''
 
 
-class NISTPanel(ttk.Frame):
+class NISTPanel(AchadosMixin, ttk.Frame):
     """Painel embutível no Tk raiz do S-Cyber PM."""
 
     def __init__(self, parent, original_root=None, embedded=False, on_back=None, db_path=core.DB, key=None,
-                 actor=None, auto_collect=None, signer=None, trusted_thumbs=(), cert_thumb=None):
+                 actor=None, auto_collect=None, signer=None, trusted_thumbs=(), cert_thumb=None, role='usuario'):
         # key: chave de 32 bytes derivada do certificado (crypto.derive_key). Abre o banco
         # antes de criar a janela: se a chave não servir, nada fica pela metade.
         # actor: quem usa o painel (usuário do S-Cyber PM, Windows e certificado), para a auditoria.
         # auto_collect: refazer a coleta técnica ao abrir se a última for antiga (padrão: só integrado).
         # signer: assina bytes com o certificado do usuário (CMS); trusted_thumbs: certificados autorizados
         # do S-Cyber PM, usados para conferir os pacotes de consolidação recebidos.
+        # role: papel do certificado ('administrador', 'revisor' ou 'usuario'): só revisor/admin encerra achados.
         db = core.connect(db_path, key)
         db.actor = actor or self._username()
         try:
@@ -77,6 +80,7 @@ class NISTPanel(ttk.Frame):
         self.db = db
         self.db_path = db_path
         self.key = key
+        self.role = role
         self.embedded = embedded
         self.on_back = on_back
         self.sei = None
@@ -97,6 +101,7 @@ class NISTPanel(ttk.Frame):
         self.tabs = nist_Notebook(self)
         self.tabs.pack(fill='both', expand=True, padx=12, pady=(0, 10))
         self.t_dash = self.add_tab('Painel')
+        self.t_achados = self.add_tab('Ativos e achados')
         self.t_assess = self.add_tab('Avaliação CSF 2.0')
         self.t_plan = self.add_tab('Plano de ação')
         self.t_collect = self.add_tab('Coleta técnica')
@@ -108,7 +113,7 @@ class NISTPanel(ttk.Frame):
         self.t_cons = self.add_tab('Consolidação')
         self.t_report = self.add_tab('Relatório')
         self.t_audit = self.add_tab('Auditoria')
-        for build in (self.make_dashboard, self.make_assessment, self.make_plan, self.make_collect,
+        for build in (self.make_dashboard, self.make_achados, self.make_assessment, self.make_plan, self.make_collect,
                       self.make_risks, self.make_incidents, self.make_evidence, self.make_osint,
                       self.make_sei, self.make_consolidation, self.make_report, self.make_audit):
             build()
@@ -269,6 +274,7 @@ class NISTPanel(ttk.Frame):
         self.alert_list = tk.Listbox(right, bg=PANEL, fg=TEXT, height=10, borderwidth=0, highlightthickness=0,
                                      font=('Segoe UI', 9), activestyle='none', selectbackground=PANEL)
         self.alert_list.pack(fill='both', expand=True)
+        self.make_pending(right)
         if self.db.encrypted:
             aviso = ('Textos do banco cifrados (AES-256-GCM) com chave derivada do certificado do S-Cyber PM. '
                      'Registre o necessário: quem tiver o certificado e a senha de acesso lê os dados.')
@@ -664,6 +670,7 @@ class NISTPanel(ttk.Frame):
             return
         results = collector.evaluate(raw)
         self._coll_id = core.save_collection(self.db, collector.meta(raw), raw, results)
+        ach.from_collection(self.db, self._coll_id, self._evid_dir())   # ativo cadastrado com este nome
         self.refresh()
         if not auto:
             self.tabs.select(self.t_collect)
@@ -734,6 +741,7 @@ class NISTPanel(ttk.Frame):
         for file in files:
             try:
                 self._coll_id = core.import_collection(self.db, file)
+                ach.from_collection(self.db, self._coll_id, self._evid_dir())
                 done += 1
             except (ValueError, OSError) as exc:
                 errors.append(f'{Path(file).name}: {exc}')
@@ -1697,7 +1705,7 @@ class NISTPanel(ttk.Frame):
     def refresh(self):
         for part in (self.refresh_assessment, self.refresh_plan, self.refresh_collect, self.refresh_risks,
                      self.refresh_incidents, self.refresh_evidence, self.refresh_osint, self.refresh_consolidation,
-                     self.refresh_audit, self.refresh_dashboard):
+                     self.refresh_audit, self.refresh_achados, self.refresh_pending, self.refresh_dashboard):
             part()
         self.refresh_header()
 

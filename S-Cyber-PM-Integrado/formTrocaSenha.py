@@ -102,6 +102,10 @@ class FormTrocaSenha(tk.Toplevel):
             return self._erro("A confirmação da senha dos PDFs não confere.", self.pdf_conf)
         if pdf == acesso:
             return self._erro("Use senhas diferentes para o acesso e para os PDFs.", self.pdf)
+        import modSenhaVazada
+        if not (modSenhaVazada.pode_usar(acesso, "senha de acesso", self)
+                and modSenhaVazada.pode_usar(pdf, "senha dos PDFs", self)):
+            return
         try:
             formOpcoes.definir_senhas_iniciais(acesso, pdf)
         except formOpcoes.ErroOpcoes as e:

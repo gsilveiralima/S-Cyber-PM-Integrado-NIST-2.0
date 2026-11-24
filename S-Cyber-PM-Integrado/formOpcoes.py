@@ -577,6 +577,10 @@ class FormOpcoes(tk.Toplevel):
             return
         if not _senha_confere(self.atual.var.get(), _estado["dados"]["senha_acesso"]):
             return self._erro("A senha de acesso atual está incorreta.", self.atual)
+        import modSenhaVazada
+        for nova, rotulo in ((acesso_nova, "senha de acesso"), (pdf_nova, "senha dos PDFs")):
+            if nova and not modSenhaVazada.pode_usar(nova, rotulo, self):
+                return
 
         try:
             salvar(usuario_novo=nome if mudou_usuario else None,

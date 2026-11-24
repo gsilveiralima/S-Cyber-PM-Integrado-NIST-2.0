@@ -70,6 +70,10 @@ SENSITIVE = {
     'findings': ('detail',),
     'audit_log': ('actor', 'summary'),
     'consolidated': ('unit', 'signer', 'payload'),
+    'assets': ('name', 'identifier', 'owner', 'notes'),
+    'achados': ('title', 'observation', 'discard_reason', 'justification', 'owner', 'action', 'bulletin',
+                'fix_note', 'fixed_by', 'reviewer', 'review_note', 'divergence'),
+    'achado_log': ('actor', 'note'),
 }
 
 AUTO_COLLECT_DAYS = 7          # o painel refaz a coleta técnica quando a última é mais antiga
@@ -219,6 +223,27 @@ def connect(path=DB, key=None):
       id INTEGER PRIMARY KEY, imported_at TEXT NOT NULL, unit TEXT NOT NULL, signer TEXT NOT NULL,
       thumb TEXT NOT NULL, trusted INTEGER NOT NULL, created_at TEXT NOT NULL,
       package_sha256 TEXT NOT NULL UNIQUE, payload TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS assets(
+      id INTEGER PRIMARY KEY, name TEXT NOT NULL, kind TEXT NOT NULL, identifier TEXT NOT NULL DEFAULT '',
+      owner TEXT NOT NULL DEFAULT '', criticality TEXT NOT NULL DEFAULT 'Média',
+      vendor TEXT NOT NULL DEFAULT '', product TEXT NOT NULL DEFAULT '', version TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '', authorized INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS achados(
+      id INTEGER PRIMARY KEY, asset_id INTEGER NOT NULL REFERENCES assets(id), source TEXT NOT NULL,
+      ref TEXT NOT NULL, title TEXT NOT NULL, event_date TEXT NOT NULL DEFAULT '', first_seen TEXT NOT NULL,
+      last_seen TEXT NOT NULL, observation TEXT NOT NULL DEFAULT '', source_status TEXT NOT NULL DEFAULT '',
+      state TEXT NOT NULL DEFAULT 'Novo', discard_reason TEXT NOT NULL DEFAULT '',
+      sub_code TEXT NOT NULL DEFAULT '', priority TEXT NOT NULL DEFAULT '', justification TEXT NOT NULL DEFAULT '',
+      owner TEXT NOT NULL DEFAULT '', due_date TEXT NOT NULL DEFAULT '', action TEXT NOT NULL DEFAULT '',
+      bulletin TEXT NOT NULL DEFAULT '', fix_note TEXT NOT NULL DEFAULT '', fix_evidence_id INTEGER,
+      fixed_by TEXT NOT NULL DEFAULT '', reviewer TEXT NOT NULL DEFAULT '', review_note TEXT NOT NULL DEFAULT '',
+      incident_id INTEGER, divergence TEXT NOT NULL DEFAULT '', evidence_id INTEGER,
+      UNIQUE(asset_id, source, ref));
+    CREATE TABLE IF NOT EXISTS achado_log(
+      id INTEGER PRIMARY KEY, achado_id INTEGER NOT NULL REFERENCES achados(id), at TEXT NOT NULL,
+      actor TEXT NOT NULL, action TEXT NOT NULL, from_state TEXT NOT NULL, to_state TEXT NOT NULL,
+      note TEXT NOT NULL, prev_hash TEXT NOT NULL, hash TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS findings(
       id INTEGER PRIMARY KEY, collection_id INTEGER NOT NULL REFERENCES collections(id),
       check_id TEXT NOT NULL, title TEXT NOT NULL, status TEXT NOT NULL,
@@ -287,6 +312,7 @@ def _entry_hash(prev_hash, payload):
 
 
 _CHAINS = {
+    'achado_log': ('achado_id', 'at', 'actor', 'action', 'from_state', 'to_state', 'note'),
     'custody_log': ('evidence_id', 'at', 'action', 'actor', 'note', 'sha256'),
     'incident_log': ('incident_id', 'at', 'phase', 'note'),
     'audit_log': ('at', 'actor', 'entity', 'action', 'ref', 'summary'),
