@@ -102,5 +102,44 @@ class RemovidosTests(unittest.TestCase):
         self.assertNotIn("modSom", (BASE / "formCoruja.py").read_text(encoding="utf-8"))
 
 
+class CaminhosTests(unittest.TestCase):
+    def setUp(self):
+        import modCaminhos
+        self.m = modCaminhos
+        self.addCleanup(modCaminhos.definir_organizacao, None)
+
+    def test_mesmas_pastas_de_antes_no_windows(self):
+        with mock.patch.dict(os.environ, {"APPDATA": r"C:/U/AppData/Roaming", "LOCALAPPDATA": r"C:/U/AppData/Local"}):
+            self.assertEqual(self.m.pasta_dados(criar=False), Path(r"C:/U/AppData/Roaming") / "SCyberPM")
+            self.assertEqual(self.m.pasta_nist(), Path(r"C:/U/AppData/Roaming") / "SCyberPM" / "nist")
+            self.assertEqual(self.m.pasta_instalacao(), Path(r"C:/U/AppData/Local") / "SCyberPM")
+            import modLicenca
+            import modPerfil
+            self.assertEqual(modPerfil.pasta_dados(), self.m.pasta_dados(criar=False))
+            self.assertEqual(modLicenca.pasta_instalacao(), self.m.pasta_instalacao())
+
+    def test_organizacao_isola_os_dados_mas_nao_a_instalacao(self):
+        with mock.patch.dict(os.environ, {"APPDATA": "/a", "LOCALAPPDATA": "/l"}):
+            self.assertEqual(self.m.definir_organizacao("Empresa X/../Y"), "Empresa_X_.._Y")
+            self.assertEqual(self.m.pasta_dados(criar=False), Path("/a/SCyberPM/perfis/Empresa_X_.._Y"))
+            self.assertEqual(self.m.pasta_instalacao(), Path("/l/SCyberPM"))
+            for invalido in ("..", "", "  ", "/"):
+                self.assertIsNone(self.m.definir_organizacao(invalido))
+            self.assertEqual(self.m.pasta_dados(criar=False), Path("/a/SCyberPM"))
+
+    def test_uma_so_definicao(self):
+        """Nenhum módulo além do modCaminhos monta a pasta SCyberPM a partir do APPDATA/LOCALAPPDATA."""
+        avulsos = []
+        for arq in list(BASE.glob("*.py")) + list((BASE / "nist_intelligence").glob("*.py")):
+            if arq.name == "modCaminhos.py":
+                continue
+            for no in ast.walk(ast.parse(arq.read_text(encoding="utf-8"))):
+                if isinstance(no, ast.Call) and isinstance(no.func, ast.Attribute) and no.func.attr == "get" \
+                        and no.args and isinstance(no.args[0], ast.Constant) \
+                        and no.args[0].value in ("APPDATA", "LOCALAPPDATA"):
+                    avulsos.append(f"{arq.name}:{no.lineno}")
+        self.assertEqual(avulsos, [])
+
+
 if __name__ == "__main__":
     unittest.main()

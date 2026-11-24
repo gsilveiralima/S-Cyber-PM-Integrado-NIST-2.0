@@ -342,8 +342,8 @@ class SeiSelenium:
 
     @staticmethod
     def pasta_perfil(navegador):
-        base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
-        return os.path.join(base, "SCyberPM", f"sei_perfil_{navegador.lower()}")
+        import modCaminhos
+        return os.path.join(modCaminhos.pasta_instalacao(), f"sei_perfil_{navegador.lower()}")
 
     def abrir(self, navegador, endereco):
         """Inicia um navegador controlado, com perfil próprio, no endereço."""

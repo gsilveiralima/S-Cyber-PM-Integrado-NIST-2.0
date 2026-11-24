@@ -59,7 +59,6 @@ import os
 import platform
 import re
 import ssl
-import tempfile
 import threading
 import tkinter as tk
 import traceback
@@ -1499,8 +1498,8 @@ class AbaWebView2(ttk.Frame):
         # Cada política em uma pasta própria: o Edge não aceita opções
         # diferentes para uma pasta de dados já em uso.
         perfil = hashlib.sha1(args.encode()).hexdigest()[:12]
-        pasta = os.path.join(os.environ.get("LOCALAPPDATA") or tempfile.gettempdir(),
-                             "SCyberPM", "WebView2", perfil)
+        import modCaminhos
+        pasta = os.path.join(modCaminhos.pasta_instalacao(), "WebView2", perfil)
         propriedades = W.Propriedades()
         propriedades.UserDataFolder = pasta
         propriedades.AdditionalBrowserArguments = args

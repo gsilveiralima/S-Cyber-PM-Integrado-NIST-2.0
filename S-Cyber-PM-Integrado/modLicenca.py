@@ -92,8 +92,8 @@ def abrir(bruto: bytes, administradores: dict):
 
 # ------------------------------------------------------------------ instalação
 def pasta_instalacao():
-    base = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA") or str(Path.home() / ".local" / "share")
-    return Path(base) / "SCyberPM"
+    import modCaminhos                  # fonte única das pastas (S-Cyber 2.0, M5)
+    return modCaminhos.pasta_instalacao()
 
 
 def maquina():

@@ -33,8 +33,9 @@ from .catalog import (CATEGORIES, FUNCTIONS, MATURITY, SUB_BY_CATEGORY,  # noqa:
 VERSION = '1.3.0'
 
 # Mesma pasta de dados do S-Cyber PM (%APPDATA%\SCyberPM), numa subpasta própria.
-_APPDATA = Path(os.environ.get('APPDATA') or (Path.home() / '.config'))
-DATA = _APPDATA / 'SCyberPM' / 'nist'
+import modCaminhos  # noqa: E402 — fonte única das pastas (S-Cyber 2.0, M5)
+
+DATA = modCaminhos.pasta_nist()
 DB = DATA / 'nist.db'
 LEGACY_DB = Path.home() / 'SCyberNISTIntelligence' / 'nist.db'   # até a v0.3.1
 

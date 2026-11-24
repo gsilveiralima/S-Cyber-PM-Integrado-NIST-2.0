@@ -58,7 +58,7 @@ from PIL import Image, ImageDraw
 # PASTA DO APLICATIVO
 # ==========================================================
 
-NOME_PASTA_DADOS = "SCyberPM"
+NOME_PASTA_DADOS = "SCyberPM"         # = modCaminhos.NOME (pasta temporária)
 
 
 def pasta_aplicativo():
@@ -133,10 +133,8 @@ def pasta_dados():
     inclusive em C:\\Program Files, onde um usuário comum não pode gravar.
     Guarda o arquivo de opções e os relatórios da Corujinha.
     """
-    base = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
-    pasta = Path(base) / NOME_PASTA_DADOS
-    pasta.mkdir(parents=True, exist_ok=True)
-    return pasta
+    import modCaminhos                  # fonte única das pastas (S-Cyber 2.0, M5)
+    return modCaminhos.pasta_dados(criar=True)
 
 
 # ==========================================================
