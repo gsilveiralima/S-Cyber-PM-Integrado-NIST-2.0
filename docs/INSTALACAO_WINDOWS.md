@@ -1,5 +1,7 @@
 # Instalação no Windows 11 — passo a passo validado
 
+> **Usuário final:** use o instalador e o [guia curto](GUIA_WINDOWS_INSTALADOR.md). Este documento é para quem roda o código-fonte (desenvolvimento e suporte).
+
 Roteiro seguido e aprovado em **22/11/2026** num Windows 11 x64 com Python 3.14.8.
 Cada passo traz o resultado que deve aparecer. Os comandos são para o **PowerShell**.
 Não é preciso instalar o Git.
@@ -49,7 +51,7 @@ disponível no seu computador, use `requirements.txt` (versões mínimas).
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
 
-✅ `Ran 77 tests ... OK` (no Windows os 4 testes de `test_windows_v12.py` rodam de verdade e
+✅ `Ran 110 tests ... OK` (no Windows os 4 testes de `test_windows_v12.py` rodam de verdade e
 criam e apagam um certificado temporário de teste). Também dá para dar dois cliques em `testar_integracao_windows.bat`.
 
 ## 5. Certificado digital do usuário
