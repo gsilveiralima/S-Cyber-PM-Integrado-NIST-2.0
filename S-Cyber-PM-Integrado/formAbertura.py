@@ -6,6 +6,7 @@ credenciamento, migrar o perfil). Nada aqui grava sem confirmação do titular.
 """
 from __future__ import annotations
 
+import os
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
@@ -130,7 +131,12 @@ class FormAbertura(tk.Toplevel):
                                            parent=self)
             if not senha:
                 return
-            destino = filedialog.askdirectory(title="Pasta para os dados recuperados", parent=self)
+            # Basta escolher onde salvar: a subpasta recuperacao_scyber_<data> é criada automaticamente.
+            desk = os.path.join(os.environ.get("USERPROFILE") or os.path.expanduser("~"), "Desktop")
+            destino = filedialog.askdirectory(
+                title="Onde salvar? (escolha, por ex., a Área de Trabalho; a pasta recuperacao_scyber_<data> "
+                      "será criada dentro dela)",
+                initialdir=desk if os.path.isdir(desk) else None, mustexist=True, parent=self)
             if not destino:
                 return
             self.status.set("Exportando…")
