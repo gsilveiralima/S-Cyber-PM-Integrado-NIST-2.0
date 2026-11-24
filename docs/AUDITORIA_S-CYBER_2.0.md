@@ -423,6 +423,17 @@ O ativo recebe o rótulo `[SIMULADO]`, a origem da coleta fica "Nuvem (simulada)
 - **Versões da API:** as versões do Azure Resource Manager (`API` em `nuvem.py`) não puderam ser conferidas daqui, porque este ambiente não tem acesso ao Azure. Uma versão recusada aparece como Indisponível, com o motivo. **Validar com uma assinatura real**, que depende de conta autorizada, somente leitura.
 - **Azure CLI:** precisa estar instalado no computador para verificar a assinatura real. A demonstração funciona sem ele e sem internet.
 
+**Validação no Windows (24/11/2026, 16:35–16:41):**
+- **Demonstração simulada:** 6 de 6 verificações. Falha 3 (blob público, RDP aberto à internet, VM sem backup) e Atenção 3 (TLS 1.0, log não exportado, 4 proprietários), com prioridades Alta e Média. A faixa "DEMONSTRAÇÃO SIMULADA" aparece no resumo e no detalhe.
+- **Sem o Azure CLI:** ao escolher "assinatura real", a mensagem explicou como instalar e entrar com `az login`. Nada foi mostrado como aprovado.
+- **Assinatura REAL ("Azure for Students", do Senac):** usada depois de `az login`, só com leitura.
+  - **Cobertura:** **6 de 6 verificações feitas, nenhuma indisponível.** Isso confirma que as versões da API do Azure Resource Manager estão aceitas.
+  - **Atenção 2:** sem cofre do Azure Backup e Log de Atividades não exportado.
+  - **OK 4:** sem armazenamento, 1 proprietário e nenhum grupo de rede exposto.
+  - **Comparação:** a segunda execução mostrou "0 melhorou, 0 piorou, 6 igual".
+- **Achado corrigido (local):** com 0 contas de armazenamento, o texto da criptografia dizia "Só HTTPS e TLS 1.2", o que afirmava algo que não foi verificado. Agora diz "nada a verificar", e um teste impede a volta do texto antigo.
+- **Situação:** a parte de nuvem do §18 está implementada, testada e homologada com assinatura real.
+
 ## 14. Próximo passo proposto
 1. Testar no Windows a demonstração de nuvem (Diagnóstico → "Verificar nuvem (Azure)…" → Não) e, quando houver, a assinatura real.
 2. Fase 5, parte 2 (só trabalho local):

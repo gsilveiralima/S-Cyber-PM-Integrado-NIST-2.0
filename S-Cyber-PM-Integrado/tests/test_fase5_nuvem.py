@@ -56,6 +56,13 @@ class AvaliacaoTests(unittest.TestCase):
         self.assertFalse(N._aberta_a_internet(N._regra('interna', '22', '10.0.0.0/8')))
         self.assertEqual(N._portas(N._regra('tudo', '*')), ['todas as portas'])
 
+    def test_assinatura_sem_armazenamento_nao_afirma_https(self):
+        """Validação real (Azure for Students, 24/11): sem contas, o texto dizia 'Só HTTPS e TLS 1.2'."""
+        r = {x['id']: x for x in N.evaluate({'meta': {}, 'storage': [], 'nsg': [], 'roles': [], 'vaults': [],
+                                               'vms': [], 'diag': []})}
+        self.assertNotIn('HTTPS', r['az_storage_crypto']['detail'])
+        self.assertIn('nada a verificar', r['az_storage_crypto']['detail'])
+
     def test_falha_de_consulta_nunca_aprova(self):
         raw = {'meta': {'host': 'x'}, 'storage': {'erro': 'Acesso recusado (HTTP 403)'}, 'nsg': None,
                'roles': {'erro': 'x'}, 'vaults': {'erro': 'x'}, 'vms': [], 'diag': {'erro': 'x'}}

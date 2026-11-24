@@ -203,11 +203,13 @@ def evaluate(raw):
                     ([f'TLS mínimo abaixo de 1.2: {", ".join(tls_antigo)}'] if tls_antigo else [])
         repouso = ', '.join(f'{n} com chave {"do cliente (Key Vault)" if k == "Microsoft.Keyvault" else "da Microsoft"}'
                             for k, n in sorted(chaves.items()))
+        if not contas:          # nada a afirmar sobre HTTPS/TLS quando não há conta
+            texto = 'Nenhuma conta de armazenamento na assinatura: nada a verificar.'
+        else:
+            texto = (('; '.join(problemas) + '. ') if problemas else 'Só HTTPS e TLS 1.2 ou superior. ') + \
+                    f'Criptografia em repouso: {repouso}.'
         out.append(_r('az_storage_crypto', 'Azure: criptografia do armazenamento',
-                      'Falha' if sem_https else 'Atenção' if tls_antigo else 'OK',
-                      ('; '.join(problemas) + '. ' if problemas else 'Só HTTPS e TLS 1.2 ou superior. ')
-                      + (f'Criptografia em repouso: {repouso}.' if contas else 'Nenhuma conta de armazenamento.'),
-                      subs))
+                      'Falha' if sem_https else 'Atenção' if tls_antigo else 'OK', texto, subs))
 
     grupos = raw.get('nsg')
     subs = ['PR.IR-01', 'DE.CM-01']
