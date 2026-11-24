@@ -1502,7 +1502,7 @@ def raspar_wikipedia(url=URL_RASPAGEM, termo=TERMO_PESQUISA, ao_achar_pagina=Non
         pagina.raise_for_status()
     except Exception as e:  # noqa: BLE001 - o relatório segue sem esta seção
         linhas += [f"Fonte:      {url}",
-                   f"Não foi possível acessar a página ({type(e).__name__}: {e})."]
+                   f"{RASPAGEM_FALHOU} ({type(e).__name__}: {e})."]
         return "\r\n".join(linhas) + "\r\n"
     linhas += _relatorio_artigo(pagina, momento)
 
@@ -1521,12 +1521,18 @@ def raspar_wikipedia(url=URL_RASPAGEM, termo=TERMO_PESQUISA, ao_achar_pagina=Non
     return "\r\n".join(linhas) + "\r\n"
 
 
+RASPAGEM_FALHOU = "Não foi possível acessar a página"   # texto de raspar_wikipedia sem internet
+
+
 def _raspar_em_segundo_plano(pasta, capturas=None, autorizada=True):
     """Thread da raspagem: grava web.txt e, SEMPRE, web.ok (a 4ª janela espera por ele).
     Com 'capturas', a página achada pela pesquisa também é fotografada. Sem a
-    autorização do usuário, nada vai para a internet e a seção diz isso."""
+    autorização do usuário, nada vai para a internet e a seção diz isso. Se não foi
+    feita (sem autorização, sem internet ou erro), grava também web.falhou: o
+    andamento mostra "--", nunca "OK" para o que não aconteceu."""
     def tarefa():
         ao_achar = capturas.capturar_pagina_pesquisada if capturas is not None else None
+        texto = ""
         try:
             if not autorizada:
                 texto = "=== PESQUISA NA WEB ===\r\nNão autorizada pelo usuário nesta execução.\r\n"
@@ -1534,9 +1540,13 @@ def _raspar_em_segundo_plano(pasta, capturas=None, autorizada=True):
                 texto = raspar_wikipedia(ao_achar_pagina=ao_achar) if RASPAR_WEB else ""
         except Exception as e:  # noqa: BLE001 - erro de leitura do HTML não trava o relatório
             texto = f"=== PESQUISA NA WEB ===\r\nFalha na raspagem ({type(e).__name__}: {e}).\r\n"
+        falhou = (not autorizada or not RASPAR_WEB or RASPAGEM_FALHOU in texto
+                  or "Falha na raspagem" in texto)
         try:
             gravar(pasta / "web.txt", texto.encode("utf-8"))   # cifrado (modCriptoTemp)
         finally:
+            if falhou:
+                (pasta / "web.falhou").touch()
             (pasta / "web.ok").touch()
     threading.Thread(target=tarefa, daemon=True).start()
 
@@ -1969,7 +1979,8 @@ def _andamento(pasta, capturas):
         (arquivo("2.ok"), ps("2", "Segurança: proteções e configuração")),
         (arquivo("4.ok"), ps("4", "Segurança: contas, portas e persistência")),
         (arquivo("3.ok"), ps("3", "Dispositivos de rede")),
-        ("OK" if web_pronta else "..", autorizado("internet", "Raspagem da Wikipédia e pesquisa no site")),
+        (("--" if (pasta / "web.falhou").exists() else "OK") if web_pronta else "..",
+         autorizado("internet", "Raspagem da Wikipédia e pesquisa no site")),
         (captura("Câmera"), autorizado("camera", "Foto da câmera (cifrada)")),
         (captura("Site"), autorizado("internet", "Imagem da página (cifrada)")),
         (pesquisa, autorizado("internet", "Imagem da página pesquisada (cifrada)")),

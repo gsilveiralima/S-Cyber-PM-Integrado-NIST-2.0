@@ -372,6 +372,10 @@ Feita só na cópia local, sem nenhuma operação remota. A mudança na Corujinh
   - a animação apareceu na gravação, com o PID de cada PowerShell (por exemplo, inventário 21068 e disco 25144), igual ao do Gerenciador de Tarefas;
   - o relatório saiu em PDF assinado e protegido por senha.
 - **Achado corrigido (local):** o cabeçalho da animação ainda dizia "(protegida contra captura)". Agora diz "trabalhando com a sua autorização (processos e PIDs abaixo)", e um teste impede o texto antigo de voltar.
+- **Segunda execução da Corujinha (16:09, programa aberto como administrador, computador sem câmera e sem internet):**
+  - Foto da câmera e imagens de páginas apareceram como "--" (não feitas), o que está correto.
+  - **Achado:** a raspagem da Wikipédia aparecia como "OK" mesmo sem internet, porque o marcador `web.ok` é gravado sempre. Corrigido localmente: sem autorização, sem internet ou com erro, a raspagem grava `web.falhou` e o andamento mostra "--". Um teste impede a volta.
+  - O formulário do relatório não aparece na gravação porque é protegido contra captura (contém dados sensíveis), como previsto.
 - **Ainda pendente:** o diagnóstico como administrador, que deve preencher BitLocker, SMBv1, Secure Boot e backup, e a medição do tempo do diagnóstico. A gravação mostra que ele termina em poucos segundos.
 
 ## 13. Próximo passo proposto

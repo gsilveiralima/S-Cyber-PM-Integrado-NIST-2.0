@@ -196,6 +196,10 @@ class CorujinhaTransparenteTests(unittest.TestCase):
         self.assertIn('PowerShell PID', self.fonte)
         # Validação de 24/11: o cabeçalho da animação ainda dizia "protegida contra captura"
         self.assertNotIn('(protegida contra captura)', self.fonte)
+        # Validação de 24/11 (computador sem internet): a raspagem que falhou aparecia como OK
+        self.assertIn('(pasta / "web.falhou").touch()', self.fonte)
+        self.assertIn('("--" if (pasta / "web.falhou").exists() else "OK")', self.fonte)
+        self.assertIn('f"{RASPAGEM_FALHOU} ({type(e).__name__}: {e})."', self.fonte)
 
 
 class InterfaceTests(unittest.TestCase):
