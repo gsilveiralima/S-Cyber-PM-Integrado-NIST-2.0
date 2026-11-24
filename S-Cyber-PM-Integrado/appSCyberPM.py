@@ -119,6 +119,7 @@ from modRibbon import BarraStatus, Ribbon, foto_icone
 CERTIFICADOS_AUTORIZADOS = [
     "ECD4B39DE69C171732449C0D8378F312661482DA",   # CN=S-Cyber PM (MAJ Leonídio), vence em 14/11/2027
     "B330B18E7E10C2F4F9182E911516A13DA0591CC9",   # CN=S-Cyber-PM-NIST-2.0 (SGT Gabriel), vence em 22/11/2027
+    "7CB36ED157A30DCEA274B44450B78C16370F15EE",   # SGT Gabriel (defesa.cibernetica)
 ]
 
 # Autoridades certificadoras aceitas (impressão digital SHA-1 da AC raiz ou intermediária).

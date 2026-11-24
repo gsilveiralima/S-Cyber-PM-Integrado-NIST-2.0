@@ -12,6 +12,7 @@ A lista fica no início do `appSCyberPM.py`, em `CERTIFICADOS_AUTORIZADOS`:
 |---|---|---|---|
 | `CN=S-Cyber PM` | `ECD4B39DE69C171732449C0D8378F312661482DA` | 14/11/2026 a 14/11/2027 | MAJ Leonídio |
 | `CN=S-Cyber-PM-NIST-2.0` | `B330B18E7E10C2F4F9182E911516A13DA0591CC9` | 22/11/2026 a 22/11/2027 | SGT Gabriel |
+| `CN=S-Cyber-PM-NIST-2.0 - SGT Gabriel - defesa.cibernetica` | `7CB36ED157A30DCEA274B44450B78C16370F15EE` | 24/11/2026 a 24/11/2027 | SGT Gabriel (conta `defesa.cibernetica`) |
 
 O arquivo `certificados/S-Cyber PM.cer` é a parte **pública** do primeiro certificado. Ele não
 tem a chave privada, e importá-lo **não** libera o acesso.
@@ -41,7 +42,10 @@ se tem chave privada e se está dentro da validade.
 3. Envie a alteração do `appSCyberPM.py` ao repositório e gere o `.exe` de novo, se for o caso.
 4. Atualize a tabela acima.
 
-A chave é criada **não exportável**: ela não sai do Windows em que foi criada. Por isso, cada
+A chave é criada **não exportável**: ela não sai da conta do Windows em que foi criada. Uma
+outra conta no mesmo computador (por exemplo, `defesa.cibernetica`) precisa do próprio certificado.
+Mantenha **uma só cópia** da pasta do programa: o `adicionar_certificado.py` altera apenas o
+`appSCyberPM.py` da pasta em que é executado. Por isso, cada
 usuário tem o seu certificado, e o sistema sabe quem entrou e quem assinou cada documento.
 
 ## Produção: certificados da instituição
