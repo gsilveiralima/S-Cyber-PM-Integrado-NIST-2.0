@@ -1,7 +1,7 @@
 # S-Cyber PM Integrado — NIST CSF 2.0
 
-Cópia integrada do **S-Cyber PM 1.5** (Cryptography and Digital Certificate Framework) com o
-módulo **S-Cyber NIST Intelligence 1.2.0**, que leva o NIST Cybersecurity Framework 2.0 para dentro
+Cópia integrada do **S-Cyber PM 1.6** (Cryptography and Digital Certificate Framework) com o
+módulo **S-Cyber NIST Intelligence 1.3.0**, que leva o NIST Cybersecurity Framework 2.0 para dentro
 da aplicação.
 
 > **Situação:** versão para uso real, validada no Windows 11 em 22/11/2026
@@ -14,7 +14,13 @@ de caso (simulado) com OSINT na PMGO*.
 
 ## Instalação
 
-O passo a passo validado, com os problemas encontrados e as soluções, está em
+**Usuário final (recomendado):** instalador `SCyberPM-Setup-1.6.exe`, gerado e testado pelo CI. Ele
+está nos artefatos do workflow *Instalador Windows*, na aba **Actions** do repositório. Não precisa de
+Python. O guia curto está em **[docs/GUIA_WINDOWS_INSTALADOR.md](docs/GUIA_WINDOWS_INSTALADOR.md)**:
+instalar, ativar, criar o certificado, pedir o credenciamento e usar o fluxo de ativos e achados.
+Os administradores usam **[docs/ADMINISTRACAO_LICENCAS.md](docs/ADMINISTRACAO_LICENCAS.md)**.
+
+**Pelo código-fonte (desenvolvimento):** o passo a passo validado, com os problemas encontrados e as soluções, está em
 **[docs/INSTALACAO_WINDOWS.md](docs/INSTALACAO_WINDOWS.md)**. Em resumo (PowerShell, sem Git):
 
 ```powershell
@@ -24,7 +30,7 @@ Expand-Archive scyber-pm.zip -DestinationPath scyber-pm -Force
 cd .\scyber-pm\S-Cyber-PM-Integrado-NIST-2.0-main\S-Cyber-PM-Integrado
 py -3 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
-.\.venv\Scripts\python.exe -m unittest discover -s tests        # 77 testes OK
+.\.venv\Scripts\python.exe -m unittest discover -s tests        # 110 testes OK
 powershell -ExecutionPolicy Bypass -File .\verificar_certificados.ps1
 .\.venv\Scripts\python.exe appSCyberPM.py --nist     # abre direto no painel NIST
 ```
@@ -38,13 +44,15 @@ a trocar a senha de fábrica. Depois do login, o painel NIST abre sozinho (com `
 
 | Documento | Conteúdo |
 |---|---|
+| [docs/GUIA_WINDOWS_INSTALADOR.md](docs/GUIA_WINDOWS_INSTALADOR.md) | Guia curto do usuário: instalador, ativação, certificado, achados, diagnóstico |
+| [docs/ADMINISTRACAO_LICENCAS.md](docs/ADMINISTRACAO_LICENCAS.md) | Licenças e credenciamentos (somente SGT Gabriel e MAJ Leonídio) |
 | [docs/INSTALACAO_WINDOWS.md](docs/INSTALACAO_WINDOWS.md) | Instalação passo a passo e solução de problemas |
 | [S-Cyber-PM-Integrado/CERTIFICADOS.md](S-Cyber-PM-Integrado/CERTIFICADOS.md) | Certificados autorizados, inclusão de usuário, AC institucional |
 | [S-Cyber-PM-Integrado/GUIA_NIST_INTELLIGENCE.md](S-Cyber-PM-Integrado/GUIA_NIST_INTELLIGENCE.md) | Uso de cada aba do painel NIST |
 | [docs/PRODUCAO_SEGURANCA.md](docs/PRODUCAO_SEGURANCA.md) | Senhas, certificados e configuração para produção |
 | [S-Cyber-PM-Integrado/INSTRUCOES_INTEGRACAO.md](S-Cyber-PM-Integrado/INSTRUCOES_INTEGRACAO.md) | O que foi integrado, arquivos alterados, limites |
 | [docs/VALIDACAO_WINDOWS_2026-11-22.md](docs/VALIDACAO_WINDOWS_2026-11-22.md) | Resultado dos testes no Windows 11 |
-| [docs/CHANGELOG_v1.2.0.md](docs/CHANGELOG_v1.2.0.md) | Mudanças desta versão (e changelogs anteriores em `docs/`) |
+| [docs/CHANGELOG_v1.6.0.md](docs/CHANGELOG_v1.6.0.md) | Mudanças desta versão (e changelogs anteriores em `docs/`) |
 
 ## Estrutura
 
@@ -60,7 +68,7 @@ S-Cyber-PM-Integrado/            aplicação (execute appSCyberPM.py daqui)
   iniciar_nist_windows.bat       abre o S-Cyber PM direto no painel NIST
   coletor_nist.ps1               coletor avulso para computadores sem o S-Cyber PM
   coletar_nist_windows.bat       executa o coletor avulso (como Administrador)
-  tests/                         77 testes automáticos (rodam também no GitHub Actions, no Windows)
+  tests/                         110 testes automáticos (rodam também no GitHub Actions, no Windows)
 docs/                            instalação, validação, segurança e changelogs
 ```
 

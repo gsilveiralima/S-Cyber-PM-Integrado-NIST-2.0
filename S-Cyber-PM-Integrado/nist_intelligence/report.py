@@ -197,10 +197,34 @@ def build(db, path, organization='', author=''):
     else:
         story.append(Paragraph('Nenhuma coleta executada.', st['Normal']))
 
-    # 7. Consolidação
+    # 7. Achados: do ativo à correção verificada
+    from . import achados as ach
+    lista = ach.achados(db)
+    story += [PageBreak(), Paragraph('7. Achados de segurança (ativo → correção verificada)', st['Heading2'])]
+    if lista:
+        nomes = {a['id']: a['name'] for a in ach.assets(db, only_active=False)}
+        rows = [['#', 'Ativo', 'Fonte / identificador', 'Estado', 'CSF', 'Prior.', 'Responsável', 'Prazo',
+                 'Revisor']]
+        row_colors = {}
+        hoje = datetime.now().date().isoformat()
+        for n, a in enumerate(lista, start=1):
+            rows.append([a['id'], nomes.get(a['asset_id'], '?'), f"{a['source']} {a['ref']}", a['state'],
+                         a['sub_code'], a['priority'], a['owner'], core._br(a['due_date']),
+                         (a['reviewer'] or '').split(' (')[0]])
+            if a['state'] == 'Confirmado' and a['due_date'] and a['due_date'] < hoje or a['divergence']:
+                row_colors[n] = LEVEL_COLORS['alto']
+        story.append(_table(rows, [0.8 * cm, 2.6 * cm, 3.6 * cm, 2.2 * cm, 1.4 * cm, 1.2 * cm, 2.2 * cm, 1.6 * cm,
+                                   2.0 * cm], st, row_colors=row_colors))
+        story.append(Paragraph('Cada mudança de estado está na linha do tempo encadeada por hash (autor, data, '
+                               'estado anterior e novo); as consultas às fontes ficam como evidência com SHA-256.',
+                               st['Small']))
+    else:
+        story.append(Paragraph('Nenhum achado registrado.', st['Normal']))
+
+    # 8. Consolidação
     view = core.consolidated_view(db)
     if len(view) > 2:
-        story += [PageBreak(), Paragraph('7. Consolidação entre unidades', st['Heading2'])]
+        story += [PageBreak(), Paragraph('8. Consolidação entre unidades', st['Heading2'])]
         rows = [['Unidade'] + [f for f, _ in FUNCTIONS] + ['Riscos altos', 'Incid. abertos', 'ANPD vencidos']]
         row_colors = {}
         for n, r in enumerate(view, start=1):
@@ -217,9 +241,9 @@ def build(db, path, organization='', author=''):
         story.append(Spacer(1, 0.3 * cm))
         story.append(_table(rows, [3.5 * cm, 4 * cm, 5.5 * cm, 1.7 * cm, 2.8 * cm], st))
         story.append(Paragraph('Pacotes com assinatura conferida na importação (CMS/SHA-256).', st['Small']))
-        audit_no = 8
+        audit_no = 9
     else:
-        audit_no = 7
+        audit_no = 8
 
     # Trilha de auditoria
     story += [Spacer(1, 0.4 * cm), Paragraph(f'{audit_no}. Trilha de auditoria (últimos 30 registros)',

@@ -29,6 +29,15 @@ class PainelNist:
                 self.painel = criar_painel(self.root, self.base_dir, self.voltar)
             except Exception as erro:
                 self.painel = None
+                if isinstance(erro, PermissionError) and "OUTRO certificado" in str(erro):
+                    # Banco cifrado com outro certificado: oferece o assistente (migra ou guarda).
+                    if messagebox.askyesno("NIST Intelligence", f"{erro}\n\nAbrir o assistente de perfil? Ele "
+                                           "mostra qual certificado abre o banco e migra os dados para o "
+                                           "certificado atual, sem apagar nada.", parent=self.root):
+                        import formOpcoes
+                        from formAbertura import FormPerfil
+                        FormPerfil(self.root, formOpcoes.certificado(), ao_concluir=self.abrir)
+                    return
                 messagebox.showerror("NIST Intelligence",
                                      "Não foi possível carregar o painel NIST.\n\n" + str(erro),
                                      parent=self.root)

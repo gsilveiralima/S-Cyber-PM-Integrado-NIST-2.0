@@ -30,7 +30,7 @@ from .crypto import InvalidTag
 from .catalog import (CATEGORIES, FUNCTIONS, MATURITY, SUB_BY_CATEGORY,  # noqa: F401
                       SUBCATEGORIES, TIERS, category_of, function_of)
 
-VERSION = '1.2.0'
+VERSION = '1.3.0'
 
 # Mesma pasta de dados do S-Cyber PM (%APPDATA%\SCyberPM), numa subpasta própria.
 _APPDATA = Path(os.environ.get('APPDATA') or (Path.home() / '.config'))
@@ -70,6 +70,10 @@ SENSITIVE = {
     'findings': ('detail',),
     'audit_log': ('actor', 'summary'),
     'consolidated': ('unit', 'signer', 'payload'),
+    'assets': ('name', 'identifier', 'owner', 'notes'),
+    'achados': ('title', 'observation', 'discard_reason', 'justification', 'owner', 'action', 'bulletin',
+                'fix_note', 'fixed_by', 'reviewer', 'review_note', 'divergence'),
+    'achado_log': ('actor', 'note'),
 }
 
 AUTO_COLLECT_DAYS = 7          # o painel refaz a coleta técnica quando a última é mais antiga
@@ -219,6 +223,27 @@ def connect(path=DB, key=None):
       id INTEGER PRIMARY KEY, imported_at TEXT NOT NULL, unit TEXT NOT NULL, signer TEXT NOT NULL,
       thumb TEXT NOT NULL, trusted INTEGER NOT NULL, created_at TEXT NOT NULL,
       package_sha256 TEXT NOT NULL UNIQUE, payload TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS assets(
+      id INTEGER PRIMARY KEY, name TEXT NOT NULL, kind TEXT NOT NULL, identifier TEXT NOT NULL DEFAULT '',
+      owner TEXT NOT NULL DEFAULT '', criticality TEXT NOT NULL DEFAULT 'Média',
+      vendor TEXT NOT NULL DEFAULT '', product TEXT NOT NULL DEFAULT '', version TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '', authorized INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS achados(
+      id INTEGER PRIMARY KEY, asset_id INTEGER NOT NULL REFERENCES assets(id), source TEXT NOT NULL,
+      ref TEXT NOT NULL, title TEXT NOT NULL, event_date TEXT NOT NULL DEFAULT '', first_seen TEXT NOT NULL,
+      last_seen TEXT NOT NULL, observation TEXT NOT NULL DEFAULT '', source_status TEXT NOT NULL DEFAULT '',
+      state TEXT NOT NULL DEFAULT 'Novo', discard_reason TEXT NOT NULL DEFAULT '',
+      sub_code TEXT NOT NULL DEFAULT '', priority TEXT NOT NULL DEFAULT '', justification TEXT NOT NULL DEFAULT '',
+      owner TEXT NOT NULL DEFAULT '', due_date TEXT NOT NULL DEFAULT '', action TEXT NOT NULL DEFAULT '',
+      bulletin TEXT NOT NULL DEFAULT '', fix_note TEXT NOT NULL DEFAULT '', fix_evidence_id INTEGER,
+      fixed_by TEXT NOT NULL DEFAULT '', reviewer TEXT NOT NULL DEFAULT '', review_note TEXT NOT NULL DEFAULT '',
+      incident_id INTEGER, divergence TEXT NOT NULL DEFAULT '', evidence_id INTEGER,
+      UNIQUE(asset_id, source, ref));
+    CREATE TABLE IF NOT EXISTS achado_log(
+      id INTEGER PRIMARY KEY, achado_id INTEGER NOT NULL REFERENCES achados(id), at TEXT NOT NULL,
+      actor TEXT NOT NULL, action TEXT NOT NULL, from_state TEXT NOT NULL, to_state TEXT NOT NULL,
+      note TEXT NOT NULL, prev_hash TEXT NOT NULL, hash TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS findings(
       id INTEGER PRIMARY KEY, collection_id INTEGER NOT NULL REFERENCES collections(id),
       check_id TEXT NOT NULL, title TEXT NOT NULL, status TEXT NOT NULL,
@@ -287,6 +312,7 @@ def _entry_hash(prev_hash, payload):
 
 
 _CHAINS = {
+    'achado_log': ('achado_id', 'at', 'actor', 'action', 'from_state', 'to_state', 'note'),
     'custody_log': ('evidence_id', 'at', 'action', 'actor', 'note', 'sha256'),
     'incident_log': ('incident_id', 'at', 'phase', 'note'),
     'audit_log': ('at', 'actor', 'entity', 'action', 'ref', 'summary'),
@@ -1019,6 +1045,115 @@ def purge_closed_incidents(db, older_than_days, archive=None, today=None):
           f'({old_head[:16]}… → {prev[:16]}…)' + (f'; arquivo {Path(archive).name}' if archive else ''))
     db.commit()
     return len(ids)
+
+
+# ============================================================ troca de certificado (migração)
+def key_status(path, key=None):
+    """Situação do arquivo SEM alterá-lo (abre só para leitura):
+    'inexistente', 'ilegivel', 'sem_cifra', 'abre' (a chave confere) ou 'outra_chave'."""
+    path = Path(path)
+    if not path.is_file():
+        return 'inexistente'
+    try:
+        con = sqlite3.connect(path.resolve().as_uri() + '?mode=ro', uri=True)
+        try:
+            row = con.execute("SELECT v FROM meta WHERE k='key_check'").fetchone()
+        finally:
+            con.close()
+    except sqlite3.Error:
+        return 'ilegivel'
+    if not row:
+        return 'sem_cifra'
+    if key is None:
+        return 'outra_chave'
+    return 'abre' if crypto.FieldCipher(key).matches(row[0]) else 'outra_chave'
+
+
+def _plain_rows(path, key):
+    """{tabela: [linhas com os campos sensíveis decifrados]} lido só para leitura."""
+    cipher = crypto.FieldCipher(key)
+    con = sqlite3.connect(Path(path).resolve().as_uri() + '?mode=ro', uri=True)
+    try:
+        tables = [r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table' "
+                                            "AND name NOT LIKE 'sqlite_%' AND name<>'meta' ORDER BY name")]
+        out = {}
+        for t in tables:
+            cols = [r[1] for r in con.execute(f'PRAGMA table_info({t})')]
+            secret = set(SENSITIVE.get(t, ()))
+            rows = []
+            for rec in con.execute(f'SELECT * FROM {t} ORDER BY rowid'):
+                rows.append(tuple(cipher.decrypt(v) if c in secret else v for c, v in zip(cols, rec, strict=True)))
+            out[t] = (cols, rows)
+        return out
+    finally:
+        con.close()
+
+
+def compare_databases(path_a, key_a, path_b, key_b, appended=()):
+    """Confere registro a registro (com os textos decifrados) se dois bancos têm o mesmo
+    conteúdo. Devolve {tabela: quantidade}; levanta ValueError na primeira diferença.
+    appended: tabelas em que a cópia pode ter registros A MAIS no fim (ex.: a auditoria
+    ganha o registro da própria restauração)."""
+    a, b = _plain_rows(path_a, key_a), _plain_rows(path_b, key_b)
+    for t, (cols, rows) in a.items():
+        if t not in b:
+            raise ValueError(f'A tabela {t} não existe na cópia.')
+        cols_b, rows_b = b[t]
+        if cols_b[:len(cols)] != cols:
+            raise ValueError(f'A tabela {t} tem colunas diferentes na cópia.')
+        trimmed = [r[:len(cols)] for r in rows_b]
+        if t in appended:
+            trimmed = trimmed[:len(rows)]
+        if trimmed != rows:
+            raise ValueError(f'A tabela {t} tem registros diferentes na cópia ({len(rows)} × {len(rows_b)}).')
+    return {t: len(rows) for t, (_, rows) in a.items()}
+
+
+def rekey(source, old_key, new_key, destination):
+    """Copia o banco recifrando os campos sensíveis com a nova chave (troca de certificado).
+    O original não é alterado. As cadeias de hash não mudam (são calculadas sobre o texto
+    em claro). Confere a cópia registro a registro e as cadeias; devolve {tabela: quantidade}."""
+    source, destination = Path(source), Path(destination)
+    if key_status(source, old_key) != 'abre':
+        raise PermissionError('A chave antiga não abre este banco.')
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.exists():
+        destination.unlink()
+    src = sqlite3.connect(source.resolve().as_uri() + '?mode=ro', uri=True)
+    dst = sqlite3.connect(destination)
+    try:
+        src.backup(dst)
+    finally:
+        src.close()
+        dst.close()
+    old, new = crypto.FieldCipher(old_key), crypto.FieldCipher(new_key)
+    con = sqlite3.connect(destination)
+    try:
+        for table, cols in SENSITIVE.items():
+            if not con.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone():
+                continue
+            present = [c for c in cols if c in {r[1] for r in con.execute(f'PRAGMA table_info({table})')}]
+            if not present:
+                continue
+            for rec in con.execute(f'SELECT rowid,{",".join(present)} FROM {table}').fetchall():
+                values = [new.encrypt(old.decrypt(v)) for v in rec[1:]]
+                con.execute(f'UPDATE {table} SET {",".join(c + "=?" for c in present)} WHERE rowid=?',
+                            (*values, rec[0]))
+        con.execute("UPDATE meta SET v=? WHERE k='key_check'", (new.check_token(),))
+        con.commit()
+        con.execute('VACUUM')
+    finally:
+        con.close()
+    counts = compare_databases(source, old_key, destination, new_key)
+    db = connect(destination, new_key)
+    try:
+        for table in _CHAINS:
+            ok, bad = verify_chain(db, table)
+            if not ok:
+                raise ValueError(f'Cadeia {table} inconsistente na cópia (registro {bad}).')
+    finally:
+        db.close()
+    return counts
 
 
 def restore(source, destination=DB, key=None):

@@ -1,0 +1,89 @@
+name: Instalador Windows
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  instalador:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: S-Cyber-PM-Integrado
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: S-Cyber-PM-Integrado/requirements.txt
+      - name: Dependências e PyInstaller
+        run: python -m pip install -r requirements.txt pyinstaller
+      - name: Executável (PyInstaller)
+        run: python gerarExe.py
+      - name: Instalador (Inno Setup)
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress | Out-Null }
+          $versao = python -c "from formAbout import APP_VERSAO; print(APP_VERSAO)"
+          & $iscc "/DAppVersion=$versao" instalador\SCyberPM.iss
+          if ($LASTEXITCODE) { throw "ISCC falhou" }
+          "VERSAO=$versao" | Out-File -Append $env:GITHUB_ENV
+      - name: Instalar, abrir pelo atalho (diagnóstico), atualizar e desinstalar
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:PSModulePath = $null
+          $setup = (Get-Item "dist\SCyberPM-Setup-$env:VERSAO.exe").FullName
+          $dados = Join-Path $env:APPDATA 'SCyberPM'
+          New-Item -ItemType Directory -Force $dados | Out-Null
+          'dados do usuário' | Out-File (Join-Path $dados 'marcador_ci.txt')
+          $p = Start-Process $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER','/TASKS=desktopicon',"/LOG=$env:RUNNER_TEMP\instalacao.log" -Wait -PassThru
+          if ($p.ExitCode) { throw "Instalação falhou ($($p.ExitCode))" }
+          $exe = Join-Path $env:LOCALAPPDATA 'Programs\S-Cyber PM\SCyberPM.exe'
+          if (-not (Test-Path $exe)) { throw "Executável não instalado em $exe" }
+          $lnk = Get-ChildItem "$env:APPDATA\Microsoft\Windows\Start Menu\Programs" -Recurse -Filter 'S-Cyber PM.lnk' | Select-Object -First 1
+          if (-not $lnk) { throw 'Atalho do menu Iniciar não criado' }
+          $sh = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk.FullName)
+          if ($sh.TargetPath -ne $exe) { throw "Atalho aponta para $($sh.TargetPath)" }
+          Write-Host "Atalho: $($lnk.FullName) -> $($sh.TargetPath)"
+          # Abre o programa INSTALADO pelo destino do atalho (modo diagnóstico, sem interface)
+          $diag = Join-Path $env:RUNNER_TEMP 'diagnostico_instalado.txt'
+          $p = Start-Process $sh.TargetPath -ArgumentList '--diagnostico', $diag, '--sem-perfil' -Wait -PassThru
+          $texto = Get-Content $diag -Raw -Encoding UTF8
+          Write-Host $texto
+          foreach ($t in @("Versão em execução : $env:VERSAO", 'SCyberPM.exe', 'Instalação         : INST-', 'NÃO ATIVA', 'PRÓXIMA AÇÃO')) {
+            if (-not $texto.Contains($t)) { throw "Diagnóstico sem '$t'" }
+          }
+          # Atualização por cima (mesma instalação): o programa e os dados continuam
+          $p = Start-Process $setup -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/CURRENTUSER' -Wait -PassThru
+          if ($p.ExitCode -or -not (Test-Path $exe)) { throw 'Atualização falhou' }
+          $inst1 = (Get-Content (Join-Path $env:LOCALAPPDATA 'SCyberPM\instalacao.json') | ConvertFrom-Json).id
+          Start-Process $exe -ArgumentList '--diagnostico', $diag, '--sem-perfil' -Wait
+          if (-not (Get-Content $diag -Raw).Contains($inst1)) { throw 'A atualização trocou o id da instalação' }
+          # Desinstalação: some o programa, ficam os dados do usuário
+          $unins = Get-ChildItem (Split-Path $exe) -Filter 'unins*.exe' | Select-Object -First 1
+          $p = Start-Process $unins.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          Start-Sleep 3
+          if (Test-Path $exe) { throw 'Desinstalação deixou o executável' }
+          if (-not (Test-Path (Join-Path $dados 'marcador_ci.txt'))) { throw 'Desinstalação apagou dados do usuário' }
+          Write-Host 'Instalação, atalho, diagnóstico, atualização e desinstalação: OK'
+      - name: SHA-256
+        run: |
+          Get-ChildItem dist\*.exe | ForEach-Object { "{0}  {1}" -f (Get-FileHash $_ -Algorithm SHA256).Hash.ToLower(), $_.Name } | Tee-Object dist\SHA256SUMS.txt
+          Copy-Item "$env:RUNNER_TEMP\diagnostico_instalado.txt", "$env:RUNNER_TEMP\instalacao.log" dist\
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SCyberPM-Windows-${{ env.VERSAO }}
+          path: |
+            S-Cyber-PM-Integrado/dist/SCyberPM-Setup-*.exe
+            S-Cyber-PM-Integrado/dist/SCyberPM.exe
+            S-Cyber-PM-Integrado/dist/SHA256SUMS.txt
+            S-Cyber-PM-Integrado/dist/diagnostico_instalado.txt
+            S-Cyber-PM-Integrado/dist/instalacao.log
+          retention-days: 30

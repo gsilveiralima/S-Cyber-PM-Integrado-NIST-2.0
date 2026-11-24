@@ -26,4 +26,6 @@ jobs:
       - name: Lint (erros reais, pyflakes)
         run: python -m ruff check --select E9,F .
       - name: Testes
+        env:
+          SCYBER_FONTES_REAIS: "1"     # primeira consulta real: CISA KEV, catálogo HIBP, Pwned Passwords
         run: python -m unittest discover -s tests -v

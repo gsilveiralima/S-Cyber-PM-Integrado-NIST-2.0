@@ -294,6 +294,14 @@ def _lista_normalizada(lista):
 
 # Certificado efetivamente validado nesta execução (definido por validar_certificado()).
 _CERT_EM_USO = {"thumb": None}
+# Papel do certificado em uso ('administrador', 'revisor' ou 'usuario') e licença da instalação.
+PAPEL_EM_USO = {"papel": "usuario"}
+LICENCA_EM_USO = {}
+
+
+def _programa():
+    """Caminho do programa em execução (o .exe instalado ou este script)."""
+    return Path(sys.executable) if getattr(sys, "frozen", False) else Path(__file__).resolve()
 
 
 def _thumbprint_normalizado():
@@ -439,11 +447,14 @@ def verificar_resposta(resposta, nonce, thumbprint, exigir_cadeia=EXIGIR_CADEIA_
     return resultado
 
 
-def validar_certificado():
+def validar_certificado(credenciados=()):
+    """credenciados: impressões digitais da lista ASSINADA pelos administradores
+    (modLicenca.credenciados): somam-se à lista fixa, sem editar este arquivo."""
     if sys.platform != "win32":
         return ResultadoValidacao(False, "Esta validação só funciona no Windows.")
 
-    permitidos = _lista_normalizada(CERTIFICADOS_AUTORIZADOS) or _lista_normalizada([CERT_THUMBPRINT])
+    permitidos = _lista_normalizada(list(CERTIFICADOS_AUTORIZADOS) + list(credenciados)) \
+        or _lista_normalizada([CERT_THUMBPRINT])
     acs = _lista_normalizada(ACS_AUTORIZADAS)
     if not permitidos and not acs:
         return ResultadoValidacao(
@@ -603,17 +614,32 @@ class SplashScreen(tk.Toplevel):
     # ------------------------------------------------------
 
     def _validar_em_segundo_plano(self):
+        """1) ativação da instalação; 2) certificado do policial; 3) dados cifrados."""
         try:
-            resultado = validar_certificado()
+            import modLicenca
+            publicacao = modLicenca.Publicacao()
+            ativa, licenca, erro = modLicenca.estado(publicacao=publicacao)
+            if not ativa:
+                resultado = ResultadoValidacao(False, str(erro))
+                resultado.etapa = "licenca"
+                self.resultado = resultado
+                return
+            LICENCA_EM_USO.clear()
+            LICENCA_EM_USO.update(licenca)
+            resultado = validar_certificado(modLicenca.credenciados(publicacao))
+            resultado.etapa = "certificado"
             # Com o certificado validado, abre as opções (a chave do arquivo vem dele)
             if resultado.ok:
+                PAPEL_EM_USO["papel"] = modLicenca.papel(resultado.thumb, publicacao)
                 try:
                     formOpcoes.iniciar(_thumbprint_normalizado())
                 except formOpcoes.ErroOpcoes as e:
                     resultado = ResultadoValidacao(False, f"Opções do aplicativo: {e}")
+                    resultado.etapa = "opcoes"
             self.resultado = resultado
         except Exception as e:  # nunca deixar a thread morrer sem resultado
             self.resultado = ResultadoValidacao(False, f"Erro inesperado: {e}")
+            self.resultado.etapa = "certificado"
 
     # ------------------------------------------------------
     # Carregamento
@@ -642,20 +668,33 @@ class SplashScreen(tk.Toplevel):
 
     def finish(self):
         if not self.resultado.ok:
-            self.set_status("Certificate validation failed")
-            messagebox.showerror(
-                "Authentication Failure",
-                "Required digital certificate could not be validated.\n\n"
-                f"{self.resultado.mensagem}\n\n"
-                "The application will be terminated.",
-                parent=self,
-            )
-            self.parent.destroy()  # destrói também a splash
+            etapa = getattr(self.resultado, "etapa", "certificado")
+            self.set_status({"licenca": "Activation required", "opcoes": "Encrypted profile needs attention"}
+                            .get(etapa, "Certificate validation failed"))
+            # Em vez de encerrar: diz o que falhou, o diagnóstico e a próxima ação.
+            try:
+                from formAbertura import FormAbertura
+                FormAbertura(self.parent, etapa, self.resultado.mensagem, ao_tentar=self._tentar_de_novo,
+                             ao_sair=self.parent.destroy, versao=APP_VERSAO, programa=_programa(),
+                             autorizados=_lista_normalizada(CERTIFICADOS_AUTORIZADOS),
+                             thumb_atual=_CERT_EM_USO["thumb"])
+            except Exception as erro:
+                messagebox.showerror("Authentication Failure",
+                                     f"{self.resultado.mensagem}\n\n({erro})\n\nThe application will be terminated.",
+                                     parent=self)
+                self.parent.destroy()
             return
 
         self.progress["value"] = 100
         self.set_status("Certificate Validated - System Ready")
         self.after(600, self.open_main_application)
+
+    def _tentar_de_novo(self):
+        """Depois de ativar, credenciar ou migrar o perfil: refaz a validação."""
+        self.resultado = None
+        self.progress_value = 0
+        threading.Thread(target=self._validar_em_segundo_plano, daemon=True).start()
+        self.after(100, self.load_modules)
 
     def open_main_application(self):
         try:
@@ -670,7 +709,23 @@ class SplashScreen(tk.Toplevel):
 # APLICAÇÃO PRINCIPAL (exemplo)
 # ==========================================================
 
+def diagnostico_cli(argv):
+    """--diagnostico [arquivo]: relatório de abertura sem interface (também no .exe)."""
+    import modDiagnostico
+    i = argv.index("--diagnostico")
+    destino = argv[i + 1] if len(argv) > i + 1 and not argv[i + 1].startswith("--") else None
+    texto = modDiagnostico.relatorio(APP_VERSAO, _programa(), _lista_normalizada(CERTIFICADOS_AUTORIZADOS),
+                                     analisar_perfil="--sem-perfil" not in argv)
+    caminho = modDiagnostico.salvar(texto, destino)
+    if destino is None and sys.platform == "win32":
+        os.startfile(caminho)                       # abre no Bloco de Notas
+    return caminho
+
+
 def main():
+    if "--diagnostico" in sys.argv[1:]:
+        diagnostico_cli(sys.argv)
+        return
     root = tk.Tk()
     root.withdraw()  # fica oculta até a validação passar
     root.title("S-Cyber PM")
@@ -1120,6 +1175,14 @@ def main():
         root.deiconify()
         root.lift()
         root.focus_force()
+        # Duas cópias do programa usando o mesmo perfil causam erros de abertura: avisa.
+        try:
+            import modDiagnostico
+            aviso = modDiagnostico.registrar_execucao(_programa(), APP_VERSAO)
+            if aviso:
+                root.after(1200, lambda: status.mensagem(aviso))
+        except Exception:
+            pass
         # appSCyberPM.py --nist (ou SCyberPM.exe --nist): entra direto no painel NIST,
         # depois do certificado e do login, como qualquer outra abertura.
         if "--nist" in sys.argv[1:]:

@@ -124,6 +124,16 @@ def main():
         "--hidden-import", "formNISTIntelligence",
         "--hidden-import", "formTrocaSenha",
         "--hidden-import", "formExploreSEI",
+        # Abertura (ativação, certificado, perfil) e senha vazada: importados na hora do uso
+        "--hidden-import", "formAbertura",
+        "--hidden-import", "modLicenca",
+        "--hidden-import", "modPerfil",
+        "--hidden-import", "modDiagnostico",
+        "--hidden-import", "modSenhaVazada",
+        # Listas assinadas pelos administradores (cópia inicial; o aplicativo atualiza on-line).
+        # A ferramenta dos administradores (admin_licencas.py) NÃO vai no executável.
+        "--add-data", f"{PASTA / 'licencas'}{';' if sys.platform == 'win32' else ':'}licencas",
+        "--exclude-module", "admin_licencas",
         "--collect-submodules", "nist_intelligence",
         "--collect-submodules", "reportlab.graphics",
         "--distpath", str(DESTINO),
