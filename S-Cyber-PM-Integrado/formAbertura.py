@@ -78,9 +78,13 @@ class FormAbertura(tk.Toplevel):
         ttk.Button(rodape, text="Verificar novamente", command=self.tentar).pack(side="right", padx=6)
         self.status = tk.StringVar(value="")
         ttk.Label(self, textvariable=self.status, foreground="#555").pack(anchor="w", padx=16, pady=(0, 8))
-        self.transient(master)
+        # Com a janela principal ainda oculta (abertura), "transient" esconderia esta também.
+        if master.winfo_viewable():
+            self.transient(master)
+        self.attributes("-topmost", True)
         self.lift()
         self.focus_force()
+        self.after(800, lambda: self.winfo_exists() and self.attributes("-topmost", False))
 
     # -------------------------------------------------- ativação
     def _montar_licenca(self):
@@ -257,7 +261,9 @@ class FormPerfil(tk.Toplevel):
         ttk.Button(barra, text="Criar perfil novo (guardar os atuais)…", command=self.novo).pack(side="left", padx=6)
         ttk.Button(barra, text="Fechar", command=self.destroy).pack(side="right")
         self.inventario, self.chaves = [], {}
-        self.transient(master)
+        if master.winfo_viewable():
+            self.transient(master)
+        self.lift()
         self.analisar()
 
     def analisar(self):

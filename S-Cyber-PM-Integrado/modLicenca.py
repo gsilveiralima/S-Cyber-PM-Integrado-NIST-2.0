@@ -203,9 +203,11 @@ class Publicacao:
 
     def _candidatos(self, nome):
         out = []
-        if self.online:
+        if self.online and not self.falha_rede:      # sem rede: não espera de novo a cada lista
             try:
                 out.append(("online", self.baixar(nome)))
+            except urllib.error.HTTPError:
+                pass                                   # lista ainda não publicada (404): segue
             except (urllib.error.URLError, OSError, ValueError) as exc:
                 self.falha_rede = str(getattr(exc, "reason", exc))
         for origem, pasta in (("cache", self.cache), ("pacote", self.pacote)):
