@@ -52,8 +52,15 @@ Depois fecha o splash e abre o formulário principal. Clique ou Esc pula.
 A apresentação ocupa toda a área de trabalho (a tela sem a barra de tarefas):
 as letras crescem para o desenho caber, sem aumentar a quantidade delas.
 
-TRABALHO ESCONDIDO E PROTEGIDO CONTRA CAPTURA: junto com a coruja começam,
-em segundo plano e SEM JANELAS, seis processos do Windows PowerShell:
+S-Cyber 2.0 (S7, aprovado pelo usuário em 24/11/2026): NADA É ESCONDIDO. Antes de
+começar, a Corujinha mostra o que vai fazer e pede CONSENTIMENTO; foto da câmera,
+captura da tela e acesso à internet (raspagem e imagens de páginas) vêm DESLIGADOS
+e só rodam se o usuário marcar. O andamento mostra cada processo do PowerShell com
+o PID (os mesmos que aparecem no Gerenciador de Tarefas) e a animação da coruja não
+é mais escondida das capturas de tela (só o relatório, que tem dados sensíveis).
+
+Com o consentimento, junto com a coruja começam, em segundo plano e sem janelas
+de console, seis processos do Windows PowerShell:
 inv) INVENTÁRIO completo do computador;
 1) checagem do disco C:   3) dispositivos de rede;
 2) SEGURANÇA - proteções e configuração: antivírus e Defender (assinaturas,
@@ -284,7 +291,7 @@ class AsciiSplash:
         self.win.bind("<Escape>", lambda e: self.finish())
         label.bind("<Button-1>", lambda e: self.finish())
         self.win.focus_force()
-        self.protecao = proteger_contra_captura(self.win)   # some das capturas de tela
+        self.protecao = None     # S7: a animação não se esconde das capturas (só o relatório)
         self._inicio_queda = None        # quando concluir() é chamada: a coruja se desfaz
         self.status_linhas = []          # andamento do trabalho em segundo plano
         self.fonte_status = load_font(["consolab.ttf", "consola.ttf", "DejaVuSansMono-Bold.ttf"],
@@ -1514,13 +1521,17 @@ def raspar_wikipedia(url=URL_RASPAGEM, termo=TERMO_PESQUISA, ao_achar_pagina=Non
     return "\r\n".join(linhas) + "\r\n"
 
 
-def _raspar_em_segundo_plano(pasta, capturas=None):
+def _raspar_em_segundo_plano(pasta, capturas=None, autorizada=True):
     """Thread da raspagem: grava web.txt e, SEMPRE, web.ok (a 4ª janela espera por ele).
-    Com 'capturas', a página achada pela pesquisa também é fotografada."""
+    Com 'capturas', a página achada pela pesquisa também é fotografada. Sem a
+    autorização do usuário, nada vai para a internet e a seção diz isso."""
     def tarefa():
         ao_achar = capturas.capturar_pagina_pesquisada if capturas is not None else None
         try:
-            texto = raspar_wikipedia(ao_achar_pagina=ao_achar) if RASPAR_WEB else ""
+            if not autorizada:
+                texto = "=== PESQUISA NA WEB ===\r\nNão autorizada pelo usuário nesta execução.\r\n"
+            else:
+                texto = raspar_wikipedia(ao_achar_pagina=ao_achar) if RASPAR_WEB else ""
         except Exception as e:  # noqa: BLE001 - erro de leitura do HTML não trava o relatório
             texto = f"=== PESQUISA NA WEB ===\r\nFalha na raspagem ({type(e).__name__}: {e}).\r\n"
         try:
@@ -1534,9 +1545,11 @@ def _raspar_em_segundo_plano(pasta, capturas=None):
 # CAPTURAS (tela e câmera)
 # ======================================================
 
-CAPTURAR_TELA = True
+CAPTURAR_TELA = True       # recursos existem; cada execução só usa o que o usuário autorizar
 CAPTURAR_CAMERA = True
 CAPTURAR_SITE = True       # imagem da página de URL_RASPAGEM (Edge sem janela)
+# S7: privacidade por padrão. Sem consentimento explícito, nada de câmera, tela ou internet.
+SEM_CONSENTIMENTO = {"camera": False, "tela": False, "internet": False}
 TEMPO_CAMERA = 45          # segundos: a primeira abertura da câmera pode demorar
 TEMPO_SITE = 60            # segundos para o Edge carregar e fotografar a página
 TAMANHO_SITE = (1280, 1600)  # janela virtual do navegador, em pixels
@@ -1821,7 +1834,11 @@ class Capturas:
     """Tira as capturas do relatório. A câmera roda em segundo plano desde o
     início (leva alguns segundos); a tela é capturada quando o relatório fica pronto."""
 
-    def __init__(self, base):
+    def __init__(self, base, opcoes=None):
+        # S7: cada captura só roda com o consentimento do usuário (opcoes); padrão: nenhuma
+        opcoes = dict(SEM_CONSENTIMENTO if opcoes is None else opcoes)
+        self.opcoes = opcoes
+        self.pids = {}                  # nome da coleta -> PID do PowerShell (mostrado no andamento)
         # Todos cifrados em disco (modCriptoTemp): ".png.scpm", ".jpg.scpm"
         self.tela = Path(f"{base}_tela.png{EXTENSAO}")
         self.camera = Path(f"{base}_camera.jpg{EXTENSAO}")
@@ -1830,22 +1847,22 @@ class Capturas:
         self.url_pesquisa = None        # artigo achado pelo campo de pesquisa do site
         self.resultados = {}            # nome -> (caminho ou None, erro ou None)
         self._threads = []
-        if CAPTURAR_CAMERA:
+        if CAPTURAR_CAMERA and opcoes.get("camera"):
             self._em_segundo_plano(self._camera)
         else:
-            self.resultados["Câmera"] = (None, "desligada em CAPTURAR_CAMERA")
-        if CAPTURAR_SITE:
+            self.resultados["Câmera"] = (None, "não autorizada pelo usuário")
+        if CAPTURAR_SITE and opcoes.get("internet"):
             self._em_segundo_plano(self._site)
             # Trocado por capturar_pagina_pesquisada() quando a pesquisa achar o artigo
             self.resultados["Pesquisa"] = (None, "a pesquisa no site não abriu nenhum artigo")
         else:
-            self.resultados["Site"] = (None, "desligada em CAPTURAR_SITE")
-            self.resultados["Pesquisa"] = (None, "desligada em CAPTURAR_SITE")
+            self.resultados["Site"] = (None, "não autorizada pelo usuário")
+            self.resultados["Pesquisa"] = (None, "não autorizada pelo usuário")
 
     def capturar_pagina_pesquisada(self, url):
         """Chamada pela raspagem quando a pesquisa abre o artigo: fotografa-o
         também. Acontece antes do web.ok, então prontas() já espera por ela."""
-        if not CAPTURAR_SITE:
+        if not (CAPTURAR_SITE and self.opcoes.get("internet")):
             return
         self.url_pesquisa = url
 
@@ -1874,8 +1891,8 @@ class Capturas:
             self.resultados["Câmera"] = (None, str(e))
 
     def capturar_tela(self):
-        if not CAPTURAR_TELA:
-            self.resultados["Tela"] = (None, "desligada em CAPTURAR_TELA")
+        if not (CAPTURAR_TELA and self.opcoes.get("tela")):
+            self.resultados["Tela"] = (None, "não autorizada pelo usuário")
             return
         try:
             self.resultados["Tela"] = (capturar_tela(self.tela), None)
@@ -1938,17 +1955,25 @@ def _andamento(pasta, capturas):
     web_pronta = (pasta / "web.ok").exists()
     pesquisa = (captura("Pesquisa") if capturas.url_pesquisa
                 else ("--" if web_pronta and capturas.prontas() else ".."))
+    pids = getattr(capturas, "pids", {})
+    opcoes = getattr(capturas, "opcoes", SEM_CONSENTIMENTO)
+
+    def ps(n, texto):                      # S7: cada processo identificado pelo PID
+        return f"{texto} (PowerShell PID {pids[n]})" if n in pids else texto
+
+    def autorizado(chave, texto):
+        return texto if opcoes.get(chave) else f"{texto}: não autorizada"
     return [
-        (arquivo("inv.ok"), "Inventário do computador"),
-        (arquivo("1.ok"), "Checagem do disco C:"),
-        (arquivo("2.ok"), "Segurança: proteções e configuração"),
-        (arquivo("4.ok"), "Segurança: contas, portas e persistência"),
-        (arquivo("3.ok"), "Dispositivos de rede"),
-        ("OK" if web_pronta else "..", "Raspagem da Wikipédia e pesquisa no site"),
-        (captura("Câmera"), "Foto da câmera (cifrada)"),
-        (captura("Site"), "Imagem da página (cifrada)"),
-        (pesquisa, "Imagem da página pesquisada (cifrada)"),
-        (arquivo("relatorio.ok"), "Relatório cifrado"),
+        (arquivo("inv.ok"), ps("inv", "Inventário do computador")),
+        (arquivo("1.ok"), ps("1", "Checagem do disco C:")),
+        (arquivo("2.ok"), ps("2", "Segurança: proteções e configuração")),
+        (arquivo("4.ok"), ps("4", "Segurança: contas, portas e persistência")),
+        (arquivo("3.ok"), ps("3", "Dispositivos de rede")),
+        ("OK" if web_pronta else "..", autorizado("internet", "Raspagem da Wikipédia e pesquisa no site")),
+        (captura("Câmera"), autorizado("camera", "Foto da câmera (cifrada)")),
+        (captura("Site"), autorizado("internet", "Imagem da página (cifrada)")),
+        (pesquisa, autorizado("internet", "Imagem da página pesquisada (cifrada)")),
+        (arquivo("relatorio.ok"), ps("rel", "Relatório cifrado")),
     ]
 
 
@@ -2013,15 +2038,15 @@ def _iniciar_powershell(script):
     return p
 
 
-def iniciar_coleta(root, ao_concluir, ao_progresso=None):
-    """Começa o trabalho em SEGUNDO PLANO e SEM JANELAS: os quatro processos do
-    PowerShell, a raspagem da web e as capturas. Quando o relatório fica pronto,
-    chama ao_concluir(arquivo, capturas); ao_progresso([(situação, texto)])
-    recebe o andamento a cada meio segundo."""
+def iniciar_coleta(root, ao_concluir, ao_progresso=None, opcoes=None):
+    """Começa o trabalho em segundo plano: os processos do PowerShell (listados com o
+    PID no andamento) e, SÓ SE AUTORIZADOS em 'opcoes', a raspagem da web e as
+    capturas. Quando o relatório fica pronto, chama ao_concluir(arquivo, capturas);
+    ao_progresso([(situação, texto)]) recebe o andamento a cada meio segundo."""
     pasta = Path(tempfile.mkdtemp(prefix="corujinha_", dir=pasta_temporaria()))
     base = f"corujinha_{datetime.now():%Y-%m-%d_%H%M%S}"
     arquivo = PASTA_RELATORIO / f"{base}.txt{EXTENSAO}"        # cifrado (modCriptoTemp)
-    capturas = Capturas(pasta_temporaria() / base)             # câmera e site já começam
+    capturas = Capturas(pasta_temporaria() / base, opcoes)     # câmera e site, se autorizados
     # (nome do arquivo .ok/.txt, corpo do script). O inventário roda em paralelo com os
     # demais; o último processo (PS_JUNTAR) espera todos e monta o relatório.
     scripts = [("inv", PS_INVENTARIO + PS_RODAPE), ("1", PS_DISCO + PS_RODAPE),
@@ -2035,7 +2060,8 @@ def iniciar_coleta(root, ao_concluir, ao_progresso=None):
                   .replace("__ARQUIVO__", _ps_literal(arquivo))
                   .replace("__N__", n))
         processos.append(_iniciar_powershell(script))
-    _raspar_em_segundo_plano(pasta, capturas)    # em paralelo com o PowerShell
+        capturas.pids[n] = processos[-1].pid
+    _raspar_em_segundo_plano(pasta, capturas, autorizada=capturas.opcoes.get("internet", False))
     # Se o formulário for fechado antes do fim, os processos não ficam órfãos
     root.bind("<Destroy>", lambda e: _fechar_janelas(processos) if e.widget is root else None,
               add="+")
@@ -2212,15 +2238,63 @@ def _limpar_area_transferencia(widget):
             pass
 
 
-def executar_corujinha(master, janela=None):
-    """Fluxo completo: a coruja (protegida contra captura) fica na frente enquanto o
-    trabalho roda escondido; quando o relatório fica pronto, ela se desfaz e o
-    formulário com o relatório (e o botão Imprimir) aparece. Pode ser chamado de
-    outro programa Tkinter, ex.: executar_corujinha(root) no menu do S-Cyber PM.
+TEXTO_CONSENTIMENTO = (
+    "A Corujinha gera um relatório do computador. Sempre, e SOMENTE LEITURA (nada é alterado, "
+    "nenhuma senha é lida):\n"
+    "  • inventário de hardware e software, disco C: e dispositivos de rede;\n"
+    "  • segurança: antivírus, firewall, BitLocker, UAC, atualizações, contas, portas, "
+    "compartilhamentos, inicialização, tarefas agendadas e eventos.\n\n"
+    "São seis processos do Windows PowerShell, sem janela de console; o andamento mostra o PID "
+    "de cada um (o mesmo do Gerenciador de Tarefas). O relatório fica cifrado e é apagado ao fechar.\n\n"
+    "Marque abaixo SOMENTE o que você autoriza nesta execução:")
+
+
+def pedir_consentimento(master):
+    """S7: janela de consentimento. Devolve {'camera','tela','internet'} ou None (cancelou).
+    Tudo o que envolve imagem ou internet começa DESMARCADO."""
+    dlg = tk.Toplevel(master)
+    dlg.title("Corujinha - o que será feito")
+    dlg.resizable(False, False)
+    if master.winfo_viewable():          # com a janela principal escondida, transient esconderia o diálogo
+        dlg.transient(master)
+    corpo = tk.Frame(dlg, padx=16, pady=14)
+    corpo.pack(fill="both", expand=True)
+    tk.Label(corpo, text=TEXTO_CONSENTIMENTO, justify="left", wraplength=520).pack(anchor="w")
+    variaveis = {chave: tk.BooleanVar(value=False) for chave in SEM_CONSENTIMENTO}
+    for chave, texto in (("tela", "Capturar a TELA inteira no fim (aparece no relatório)"),
+                         ("camera", "Tirar uma FOTO pela câmera (demonstração do que um espião faria)"),
+                         ("internet", "Acessar a INTERNET: raspagem da Wikipédia e imagem da página")):
+        tk.Checkbutton(corpo, text=texto, variable=variaveis[chave], anchor="w").pack(fill="x", pady=1)
+    resultado = {}
+    botoes = tk.Frame(corpo)
+    botoes.pack(anchor="e", pady=(12, 0))
+
+    def iniciar():
+        resultado.update({k: bool(v.get()) for k, v in variaveis.items()})
+        dlg.destroy()
+    tk.Button(botoes, text="Iniciar a Corujinha", command=iniciar, default="active").pack(side="left")
+    tk.Button(botoes, text="Cancelar", command=dlg.destroy).pack(side="left", padx=(8, 0))
+    dlg.bind("<Escape>", lambda _e: dlg.destroy())
+    dlg.grab_set()
+    master.wait_window(dlg)
+    return resultado or None
+
+
+def executar_corujinha(master, janela=None, opcoes=None):
+    """Fluxo completo: pede o consentimento (S7), mostra a coruja enquanto o trabalho
+    roda; quando o relatório fica pronto, ela se desfaz e o formulário com o
+    relatório (e o botão Imprimir) aparece. Pode ser chamado de outro programa
+    Tkinter, ex.: executar_corujinha(root) no menu do S-Cyber PM.
 
     janela: onde montar o formulário. Se omitida, abre um Toplevel novo e não
-    mexe na janela principal de quem chamou. Devolve o AsciiSplash; o
-    formulário fica em splash.formulario desde o início (escondido)."""
+    mexe na janela principal de quem chamou. opcoes: o consentimento já dado
+    ({'camera','tela','internet'}); se omitido, a janela de consentimento abre.
+    Devolve o AsciiSplash (o formulário fica em splash.formulario, escondido),
+    ou None se o usuário cancelar."""
+    if opcoes is None:
+        opcoes = pedir_consentimento(master)
+        if opcoes is None:
+            return None
 
     form = janela if janela is not None else tk.Toplevel(master)
     form.withdraw()
@@ -2251,14 +2325,16 @@ def executar_corujinha(master, janela=None):
 
     splash = AsciiSplash(master, on_done=mostrar_formulario)
     splash.formulario = form
-    iniciar_coleta(form, ao_concluir=relatorio_pronto, ao_progresso=progresso)
+    iniciar_coleta(form, ao_concluir=relatorio_pronto, ao_progresso=progresso, opcoes=opcoes)
     return splash
 
 
 def main():
     root = tk.Tk()
     root.withdraw()  # formulário principal fica escondido durante o splash
-    executar_corujinha(root, janela=root)
+    if executar_corujinha(root, janela=root) is None:
+        root.destroy()                   # o usuário não autorizou
+        return
     root.mainloop()
 
 
