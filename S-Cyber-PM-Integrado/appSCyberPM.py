@@ -80,7 +80,6 @@ Usuário padrão: agente. A senha de fábrica precisa ser trocada no primeiro ac
 
 import base64
 import hashlib
-import json
 import os
 import re
 import subprocess
@@ -374,18 +373,11 @@ $sig = $rsa.SignData($dados,
 
 def _executar_powershell(script):
     """Executa o script e devolve o JSON de resposta (dict)."""
-    r = subprocess.run(
-        ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-         "-Command", script],
-        capture_output=True,
-        text=True,
-        timeout=TIMEOUT_POWERSHELL,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-    )
-    saida = r.stdout.strip()
-    if not saida:
-        raise RuntimeError(r.stderr.strip() or "O PowerShell não retornou dados.")
-    return json.loads(saida.splitlines()[-1])
+    import modPowerShell
+    try:
+        return modPowerShell.executar(script, timeout=TIMEOUT_POWERSHELL).json()
+    except modPowerShell.ErroPowerShell as exc:
+        raise RuntimeError(str(exc)) from exc
 
 
 MENSAGENS_ERRO = {

@@ -11,11 +11,9 @@ Pela linha de comando (não precisa da interface):
 """
 from __future__ import annotations
 
-import base64
 import json
 import os
 import socket
-import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -38,15 +36,14 @@ $ErrorActionPreference = 'Stop'
 """
 
 
-def _powershell(script, timeout=25):
-    env = dict(os.environ)
-    env.pop("PSModulePath", None)       # aberto pelo PowerShell 7: quebra módulos do 5.1
-    cod = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
-    r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-                        "-EncodedCommand", cod], capture_output=True, text=True, encoding="utf-8",
-                       errors="replace", timeout=timeout, env=env,
-                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    return r.stdout.strip(), r.stderr.strip()
+def _powershell(script, timeout=25, variaveis=None):
+    """(saída, erro) do script; falha de execução vem como ("", motivo)."""
+    import modPowerShell
+    try:
+        r = modPowerShell.executar(script, variaveis=variaveis, timeout=timeout, codificado=True)
+    except modPowerShell.ErroPowerShell as exc:
+        return "", str(exc)
+    return r.saida.strip(), r.erro.strip()
 
 
 def listar_certificados():
@@ -262,11 +259,7 @@ def criar_certificado(nome):
     1 ano). Devolve o thumbprint, para o pedido de credenciamento."""
     if sys.platform != "win32":
         raise RuntimeError("Disponível só no Windows.")
-    os.environ["SCYBER_CN"] = nome_certificado(nome)
-    try:
-        saida, erro = _powershell(_PS_CRIAR, timeout=60)
-    finally:
-        os.environ.pop("SCYBER_CN", None)
+    saida, erro = _powershell(_PS_CRIAR, timeout=60, variaveis={"SCYBER_CN": nome_certificado(nome)})
     thumb = (saida.splitlines() or [""])[-1].strip().upper()
     if len(thumb) != 40:
         raise RuntimeError(erro or "O Windows não criou o certificado.")

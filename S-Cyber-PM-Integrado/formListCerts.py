@@ -48,7 +48,6 @@ import math
 import os
 import re
 import ssl
-import subprocess
 import sys
 import tkinter as tk
 import warnings
@@ -482,23 +481,14 @@ try {
 
 def _powershell(script, **variaveis):
     """Roda o script e devolve a última linha da saída."""
+    import modPowerShell
     try:
-        r = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-             "-Command", script],
-            capture_output=True, encoding="utf-8", errors="replace",
-            timeout=TIMEOUT_POWERSHELL,
-            env=dict(os.environ, **variaveis),
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-    except FileNotFoundError:
-        raise ErroCertificado("PowerShell não encontrado.")
-    except subprocess.TimeoutExpired:
-        raise ErroCertificado("Tempo esgotado aguardando o Windows.")
-    linhas = [l for l in (r.stdout or "").splitlines() if l.strip()]
-    if not linhas:
-        raise ErroCertificado((r.stderr or "").strip() or "O PowerShell não respondeu.")
-    return linhas[-1].strip()
+        r = modPowerShell.executar(script, variaveis=variaveis, timeout=TIMEOUT_POWERSHELL)
+    except modPowerShell.ErroPowerShell as exc:
+        raise ErroCertificado(str(exc)) from exc
+    if not r.linhas:
+        raise ErroCertificado(r.erro.strip() or "O PowerShell não respondeu.")
+    return r.ultima_linha
 
 
 def _conferir_repositorio(repositorio):

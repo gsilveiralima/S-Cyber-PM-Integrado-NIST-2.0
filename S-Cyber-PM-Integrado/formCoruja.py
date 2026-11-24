@@ -1606,18 +1606,15 @@ def capturar_camera(destino):
     """Tira uma foto com a câmera padrão e grava em JPEG, cifrado (a foto nunca
     toca o disco aberta). Lança OSError com o motivo se não houver câmera ou acesso."""
     destino = Path(destino)
+    import modPowerShell
     try:
-        r = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-             "-Command", PS_FUNCOES + PS_CAMERA],
-            capture_output=True, encoding="utf-8", errors="replace", timeout=TEMPO_CAMERA,
-            env=dict(os.environ, CORUJA_ARQUIVO=str(destino), **ambiente_powershell()),
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    except subprocess.TimeoutExpired:
-        raise OSError("a câmera não respondeu a tempo")
-    resposta = ([l for l in (r.stdout or "").splitlines() if l.strip()] or [""])[-1].strip()
+        r = modPowerShell.executar(PS_FUNCOES + PS_CAMERA, timeout=TEMPO_CAMERA,
+                                   variaveis=dict(CORUJA_ARQUIVO=str(destino), **ambiente_powershell()))
+    except modPowerShell.ErroPowerShell as exc:
+        raise OSError("a câmera não respondeu a tempo" if "Tempo esgotado" in str(exc) else str(exc)) from exc
+    resposta = (r.linhas or [""])[-1]
     if resposta != "OK" or not destino.is_file():
-        motivo = resposta[5:] if resposta.startswith("ERRO ") else (r.stderr or resposta).strip()
+        motivo = resposta[5:] if resposta.startswith("ERRO ") else (r.erro or resposta).strip()
         if "0xC00D36D5" in motivo or "não foi encontrad" in motivo.lower():
             motivo = "nenhuma câmera encontrada"
         elif "0x80070005" in motivo or "acesso negado" in motivo.lower():

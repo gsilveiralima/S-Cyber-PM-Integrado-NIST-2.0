@@ -7,8 +7,6 @@ títulos de incidentes nem nomes: só contagens e números de registro.
 """
 from __future__ import annotations
 
-import os
-import subprocess
 import sys
 from datetime import date
 
@@ -61,17 +59,12 @@ def cert_days_left(not_after, today=None):
 
 
 def _powershell(script, env=None, wait=True):
-    import base64
-    encoded = base64.b64encode(script.encode('utf-16-le')).decode('ascii')
-    args = ['powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded]
-    flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
-    full_env = dict(os.environ, **(env or {}))
-    full_env.pop('PSModulePath', None)       # herdado do PowerShell 7, quebra módulos do 5.1
+    """Resultado (com .saida/.ultima_linha) ou, com wait=False, o Popen. Levanta
+    modPowerShell.ErroPowerShell se o PowerShell não rodar."""
+    import modPowerShell
     if not wait:
-        return subprocess.Popen(args, env=full_env, creationflags=flags,
-                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    return subprocess.run(args, env=full_env, creationflags=flags, capture_output=True, text=True,
-                          encoding='utf-8', errors='replace', timeout=30)
+        return modPowerShell.iniciar(script, variaveis=env)
+    return modPowerShell.executar(script, variaveis=env, timeout=30, codificado=True)
 
 
 def certificate_not_after(thumb):
@@ -82,10 +75,10 @@ def certificate_not_after(thumb):
     try:
         proc = _powershell("$c=Get-Item \"Cert:\\CurrentUser\\My\\$env:SCYBER_THUMB\" -ErrorAction Stop; "
                            "$c.NotAfter.ToString('yyyy-MM-dd')", {'SCYBER_THUMB': thumb})
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, RuntimeError):         # RuntimeError inclui modPowerShell.ErroPowerShell
         return None
-    out = (proc.stdout or '').strip().splitlines()
-    return out[-1] if out and len(out[-1]) == 10 else None
+    out = proc.ultima_linha
+    return out if len(out) == 10 else None
 
 
 # Notificação do Windows 10/11 (WinRT pelo PowerShell 5.1). O texto vai por variáveis de
@@ -112,7 +105,7 @@ def toast(items, title=TITLE):
     try:
         _powershell(_PS_TOAST, {'SCYBER_T1': title, 'SCYBER_T2': body}, wait=False)
         return True
-    except OSError:
+    except (OSError, RuntimeError):
         return False
 
 

@@ -43,7 +43,6 @@ import getpass
 import io
 import json
 import os
-import subprocess
 import sys
 import tkinter as tk
 from datetime import datetime
@@ -82,18 +81,14 @@ def ps_quote(texto: str) -> str:
 
 def executar_ps(script: str, entrada: str | None = None) -> str:
     """Executa um script PowerShell e devolve a saída (UTF-8)."""
-    prefixo = "[Console]::OutputEncoding=[Text.Encoding]::UTF8; $ErrorActionPreference='Stop'; "
-    resultado = subprocess.run(
-        ["powershell", "-NoProfile", "-NonInteractive", "-Command", prefixo + script],
-        input=entrada.encode("utf-8") if entrada is not None else None,
-        capture_output=True,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-    )
-    saida = resultado.stdout.decode("utf-8", errors="replace").strip()
-    erro = resultado.stderr.decode("utf-8", errors="replace").strip()
-    if resultado.returncode != 0:
-        raise RuntimeError(erro or saida or "Falha ao executar o comando.")
-    return saida
+    import modPowerShell
+    try:
+        r = modPowerShell.executar("$ErrorActionPreference='Stop'; " + script, entrada=entrada)
+    except modPowerShell.ErroPowerShell as exc:
+        raise RuntimeError(str(exc)) from exc
+    if r.codigo != 0:
+        raise RuntimeError(r.erro.strip() or r.saida.strip() or "Falha ao executar o comando.")
+    return r.saida.strip()
 
 
 def listar_grupos() -> list[dict]:
