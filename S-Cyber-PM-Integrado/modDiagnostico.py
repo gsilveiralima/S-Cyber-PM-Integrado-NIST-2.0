@@ -11,11 +11,9 @@ Pela linha de comando (não precisa da interface):
 """
 from __future__ import annotations
 
-import base64
 import json
 import os
 import socket
-import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -38,15 +36,14 @@ $ErrorActionPreference = 'Stop'
 """
 
 
-def _powershell(script, timeout=25):
-    env = dict(os.environ)
-    env.pop("PSModulePath", None)       # aberto pelo PowerShell 7: quebra módulos do 5.1
-    cod = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
-    r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-                        "-EncodedCommand", cod], capture_output=True, text=True, encoding="utf-8",
-                       errors="replace", timeout=timeout, env=env,
-                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    return r.stdout.strip(), r.stderr.strip()
+def _powershell(script, timeout=25, variaveis=None):
+    """(saída, erro) do script; falha de execução vem como ("", motivo)."""
+    import modPowerShell
+    try:
+        r = modPowerShell.executar(script, variaveis=variaveis, timeout=timeout, codificado=True)
+    except modPowerShell.ErroPowerShell as exc:
+        return "", str(exc)
+    return r.saida.strip(), r.erro.strip()
 
 
 def listar_certificados():
@@ -157,10 +154,12 @@ def relatorio(versao, programa, autorizados, etapa=None, erro=None, thumb_atual=
 
     # Ativação
     import modLicenca as L
+    ativa = None                                   # None = não deu para verificar
     try:
         inst = L.instalacao()
         publicacao = publicacao or L.Publicacao()
         ok, lic, exc = L.estado(publicacao=publicacao)
+        ativa = bool(ok)
         linhas.append(f"Instalação         : {inst['id']} (máquina {inst['maquina'][:12]}…)")
         linhas.append("Ativação           : " + (f"ATIVA — licença {lic['licenca_id']}, válida até {lic['valida_ate']}"
                                                 if ok else f"NÃO ATIVA — {exc}"))
@@ -217,8 +216,15 @@ def relatorio(versao, programa, autorizados, etapa=None, erro=None, thumb_atual=
         acao = ("Abra o ASSISTENTE DE PERFIL: se um certificado acessível abre os arquivos, ele migra para o "
                 "certificado atual (cópia, conferência e restauração de teste antes de trocar). Sem a chave "
                 "antiga, os arquivos são guardados e um perfil novo só é criado se você escolher.")
+    elif geral != "pronto":
+        acao = PROXIMA_ACAO.get(geral, "Confira os certificados acima.")
+    elif ativa is False:
+        acao = ("Ative esta instalação: abra o S-Cyber PM, use Copiar pedido na tela de ativação, envie o "
+                "pedido ao administrador e cole a chave recebida.")
+    elif ativa is None:
+        acao = "Não foi possível verificar a ativação (veja a mensagem acima); repita o diagnóstico."
     else:
-        acao = "Nenhuma falha informada." if geral == "pronto" else PROXIMA_ACAO.get(geral, "")
+        acao = "Nenhuma falha encontrada: instalação ativa e certificado pronto."
     linhas += ["PRÓXIMA AÇÃO:", f"  {acao}"]
     return "\n".join(linhas)
 
@@ -253,11 +259,7 @@ def criar_certificado(nome):
     1 ano). Devolve o thumbprint, para o pedido de credenciamento."""
     if sys.platform != "win32":
         raise RuntimeError("Disponível só no Windows.")
-    os.environ["SCYBER_CN"] = nome_certificado(nome)
-    try:
-        saida, erro = _powershell(_PS_CRIAR, timeout=60)
-    finally:
-        os.environ.pop("SCYBER_CN", None)
+    saida, erro = _powershell(_PS_CRIAR, timeout=60, variaveis={"SCYBER_CN": nome_certificado(nome)})
     thumb = (saida.splitlines() or [""])[-1].strip().upper()
     if len(thumb) != 40:
         raise RuntimeError(erro or "O Windows não criou o certificado.")

@@ -1,12 +1,13 @@
-# S-Cyber PM 1.4 - módulos de terceiros
+# S-Cyber PM - módulos de terceiros (versão: formAbout.APP_VERSAO)
 # Python 3.11 ou superior (64 bits), Windows 10/11
 # Instalação:  python -m pip install -r requirements.txt
 
 cryptography>=50.0.2    # Certificados, validação de acesso e navegador seguro
 pillow>=11.2.1    # Tela de abertura, marca d'água e imagens
-numpy>=2.2.6    # Efeitos da tela de abertura (splash.py)
 matplotlib>=3.10.3    # Gráficos do gerenciador de usuários
 reportlab>=5.1.0    # PDF do gerenciador de usuários e da pesquisa de arquivos
 pywin32>=312    # Impressão pelo Windows (impressao.py)
 pywebview>=6.2.1    # Aba WebView2 do navegador (instala também o pythonnet)
 requests>=2.34.2    # Consulta ao SEI e pesquisa na web da Corujinha
+
+# Opcionais (por função/modalidade): requirements-opcionais.txt

@@ -5,7 +5,7 @@
 #  Descrição   : Opções do aplicativo em arquivo criptografado (chave derivada
 #                do certificado) e caixa de opções
 #  Tipo        : Formulário (tkinter)
-#  Versão      : 1.5 (versão do aplicativo)
+#  Versão      : ver formAbout.APP_VERSAO (fonte única da versão)
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
@@ -68,7 +68,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 import modHello
-from modRecursos import centralizar, pasta_aplicativo, pasta_dados, proteger_contra_captura
+from modRecursos import centralizar, em_segundo_plano, pasta_aplicativo, pasta_dados, proteger_contra_captura
 
 
 # ==========================================================
@@ -76,7 +76,15 @@ from modRecursos import centralizar, pasta_aplicativo, pasta_dados, proteger_con
 # ==========================================================
 
 USUARIO_PADRAO = "agente"
-SENHA_PADRAO = "not#_12345_senhorAgenteC"
+# Não há mais senha de fábrica: no 1º acesso (depois do certificado) o titular CRIA as
+# senhas. Para reconhecer arquivos de versões antigas, guarda-se só o SHA-256 da senha
+# de fábrica antiga (que era pública), nunca a senha.
+_SHA256_SENHA_ANTIGA = "c2cb5de69d7a0330ebdf8d6bff2aa91ce68d04b4fdee4937074743d6a341d7e9"
+
+
+def _e_senha_antiga_de_fabrica(senha):
+    return hmac.compare_digest(hashlib.sha256((senha or "").encode("utf-8")).hexdigest(), _SHA256_SENHA_ANTIGA)
+
 
 NOME_ARQUIVO = "scyber_pm.opcoes"
 MAGICO = b"SCPMOPT1"                  # identifica o formato (versão 1)
@@ -166,10 +174,10 @@ def _senha_confere(senha, registro):
 def _padrao():
     return {
         "usuario": USUARIO_PADRAO,
-        "senha_acesso": _hash_senha(SENHA_PADRAO),
-        "senha_pdf": SENHA_PADRAO,
+        "senha_acesso": None,       # criada pelo titular no 1º acesso (sem senha de fábrica)
+        "senha_pdf": "",
         "hello_ativo": False,       # acesso por Windows Hello (PIN/biometria)
-        "trocar_senha": True,       # a senha de fábrica é pública: troca obrigatória no 1º acesso
+        "trocar_senha": True,       # senhas ainda não criadas
     }
 
 
@@ -183,7 +191,7 @@ def problema_senha(senha, nome_usuario=""):
     da senha de fábrica e sem conter o nome do usuário."""
     if len(senha) < TAMANHO_MINIMO_SENHA:
         return f"precisa ter pelo menos {TAMANHO_MINIMO_SENHA} caracteres"
-    if hmac.compare_digest(senha.encode("utf-8"), SENHA_PADRAO.encode("utf-8")):
+    if _e_senha_antiga_de_fabrica(senha):
         return "não pode ser a senha de fábrica"
     tipos = sum((any(c.islower() for c in senha), any(c.isupper() for c in senha),
                  any(c.isdigit() for c in senha), any(not c.isalnum() for c in senha)))
@@ -197,18 +205,22 @@ def problema_senha(senha, nome_usuario=""):
     return None
 
 
+def senhas_criadas():
+    """False num perfil novo: o titular ainda não criou a senha de acesso."""
+    _garantir()
+    return bool(_estado["dados"].get("senha_acesso"))
+
+
 def precisa_trocar_senha(senha_digitada=None):
-    """True se o acesso ainda usa credenciais de fábrica (vale também para arquivos
-    de opções criados antes desta versão, que não têm a marca 'trocar_senha')."""
+    """True se as senhas ainda não foram criadas ou se um arquivo de versão antiga ainda
+    usa a senha de fábrica (reconhecida pelo SHA-256, sem a senha no código)."""
     _garantir()
     dados = _estado["dados"]
-    if dados.get("trocar_senha"):
+    if dados.get("trocar_senha") or not dados.get("senha_acesso") or not dados.get("senha_pdf"):
         return True
-    if hmac.compare_digest(dados.get("senha_pdf", "").encode("utf-8"), SENHA_PADRAO.encode("utf-8")):
+    if _e_senha_antiga_de_fabrica(dados.get("senha_pdf")):
         return True
-    if senha_digitada is not None:
-        return hmac.compare_digest(senha_digitada.encode("utf-8"), SENHA_PADRAO.encode("utf-8"))
-    return _senha_confere(SENHA_PADRAO, dados["senha_acesso"])
+    return senha_digitada is not None and _e_senha_antiga_de_fabrica(senha_digitada)
 
 
 def definir_senhas_iniciais(senha_acesso_nova, senha_pdf_nova):
@@ -319,6 +331,8 @@ def senha_pdf():
 def conferir_login(nome, senha):
     _garantir()
     dados = _estado["dados"]
+    if not dados.get("senha_acesso"):
+        return False                      # perfil novo: as senhas são criadas, não conferidas
     # Confere a senha mesmo com o usuário errado: o tempo de resposta não revela qual errou
     senha_ok = _senha_confere(senha, dados["senha_acesso"])
     return hmac.compare_digest(nome.strip().lower().encode("utf-8"),
@@ -335,9 +349,10 @@ def salvar(usuario_novo=None, senha_acesso_nova=None, senha_pdf_nova=None):
     if senha_pdf_nova is not None:
         dados["senha_pdf"] = senha_pdf_nova
     if dados.get("trocar_senha"):
-        # A marca sai quando nenhuma das duas senhas é mais a de fábrica
-        dados["trocar_senha"] = (dados["senha_pdf"] == SENHA_PADRAO
-                                 or _senha_confere(SENHA_PADRAO, dados["senha_acesso"]))
+        # A marca sai quando as duas senhas existem e nenhuma é a antiga de fábrica
+        dados["trocar_senha"] = (not dados.get("senha_acesso") or not dados.get("senha_pdf")
+                                 or _e_senha_antiga_de_fabrica(dados["senha_pdf"]))
+        # (se o acesso ainda for o de fábrica, o login reconhece pelo hash e obriga a troca)
     _gravar(_estado["chave"], _estado["thumb"], dados)
     _estado["dados"] = dados
 
@@ -489,7 +504,14 @@ class FormOpcoes(tk.Toplevel):
     # ------------------------------------------------------
 
     def _atualizar_hello(self):
-        disp, motivo = modHello.disponivel()
+        """Consulta o Windows Hello em segundo plano (PowerShell) e atualiza a seção."""
+        self.hello_situacao.configure(text="Verificando o Windows Hello…", foreground="#606060")
+        self.bt_hello_ativar.state(["disabled"])
+        self.bt_hello_remover.state(["disabled"])
+        em_segundo_plano(self, modHello.disponivel,
+                         lambda res, erro: self._mostrar_hello(*(res if erro is None else (False, str(erro)))))
+
+    def _mostrar_hello(self, disp, motivo):
         if not disp:
             self.hello_situacao.configure(
                 text=f"Windows Hello indisponível neste computador ({motivo}).",
@@ -519,14 +541,16 @@ class FormOpcoes(tk.Toplevel):
         if not self._senha_atual_ok("cadastrar"):
             return
         self.config(cursor="watch")
-        self.update_idletasks()
-        try:
-            # Confirma agora, com o Hello, que o usuário consegue se autenticar
-            modHello.verificar("Cadastrar o Windows Hello no S-Cyber PM")
-        except modHello.ErroHello as e:
-            return messagebox.showwarning("Windows Hello", str(e), parent=self)
-        finally:
-            self.config(cursor="")
+        self.bt_hello_ativar.state(["disabled"])
+        # Confirma agora, com o Hello, que o usuário consegue se autenticar (até 2 min, sem travar a tela)
+        em_segundo_plano(self, lambda: modHello.verificar("Cadastrar o Windows Hello no S-Cyber PM"),
+                         self._hello_verificado)
+
+    def _hello_verificado(self, _resultado, erro):
+        self.config(cursor="")
+        self.bt_hello_ativar.state(["!disabled"])
+        if erro is not None:
+            return messagebox.showwarning("Windows Hello", str(erro), parent=self)
         try:
             definir_hello(True)
         except ErroOpcoes as e:
@@ -577,11 +601,16 @@ class FormOpcoes(tk.Toplevel):
             return
         if not _senha_confere(self.atual.var.get(), _estado["dados"]["senha_acesso"]):
             return self._erro("A senha de acesso atual está incorreta.", self.atual)
+        if getattr(self, "_conferindo", False):
+            return                      # a consulta anterior ainda está em andamento
+        self._conferindo = True
         import modSenhaVazada
-        for nova, rotulo in ((acesso_nova, "senha de acesso"), (pdf_nova, "senha dos PDFs")):
-            if nova and not modSenhaVazada.pode_usar(nova, rotulo, self):
-                return
+        modSenhaVazada.conferir_e_continuar(
+            self, [(acesso_nova, "senha de acesso"), (pdf_nova, "senha dos PDFs")],
+            lambda: self._gravar_opcoes(nome, mudou_usuario, acesso_nova, pdf_nova),
+            ao_terminar=lambda: setattr(self, "_conferindo", False))
 
+    def _gravar_opcoes(self, nome, mudou_usuario, acesso_nova, pdf_nova):
         try:
             salvar(usuario_novo=nome if mudou_usuario else None,
                    senha_acesso_nova=acesso_nova or None,

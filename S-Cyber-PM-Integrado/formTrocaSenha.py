@@ -2,11 +2,12 @@
 #  S-Cyber PM - Cryptography and Digital Certificate Framework
 # ------------------------------------------------------------------------------
 #  Arquivo     : formTrocaSenha.py
-#  Descrição   : Troca obrigatória das senhas de fábrica no primeiro acesso
+#  Descrição   : Criação das senhas no primeiro acesso (sem senha de fábrica)
 #  Revisões    : 2026-11-22  Criação (preparação para uso em produção)
 # ==============================================================================
 """
-Troca obrigatória das senhas de fábrica.
+Criação das senhas no primeiro acesso (perfil novo) ou troca obrigatória da antiga
+senha de fábrica (arquivos de versões até 1.6).
 
 A senha padrão do S-Cyber PM está no código-fonte, que é público. Por isso, enquanto
 a senha de acesso ou a senha dos PDFs forem as de fábrica, o login abre esta janela
@@ -62,7 +63,7 @@ class FormTrocaSenha(tk.Toplevel):
         corpo.pack(fill="both", expand=True)
         corpo.columnconfigure(1, weight=1)
         ttk.Label(corpo, wraplength=430, justify="left", text=(
-            "A senha de fábrica do S-Cyber PM é pública e não pode continuar em uso. "
+            "Seu certificado foi validado. Crie agora as suas senhas (não existe senha de fábrica). "
             f"Cada senha precisa ter pelo menos {formOpcoes.TAMANHO_MINIMO_SENHA} caracteres e "
             "misturar 3 destes tipos: minúsculas, maiúsculas, números e símbolos. "
             "Use senhas diferentes para o acesso e para os PDFs.")).grid(
@@ -102,10 +103,16 @@ class FormTrocaSenha(tk.Toplevel):
             return self._erro("A confirmação da senha dos PDFs não confere.", self.pdf_conf)
         if pdf == acesso:
             return self._erro("Use senhas diferentes para o acesso e para os PDFs.", self.pdf)
+        if getattr(self, "_conferindo", False):
+            return                      # a consulta anterior ainda está em andamento
+        self._conferindo = True
         import modSenhaVazada
-        if not (modSenhaVazada.pode_usar(acesso, "senha de acesso", self)
-                and modSenhaVazada.pode_usar(pdf, "senha dos PDFs", self)):
-            return
+
+        modSenhaVazada.conferir_e_continuar(self, [(acesso, "senha de acesso"), (pdf, "senha dos PDFs")],
+                                            lambda: self._gravar(acesso, pdf),
+                                            ao_terminar=lambda: setattr(self, "_conferindo", False))
+
+    def _gravar(self, acesso, pdf):
         try:
             formOpcoes.definir_senhas_iniciais(acesso, pdf)
         except formOpcoes.ErroOpcoes as e:

@@ -4,7 +4,7 @@
 #  Arquivo     : modPDFSimples.py
 #  Descrição   : Gerador de PDF mínimo, sem bibliotecas externas
 #  Tipo        : Motor (sem interface)
-#  Versão      : 1.4 (versão do aplicativo)
+#  Versão      : ver formAbout.APP_VERSAO (fonte única da versão)
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO

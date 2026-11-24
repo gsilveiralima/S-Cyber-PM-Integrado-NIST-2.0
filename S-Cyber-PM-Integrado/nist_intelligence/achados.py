@@ -28,7 +28,7 @@ from pathlib import Path
 from . import core
 
 ASSET_KINDS = ('Computador', 'Servidor', 'Domínio/Serviço web', 'Repositório', 'Sistema/Aplicação',
-               'Equipamento de rede', 'Outro')
+               'Equipamento de rede', 'Nuvem (assinatura)', 'Outro')
 CRITICALITY = ('Baixa', 'Média', 'Alta', 'Crítica')
 PRIORITIES = ('Crítica', 'Alta', 'Média', 'Baixa')
 STATES = ('Novo', 'Descartado', 'Confirmado', 'Correção registrada', 'Encerrado')
@@ -67,9 +67,10 @@ def save_asset(db, name, kind, identifier='', owner='', criticality='Média', ve
     return asset_id
 
 
-def authorize_asset(db, asset_id, authorized, role):
-    """Consultas a fontes com credencial só rodam para ativos autorizados por revisor/admin."""
-    if role not in REVIEW_ROLES:
+def authorize_asset(db, asset_id, authorized):
+    """Consultas a fontes com credencial só rodam para ativos autorizados por revisor/admin
+    (o papel vem da sessão autenticada da conexão, db.papel)."""
+    if db.papel not in REVIEW_ROLES:
         raise FlowError('Só revisor ou administrador autoriza consultas a um ativo.')
     db.execute('UPDATE assets SET authorized=? WHERE id=?', (int(bool(authorized)), int(asset_id)))
     core.audit(db, 'Ativos', 'Autorizar consultas' if authorized else 'Retirar autorização', asset_id)
@@ -244,8 +245,8 @@ def register_fix(db, achado_id, note, evidence_id):
           fixed_by=db.actor)
 
 
-def review(db, achado_id, approve, note, role):
-    if role not in REVIEW_ROLES:
+def review(db, achado_id, approve, note):
+    if db.papel not in REVIEW_ROLES:
         raise FlowError('Só um revisor ou administrador credenciado encerra ou devolve um achado.')
     a = achado(db, achado_id)
     if a['fixed_by'] and a['fixed_by'] == db.actor:
@@ -259,10 +260,10 @@ def review(db, achado_id, approve, note, role):
               reviewer=db.actor, review_note=note)
 
 
-def reopen(db, achado_id, note, role):
+def reopen(db, achado_id, note):
     note = core._text(note, 'Motivo da reabertura')
     a = achado(db, achado_id)
-    if a['state'] == 'Encerrado' and role not in REVIEW_ROLES:
+    if a['state'] == 'Encerrado' and db.papel not in REVIEW_ROLES:
         raise FlowError('Só revisor ou administrador reabre um achado encerrado.')
     _move(db, achado_id, ('Descartado', 'Encerrado'), 'Novo', 'Reabrir', note, divergence='')
 
@@ -319,7 +320,8 @@ def from_collection(db, collection_id, evidence_folder=None):
     if not head:
         return []
     host, run_at, digest = head
-    alvo = asset_by_identifier(db, 'Computador', host) or asset_by_identifier(db, 'Servidor', host)
+    alvo = (asset_by_identifier(db, 'Computador', host) or asset_by_identifier(db, 'Servidor', host)
+            or asset_by_identifier(db, 'Nuvem', host))
     if not alvo:
         return []
     out = []

@@ -6,7 +6,7 @@
 #                (desafio e resposta), login e formulário principal com Ribbon
 #                e barra de status
 #  Tipo        : Aplicativo principal
-#  Versão      : 1.5 (versão do aplicativo)
+#  Versão      : ver formAbout.APP_VERSAO (fonte única da versão)
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
@@ -80,7 +80,6 @@ Usuário padrão: agente. A senha de fábrica precisa ser trocada no primeiro ac
 
 import base64
 import hashlib
-import json
 import os
 import re
 import subprocess
@@ -299,6 +298,12 @@ PAPEL_EM_USO = {"papel": "usuario"}
 LICENCA_EM_USO = {}
 
 
+def _validar_para_recuperacao():
+    """Recuperação sem licença: o certificado continua obrigatório (mesmas listas)."""
+    import modLicenca
+    return validar_certificado(modLicenca.credenciados(modLicenca.Publicacao()))
+
+
 def _programa():
     """Caminho do programa em execução (o .exe instalado ou este script)."""
     return Path(sys.executable) if getattr(sys, "frozen", False) else Path(__file__).resolve()
@@ -368,18 +373,11 @@ $sig = $rsa.SignData($dados,
 
 def _executar_powershell(script):
     """Executa o script e devolve o JSON de resposta (dict)."""
-    r = subprocess.run(
-        ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-         "-Command", script],
-        capture_output=True,
-        text=True,
-        timeout=TIMEOUT_POWERSHELL,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-    )
-    saida = r.stdout.strip()
-    if not saida:
-        raise RuntimeError(r.stderr.strip() or "O PowerShell não retornou dados.")
-    return json.loads(saida.splitlines()[-1])
+    import modPowerShell
+    try:
+        return modPowerShell.executar(script, timeout=TIMEOUT_POWERSHELL).json()
+    except modPowerShell.ErroPowerShell as exc:
+        raise RuntimeError(str(exc)) from exc
 
 
 MENSAGENS_ERRO = {
@@ -622,6 +620,7 @@ class SplashScreen(tk.Toplevel):
             if not ativa:
                 resultado = ResultadoValidacao(False, str(erro))
                 resultado.etapa = "licenca"
+                resultado.codigo = getattr(erro, "codigo", None)
                 self.resultado = resultado
                 return
             LICENCA_EM_USO.clear()
@@ -677,7 +676,8 @@ class SplashScreen(tk.Toplevel):
                 FormAbertura(self.parent, etapa, self.resultado.mensagem, ao_tentar=self._tentar_de_novo,
                              ao_sair=self.parent.destroy, versao=APP_VERSAO, programa=_programa(),
                              autorizados=_lista_normalizada(CERTIFICADOS_AUTORIZADOS),
-                             thumb_atual=_CERT_EM_USO["thumb"])
+                             thumb_atual=_CERT_EM_USO["thumb"], codigo=getattr(self.resultado, "codigo", None),
+                             validar=_validar_para_recuperacao)
             except Exception as erro:
                 messagebox.showerror("Authentication Failure",
                                      f"{self.resultado.mensagem}\n\n({erro})\n\nThe application will be terminated.",
@@ -897,12 +897,19 @@ def main():
         _abrir_unica("dividir_pdf", lambda: FormDividirPdf(root))
 
     def abrir_sei(_evento=None):
+        import modLicenca
+        if not modLicenca.recurso_liberado(LICENCA_EM_USO, "sei"):
+            messagebox.showinfo("SEI", "A consulta ao SEI é uma integração institucional, exclusiva da "
+                                "modalidade S-Cyber PM. Esta instalação está licenciada como "
+                                f"{modLicenca.nome_produto(LICENCA_EM_USO)}.", parent=root)
+            return
         from formSei import FormSei
         _abrir_unica("sei", lambda: FormSei(root))
 
     # EXTENSÃO NIST (modNist.py): carregada sob demanda, na mesma janela Tk.
     nist = PainelNist(root, fundo, status, BASE_DIR)
     abrir_nist = nist.abrir
+    diagnostico_nist = nist.diagnostico
     voltar_inicio_nist = nist.voltar
 
     # Mesma ordem e mesmos grupos da aba Ferramentas da Ribbon, separados por linhas
@@ -948,6 +955,7 @@ def main():
     # Comando exclusivo da cópia integrada; não existe no repositório original.
     menu_nist = tk.Menu(menus, tearoff=False)
     menu_nist.add_command(label="Abrir painel NIST Intelligence", accelerator="Ctrl+Shift+N", command=abrir_nist)
+    menu_nist.add_command(label="Diagnóstico Inteligente (um clique)...", command=diagnostico_nist)
     menu_nist.add_separator()
     for _aba in ("Avaliação CSF 2.0", "Plano de ação", "Coleta técnica", "Riscos", "Incidentes",
                  "Evidências e custódia", "Consultas SEI", "Consolidação", "Relatório", "Auditoria"):
@@ -1035,9 +1043,12 @@ def main():
                                  "Fecha o S-Cyber PM")
 
     aba = ribbon.aba("NIST Intelligence")
-    aba.grupo("Governança cibernética").botao(
-        "Painel\nNIST CSF", "nist", abrir_nist,
-        "Acessar o S-Cyber NIST Intelligence integrado (Ctrl+Shift+N)")
+    grupo_nist = aba.grupo("Governança cibernética")
+    grupo_nist.botao("Diagnóstico\ninteligente", "nist", diagnostico_nist,
+                     "Diagnóstico Inteligente S-Cyber: verifica este computador (somente leitura), "
+                     "prioriza os problemas, recomenda a correção e compara com o anterior")
+    grupo_nist.botao("Painel\nNIST CSF", "nist", abrir_nist,
+                     "Acessar o S-Cyber NIST Intelligence integrado (Ctrl+Shift+N)")
     aba.grupo("Navegação").botao(
         "Tela\ninicial", "sair", voltar_inicio_nist,
         "Retornar à tela principal sem encerrar o S-Cyber PM")
@@ -1172,6 +1183,14 @@ def main():
     fundo.bind("<Configure>", centralizar, add="+")
 
     def mostrar_principal():
+        # Modalidade da licença assinada: muda o nome do produto na janela (S-Cyber Business / PM)
+        try:
+            import modLicenca
+            produto = modLicenca.nome_produto(LICENCA_EM_USO)
+            root.title(produto)
+            fundo.itemconfigure(titulo, text=f"{produto} - aplicação principal")
+        except Exception:
+            pass
         root.deiconify()
         root.lift()
         root.focus_force()
@@ -1190,9 +1209,17 @@ def main():
         # Cópia diária do banco NIST e avisos (ANPD, ações vencidas, certificado), em segundo plano.
         root.after(2000, nist.ao_entrar)
 
-    # Splash (certificado) -> login -> formulário principal
-    SplashScreen(root, on_success=lambda: FormLogin(
-        root, ao_entrar=mostrar_principal, ao_desistir=root.destroy))
+    def depois_do_certificado():
+        # Perfil novo: não existe senha de fábrica; o titular (já autenticado pelo
+        # certificado) CRIA as senhas. Perfil existente: login normal.
+        if not formOpcoes.senhas_criadas():
+            from formTrocaSenha import FormTrocaSenha
+            FormTrocaSenha(root, ao_concluir=mostrar_principal, ao_desistir=root.destroy)
+        else:
+            FormLogin(root, ao_entrar=mostrar_principal, ao_desistir=root.destroy)
+
+    # Splash (certificado) -> criar senhas ou login -> formulário principal
+    SplashScreen(root, on_success=depois_do_certificado)
     try:
         root.mainloop()
     finally:

@@ -5,7 +5,7 @@
 #  Descrição   : Janela "Sobre": versão, autoria, padrões de mercado,
 #                componentes, sistemas compatíveis e instalação
 #  Tipo        : Formulário (tkinter)
-#  Versão      : 1.5 (versão do aplicativo)
+#  Versão      : ver formAbout.APP_VERSAO (fonte única da versão)
 #  Revisão     : 2026-11-16
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
@@ -74,7 +74,7 @@ from modRecursos import botao_fechar_cabecalho
 # ==========================================================
 
 APP_NOME = "S-Cyber PM"
-APP_VERSAO = "1.6"
+APP_VERSAO = "2.0.0"            # S-Cyber 2.0 (pré-lançamento, não homologado)
 APP_SUBTITULO = "Cryptography and Digital Certificate Framework"
 APP_DESCRICAO = (
     "Atividade para fins didáticos e de pesquisa, sem fins lucrativos. " \

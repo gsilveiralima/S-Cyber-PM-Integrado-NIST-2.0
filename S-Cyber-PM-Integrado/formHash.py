@@ -4,7 +4,7 @@
 #  Arquivo     : formHash.py
 #  Descrição   : Cálculo e conferência de hash de arquivos (SHA-256 e outros)
 #  Tipo        : Formulário (tkinter)
-#  Versão      : 1.4 (versão do aplicativo)
+#  Versão      : ver formAbout.APP_VERSAO (fonte única da versão)
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO

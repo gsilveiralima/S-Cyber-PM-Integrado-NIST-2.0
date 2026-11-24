@@ -5,7 +5,7 @@
 #  Descrição   : Simulação animada de criptografia ponta a ponta (DH/ML-KEM,
 #                HKDF, AES-256-GCM)
 #  Tipo        : Formulário (tkinter)
-#  Versão      : 1.4 (versão do aplicativo)
+#  Versão      : ver formAbout.APP_VERSAO (fonte única da versão)
 #  Revisão     : 2026-11-16
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO

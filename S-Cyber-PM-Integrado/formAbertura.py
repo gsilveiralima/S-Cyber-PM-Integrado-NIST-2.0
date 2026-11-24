@@ -6,36 +6,17 @@ credenciamento, migrar o perfil). Nada aqui grava sem confirmação do titular.
 """
 from __future__ import annotations
 
-import threading
+import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
 import modDiagnostico
 import modLicenca
 import modPerfil
+from modRecursos import em_segundo_plano as _em_segundo_plano  # executor único (M8)
+from modRecursos import pedir_senha
 
 FUNDO = "#f4f6f8"
-
-
-def _em_segundo_plano(janela, trabalho, pronto):
-    """Roda trabalho() numa thread e entrega (resultado, erro) a pronto() na thread do Tk."""
-    caixa = []
-
-    def rodar():
-        try:
-            caixa.append((trabalho(), None))
-        except Exception as erro:  # noqa: BLE001 — a tela mostra o motivo
-            caixa.append((None, erro))
-
-    def conferir():
-        if not janela.winfo_exists():
-            return
-        if caixa:
-            pronto(*caixa[0])
-        else:
-            janela.after(150, conferir)
-    threading.Thread(target=rodar, daemon=True).start()
-    janela.after(150, conferir)
 
 
 def _copiar(janela, texto, aviso="Copiado para a área de transferência."):
@@ -52,8 +33,10 @@ class FormAbertura(tk.Toplevel):
                "opcoes": "Perfil cifrado com outro certificado"}
 
     def __init__(self, master, etapa, mensagem, ao_tentar, ao_sair, versao, programa, autorizados,
-                 thumb_atual=None):
+                 thumb_atual=None, codigo=None, validar=None):
         super().__init__(master)
+        # codigo: motivo da falha da licença; validar(): valida o certificado (para a recuperação)
+        self.codigo, self.validar = codigo, validar
         self.etapa, self.ao_tentar, self.ao_sair = etapa, ao_tentar, ao_sair
         self.versao, self.programa, self.autorizados = versao, programa, autorizados
         self.thumb_atual = thumb_atual
@@ -105,6 +88,47 @@ class FormAbertura(tk.Toplevel):
         self.chave = tk.Text(self.corpo, height=8, wrap="char")
         self.chave.pack(fill="both", expand=True, pady=6)
         ttk.Button(self.corpo, text="Ativar", command=self.ativar).pack(anchor="e")
+        import modRecuperacao
+        if self.validar and modRecuperacao.disponivel(self.codigo):
+            ttk.Label(self.corpo, wraplength=720, foreground="#555", text=(
+                "A licença controla o uso do programa, não a posse dos seus dados. Sem licença válida, você "
+                "pode exportar tudo (backup cifrado + planilhas) provando quem é: certificado + senha.")
+            ).pack(anchor="w", pady=(8, 0))
+            ttk.Button(self.corpo, text="Recuperar meus dados (sem licença)…", command=self.recuperar
+                       ).pack(anchor="w")
+
+    def recuperar(self):
+        import modRecuperacao
+        self.status.set("Validando o seu certificado…")
+
+        def validado(res, erro):
+            self.status.set("")
+            if erro or not getattr(res, "ok", False):
+                messagebox.showerror("Recuperação", f"O certificado não foi validado: {erro or res.mensagem}",
+                                     parent=self)
+                return
+            senha = pedir_senha(self, "Recuperação", "Sua senha de acesso ao S-Cyber PM:")
+            if not senha:
+                return
+            # Basta escolher onde salvar: a subpasta recuperacao_scyber_<data> é criada automaticamente.
+            desk = os.path.join(os.environ.get("USERPROFILE") or os.path.expanduser("~"), "Desktop")
+            destino = filedialog.askdirectory(
+                title="Onde salvar? (escolha, por ex., a Área de Trabalho; a pasta recuperacao_scyber_<data> "
+                      "será criada dentro dela)",
+                initialdir=desk if os.path.isdir(desk) else None, mustexist=True, parent=self)
+            if not destino:
+                return
+            self.status.set("Exportando…")
+
+            def fim(pasta, erro2):
+                self.status.set("")
+                if erro2:
+                    messagebox.showerror("Recuperação", str(erro2), parent=self)
+                else:
+                    messagebox.showinfo("Recuperação", f"Dados exportados em {pasta}.\nVeja o MANIFESTO.txt "
+                                                       "(SHA-256 de cada arquivo).", parent=self)
+            _em_segundo_plano(self, lambda: modRecuperacao.exportar(destino, res.thumb, senha, self.codigo), fim)
+        _em_segundo_plano(self, self.validar, validado)
 
     def abrir_licenca(self):
         arq = filedialog.askopenfilename(filetypes=[("Licença S-Cyber PM", "*.sclic"), ("Todos", "*.*")],

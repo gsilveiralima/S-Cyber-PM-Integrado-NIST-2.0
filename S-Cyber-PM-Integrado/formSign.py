@@ -5,7 +5,7 @@
 #  Descrição   : Assinatura digital destacada (CMS / PKCS #7) e verificação de
 #                documentos
 #  Tipo        : Formulário (tkinter)
-#  Versão      : 1.4 (versão do aplicativo)
+#  Versão      : ver formAbout.APP_VERSAO (fonte única da versão)
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
@@ -57,7 +57,6 @@ import json
 import os
 import base64
 import re
-import subprocess
 import threading
 import tkinter as tk
 from ctypes import wintypes
@@ -251,20 +250,12 @@ def assinar_bytes(dados, thumbprint):
     """Assinatura destacada (CMS, SHA-256) de 'dados', sem arquivos: os bytes vão ao
     PowerShell pela entrada padrão e o CMS volta pela saída. Devolve o DER."""
     script = _PS_ASSINAR_ENTRADA.replace("@THUMB@", _thumb(thumbprint))
+    import modPowerShell
     try:
-        r = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-             "-Command", script],
-            input=base64.b64encode(bytes(dados)).decode("ascii"),
-            capture_output=True, encoding="utf-8", errors="replace",
-            timeout=TIMEOUT_POWERSHELL,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    except FileNotFoundError:
-        raise ErroCertificado("PowerShell não encontrado.")
-    except subprocess.TimeoutExpired:
-        raise ErroCertificado("Tempo esgotado aguardando o Windows.")
-    linhas = [l.strip() for l in (r.stdout or "").splitlines() if l.strip()]
-    resposta = linhas[-1] if linhas else (r.stderr or "").strip()
+        resposta = modPowerShell.executar(script, entrada=base64.b64encode(bytes(dados)).decode("ascii"),
+                                          timeout=TIMEOUT_POWERSHELL).ultima_linha
+    except modPowerShell.ErroPowerShell as exc:
+        raise ErroCertificado(str(exc)) from exc
     if not resposta.startswith("OK "):
         raise ErroCertificado(resposta[5:] if resposta.startswith("ERRO ")
                               else resposta or "O PowerShell não respondeu.")

@@ -4,7 +4,7 @@
 #  Arquivo     : modPDFDividir.py
 #  Descrição   : Leitor e gravador de PDF em Python puro e divisão em páginas
 #  Tipo        : Motor (sem interface)
-#  Versão      : 1.4 (versão do aplicativo)
+#  Versão      : ver formAbout.APP_VERSAO (fonte única da versão)
 #  Revisão     : 2026-11-20
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO

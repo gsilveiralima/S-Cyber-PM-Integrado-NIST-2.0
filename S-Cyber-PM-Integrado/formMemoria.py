@@ -4,7 +4,7 @@
 #  Arquivo     : formMemoria.py
 #  Descrição   : Demonstração didática de alocação de memória por recursão
 #  Tipo        : Formulário (tkinter)
-#  Versão      : 1.4 (versão do aplicativo)
+#  Versão      : ver formAbout.APP_VERSAO (fonte única da versão)
 #  Revisão     : 2026-11-16
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO

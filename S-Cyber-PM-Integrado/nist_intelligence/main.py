@@ -11,6 +11,7 @@ from tkinter import filedialog, messagebox, simpledialog, ttk
 from . import achados as ach
 from . import collector, core, package, report
 from .achados_ui import AchadosMixin
+from .diagnostico_ui import DiagnosticoMixin
 from .bridge import ReadOnlySEIBridge
 from .catalog import CATEGORIES, FUNCTIONS, MATURITY, SUB_BY_CATEGORY, TIERS, function_of
 
@@ -58,7 +59,7 @@ def _br(iso):
     return f'{iso[8:10]}/{iso[5:7]}/{iso[:4]}' if iso and len(iso) >= 10 else ''
 
 
-class NISTPanel(AchadosMixin, ttk.Frame):
+class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
     """Painel embutível no Tk raiz do S-Cyber PM."""
 
     def __init__(self, parent, original_root=None, embedded=False, on_back=None, db_path=core.DB, key=None,
@@ -71,7 +72,7 @@ class NISTPanel(AchadosMixin, ttk.Frame):
         # do S-Cyber PM, usados para conferir os pacotes de consolidação recebidos.
         # role: papel do certificado ('administrador', 'revisor' ou 'usuario'): só revisor/admin encerra achados.
         db = core.connect(db_path, key)
-        db.actor = actor or self._username()
+        db.definir_sessao(actor or self._username(), role)
         try:
             super().__init__(parent, style='NIST.TFrame')
         except Exception:
@@ -101,6 +102,7 @@ class NISTPanel(AchadosMixin, ttk.Frame):
         self.tabs = nist_Notebook(self)
         self.tabs.pack(fill='both', expand=True, padx=12, pady=(0, 10))
         self.t_dash = self.add_tab('Painel')
+        self.t_diag = self.add_tab('Diagnóstico')
         self.t_achados = self.add_tab('Ativos e achados')
         self.t_assess = self.add_tab('Avaliação CSF 2.0')
         self.t_plan = self.add_tab('Plano de ação')
@@ -113,7 +115,7 @@ class NISTPanel(AchadosMixin, ttk.Frame):
         self.t_cons = self.add_tab('Consolidação')
         self.t_report = self.add_tab('Relatório')
         self.t_audit = self.add_tab('Auditoria')
-        for build in (self.make_dashboard, self.make_achados, self.make_assessment, self.make_plan, self.make_collect,
+        for build in (self.make_dashboard, self.make_diagnostico, self.make_achados, self.make_assessment, self.make_plan, self.make_collect,
                       self.make_risks, self.make_incidents, self.make_evidence, self.make_osint,
                       self.make_sei, self.make_consolidation, self.make_report, self.make_audit):
             build()
@@ -249,6 +251,8 @@ class NISTPanel(AchadosMixin, ttk.Frame):
         f = self.t_dash
         self.title_label(f, 'Situação da segurança cibernética — NIST CSF 2.0',
                          'Maturidade média por função (0–4). Subcategorias ainda não avaliadas contam como 0.')
+        nist_Button(f, text='▶  Diagnóstico Inteligente S-Cyber (um clique)',
+                    command=self.iniciar_diagnostico).pack(anchor='w', padx=14, pady=(0, 6))
         grid = nist_Frame(f)
         grid.pack(fill='x', padx=12)
         self.cards = {}
@@ -1658,17 +1662,17 @@ class NISTPanel(AchadosMixin, ttk.Frame):
         if not messagebox.askyesno('Restaurar backup', 'Os dados atuais do painel serão SUBSTITUÍDOS pelos do '
                                    'backup (o banco atual é guardado ao lado antes).\n\nContinuar?', parent=self):
             return
-        actor = self.db.actor
+        actor, papel = self.db.actor, self.db.papel
         self.db.close()
         try:
             saved = core.restore(source, self.db_path, self.key)
         except Exception as exc:
             self.db = core.connect(self.db_path, self.key)
-            self.db.actor = actor
+            self.db.definir_sessao(actor, papel)
             self._error('Restaurar backup', f'O backup não foi restaurado: {exc}')
             return
         self.db = core.connect(self.db_path, self.key)
-        self.db.actor = actor
+        self.db.definir_sessao(actor, papel)
         self.refresh()
         messagebox.showinfo('Restaurar backup', 'Backup restaurado.' + (
             f'\n\nO banco anterior foi guardado como {saved.name}.' if saved else ''), parent=self)
@@ -1705,7 +1709,8 @@ class NISTPanel(AchadosMixin, ttk.Frame):
     def refresh(self):
         for part in (self.refresh_assessment, self.refresh_plan, self.refresh_collect, self.refresh_risks,
                      self.refresh_incidents, self.refresh_evidence, self.refresh_osint, self.refresh_consolidation,
-                     self.refresh_audit, self.refresh_achados, self.refresh_pending, self.refresh_dashboard):
+                     self.refresh_audit, self.refresh_achados, self.refresh_pending, self.refresh_dashboard,
+                     self.refresh_diagnostico):
             part()
         self.refresh_header()
 

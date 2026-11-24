@@ -3,6 +3,7 @@ name: Instalador Windows
 on:
   push:
     branches: [main]
+    tags: ['v*']          # tag v* = publica o instalador testado numa Release (pré-lançamento)
   pull_request:
   workflow_dispatch:
 
@@ -87,3 +88,33 @@ jobs:
             S-Cyber-PM-Integrado/dist/diagnostico_instalado.txt
             S-Cyber-PM-Integrado/dist/instalacao.log
           retention-days: 30
+
+  # Só em tag v*: depois do instalador construído E testado (instalar, abrir, atualizar,
+  # desinstalar), publica-o numa Release marcada como pré-lançamento, com o SHA-256.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: instalador
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artefatos
+      - name: Publicar a Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          cd artefatos/*/
+          cat > notas.md <<'NOTAS'
+          Instalador do S-Cyber para Windows 10/11 (64 bits), construído e testado pelo CI deste repositório
+          (instalação por usuário, abertura pelo atalho, atualização e desinstalação preservando os dados).
+
+          - Baixe `SCyberPM-Setup-*.exe` e confira o SHA-256 com o `SHA256SUMS.txt`.
+          - O instalador ainda não é assinado: o SmartScreen pode avisar (Mais informações > Executar assim mesmo).
+          - Passo a passo: docs/GUIA_WINDOWS_INSTALADOR.md. Ativação: peça a licença a um administrador.
+          - Pré-lançamento do S-Cyber 2.0: homologado apenas no Windows; veja docs/AUDITORIA_S-CYBER_2.0.md.
+          NOTAS
+          gh release create "$GITHUB_REF_NAME" SCyberPM-Setup-*.exe SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --title "S-Cyber $GITHUB_REF_NAME" --notes-file notas.md --prerelease

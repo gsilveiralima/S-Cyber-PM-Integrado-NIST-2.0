@@ -30,8 +30,8 @@ class ErroPerfil(Exception):
 
 
 def pasta_dados():
-    base = os.environ.get("APPDATA") or str(Path.home() / ".config")
-    return Path(base) / "SCyberPM"
+    import modCaminhos                  # fonte única das pastas (S-Cyber 2.0, M5)
+    return modCaminhos.pasta_dados(criar=False)
 
 
 MAGICO_OPCOES = b"SCPMOPT1"      # o mesmo formOpcoes.MAGICO (conferido nos testes)

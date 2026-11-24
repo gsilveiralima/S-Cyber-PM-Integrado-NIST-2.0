@@ -4,7 +4,7 @@
 #  Arquivo     : formLogin.py
 #  Descrição   : Formulário de login de início (usuário e senha de acesso)
 #  Tipo        : Formulário (tkinter)
-#  Versão      : 1.5 (versão do aplicativo)
+#  Versão      : ver formAbout.APP_VERSAO (fonte única da versão)
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
@@ -29,7 +29,8 @@ S-Cyber PM - Formulário de login (depois da validação do certificado).
 
 Confere o usuário e a senha de acesso guardados no arquivo de opções
 (formOpcoes.py: hash PBKDF2, arquivo cifrado com chave derivada do certificado).
-Padrão de fábrica: usuário "agente"; a senha de fábrica é trocada obrigatoriamente no 1º acesso
+Usuário inicial "agente". Não há senha de fábrica: num perfil novo o titular cria as senhas logo
+após o certificado (formTrocaSenha); arquivos antigos com a senha de fábrica são obrigados a trocar
 (formTrocaSenha.py); depois, as senhas podem ser trocadas em Arquivo > Opções.
 
 Depois de MAX_TENTATIVAS erros o aplicativo é encerrado; a cada erro o botão
@@ -46,7 +47,7 @@ import threading
 import formOpcoes
 import modHello
 from formAbout import APP_SUBTITULO, APP_VERSAO
-from modRecursos import centralizar, proteger_contra_captura
+from modRecursos import centralizar, em_segundo_plano, proteger_contra_captura
 from modRibbon import foto_icone
 
 
@@ -130,11 +131,18 @@ class FormLogin(tk.Toplevel):
         self.mensagem = ttk.Label(corpo, text="", foreground="#b00020")
         self.mensagem.grid(row=4, column=0, columnspan=2, sticky="w", pady=(10, 0))
 
-        # Windows Hello (PIN / biometria): só aparece se o usuário cadastrou e está disponível
-        if self._hello_disponivel():
-            self.botao_hello = ttk.Button(corpo, text="🔒  Entrar com Windows Hello (PIN ou biometria)",
-                                          command=self.entrar_hello)
-            self.botao_hello.grid(row=5, column=0, columnspan=2, sticky="ew", pady=(10, 0))
+        # Windows Hello (PIN / biometria): só aparece se o usuário cadastrou e está disponível.
+        # A consulta ao Windows roda em segundo plano: a tela de login abre na hora.
+        self.botao_hello = ttk.Button(corpo, text="🔒  Entrar com Windows Hello (PIN ou biometria)",
+                                      command=self.entrar_hello)
+        try:
+            cadastrado = formOpcoes.hello_ativo()
+        except formOpcoes.ErroOpcoes:
+            cadastrado = False
+        if cadastrado:
+            em_segundo_plano(self, lambda: modHello.disponivel()[0],
+                             lambda ok, erro: ok and erro is None and self.botao_hello.grid(
+                                 row=5, column=0, columnspan=2, sticky="ew", pady=(10, 0)))
 
         botoes = ttk.Frame(corpo)
         botoes.grid(row=6, column=0, columnspan=2, sticky="e", pady=(12, 0))
@@ -142,13 +150,6 @@ class FormLogin(tk.Toplevel):
                                        command=self.entrar)
         self.botao_entrar.pack(side="left")
         ttk.Button(botoes, text="Sair", command=self.desistir).pack(side="left", padx=(8, 0))
-
-    def _hello_disponivel(self):
-        """True se o usuário ativou o Windows Hello e ele pode ser usado agora."""
-        try:
-            return formOpcoes.hello_ativo() and modHello.disponivel()[0]
-        except formOpcoes.ErroOpcoes:
-            return False
 
     def entrar_hello(self):
         """Entra pelo Windows Hello: o Windows assina um desafio depois do PIN/biometria."""

@@ -11,9 +11,7 @@ A avaliação (evaluate) é Python puro e testável fora do Windows.
 """
 from __future__ import annotations
 
-import base64
 import json
-import subprocess
 import sys
 
 TIMEOUT = 90
@@ -122,20 +120,12 @@ def run(thumbprint=None):
     """Executa o PowerShell e devolve o dict bruto. Só no Windows."""
     if sys.platform != 'win32':
         raise RuntimeError('A coleta técnica só funciona no Windows.')
-    import os
-    env = dict(os.environ)
-    env.pop('PSModulePath', None)        # herdado do PowerShell 7, quebra módulos do 5.1
-    if thumbprint:
-        env['SCYBER_THUMB'] = ''.join(ch for ch in thumbprint if ch.isalnum())
-    encoded = base64.b64encode(_PS.encode('utf-16-le')).decode('ascii')
-    proc = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
-                           '-EncodedCommand', encoded], capture_output=True, text=True, timeout=TIMEOUT,
-                          env=env, encoding='utf-8', errors='replace',
-                          creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
-    out = proc.stdout.strip()
-    if not out:
-        raise RuntimeError(proc.stderr.strip() or 'O PowerShell não retornou dados.')
-    return json.loads(out.splitlines()[-1])
+    import modPowerShell
+    variaveis = {'SCYBER_THUMB': ''.join(ch for ch in thumbprint if ch.isalnum())} if thumbprint else None
+    try:
+        return modPowerShell.executar(_PS, variaveis=variaveis, timeout=TIMEOUT, codificado=True).json()
+    except modPowerShell.ErroPowerShell as exc:
+        raise RuntimeError(str(exc)) from exc
 
 
 # ------------------------------------------------------------------ avaliação

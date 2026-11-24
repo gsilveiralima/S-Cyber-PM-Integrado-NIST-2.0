@@ -62,6 +62,12 @@ class PainelNist:
                 self.painel.tabs.select(aba)
                 return
 
+    def diagnostico(self, _evento=None):
+        """Diagnóstico Inteligente S-Cyber: abre o painel e inicia (confirma o escopo antes)."""
+        self.abrir()
+        if self.painel is not None and self.painel.winfo_exists():
+            self.painel.iniciar_diagnostico()
+
     def voltar_se_aberto(self):
         if self.aberto:
             self.voltar()

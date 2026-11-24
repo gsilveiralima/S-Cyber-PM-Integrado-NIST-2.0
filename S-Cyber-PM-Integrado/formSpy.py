@@ -6,7 +6,7 @@
 #                arquivos e rede do aplicativo e mostra o efeito das técnicas
 #                de segurança
 #  Tipo        : Formulário (tkinter)
-#  Versão      : 1.4 (versão do aplicativo)
+#  Versão      : ver formAbout.APP_VERSAO (fonte única da versão)
 #  Revisão     : 2026-11-16
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
@@ -75,7 +75,6 @@ import math
 import os
 import re
 import stat
-import subprocess
 import sys
 import threading
 import time
@@ -161,14 +160,14 @@ def decodificar_comando(linha):
 
 
 def _processos_e_conexoes():
-    r = subprocess.run(
-        ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-         "-Command", _PS_COLETA],
-        capture_output=True, encoding="utf-8", errors="replace", timeout=60,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    texto = (r.stdout or "").strip()
+    import modPowerShell
+    try:
+        r = modPowerShell.executar(_PS_COLETA, timeout=60)
+    except modPowerShell.ErroPowerShell as exc:
+        raise OSError(str(exc)) from exc
+    texto = r.saida.strip()
     if not texto:
-        raise OSError((r.stderr or "o PowerShell não respondeu").strip()[:300])
+        raise OSError((r.erro or "o PowerShell não respondeu").strip()[:300])
     dados = json.loads(texto[texto.index("{"):])
     return dados.get("processos") or [], dados.get("conexoes") or []
 

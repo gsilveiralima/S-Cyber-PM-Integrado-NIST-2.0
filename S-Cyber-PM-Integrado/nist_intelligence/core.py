@@ -33,8 +33,9 @@ from .catalog import (CATEGORIES, FUNCTIONS, MATURITY, SUB_BY_CATEGORY,  # noqa:
 VERSION = '1.3.0'
 
 # Mesma pasta de dados do S-Cyber PM (%APPDATA%\SCyberPM), numa subpasta própria.
-_APPDATA = Path(os.environ.get('APPDATA') or (Path.home() / '.config'))
-DATA = _APPDATA / 'SCyberPM' / 'nist'
+import modCaminhos  # noqa: E402 — fonte única das pastas (S-Cyber 2.0, M5)
+
+DATA = modCaminhos.pasta_nist()
 DB = DATA / 'nist.db'
 LEGACY_DB = Path.home() / 'SCyberNISTIntelligence' / 'nist.db'   # até a v0.3.1
 
@@ -89,6 +90,22 @@ class NistConnection(sqlite3.Connection):
     cipher = None
     encrypted = False      # o banco tem dados cifrados
     actor = 'operador'     # quem está usando (usuário do S-Cyber PM, Windows e certificado)
+    _papel = 'usuario'
+    _sessao_definida = False
+
+    def definir_sessao(self, actor, papel):
+        """Identidade da sessão AUTENTICADA (certificado validado na abertura). O papel vale
+        para as regras de negócio (achados, fontes) e só pode ser definido uma vez por
+        conexão: a interface não o altera depois."""
+        if self._sessao_definida:
+            raise PermissionError('A sessão desta conexão já foi definida.')
+        if papel not in PAPEIS:
+            raise ValueError(f'Papel desconhecido: {papel}')
+        self.actor, self._papel, self._sessao_definida = actor, papel, True
+
+    @property
+    def papel(self):
+        return self._papel
 
     def E(self, value):
         return self.cipher.encrypt(value) if self.cipher else value
@@ -102,6 +119,9 @@ class NistConnection(sqlite3.Connection):
             return self.cipher.decrypt(value)
         except (InvalidTag, ValueError):
             return crypto.LOCKED
+
+
+PAPEIS = ('usuario', 'revisor', 'administrador')
 
 
 def _sel(table, cols):
@@ -166,6 +186,14 @@ def connect(path=DB, key=None):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     _migrate_legacy(path)
+    # A chave é conferida ANTES de qualquer gravação: com o certificado errado o banco não
+    # pode receber nem as tabelas/colunas novas da atualização (somente leitura aqui).
+    if path.is_file() and key_status(path, key) == 'outra_chave':
+        raise PermissionError(
+            'O banco do NIST Intelligence está cifrado. Abra o painel pelo S-Cyber PM, depois da validação do '
+            'certificado.' if key is None else
+            'O banco do NIST Intelligence foi cifrado com OUTRO certificado e não pode ser lido com o '
+            'certificado atual.')
     db = sqlite3.connect(path, factory=NistConnection)
     db.create_function('dec', 1, db._dec, deterministic=True)
     db.execute('PRAGMA foreign_keys=ON')
@@ -1346,6 +1374,12 @@ EXPORTS = {
     'custody': ('id,evidence_id,at,action,actor,note,sha256,prev_hash,hash', 'custody_log'),
     'findings': ('collection_id,check_id,title,status,detail,subcategories', 'findings'),
     'nist': ('category_code,actual,target,evidence_note,action_note,updated_at', 'nist_assessments'),
+    'ativos': ('id,name,kind,identifier,owner,criticality,vendor,product,version,notes,authorized,created_at',
+               'assets'),
+    'achados': ('id,asset_id,source,ref,title,event_date,first_seen,last_seen,state,discard_reason,sub_code,'
+                'priority,justification,owner,due_date,action,bulletin,fix_note,fixed_by,reviewer,review_note,'
+                'incident_id,divergence', 'achados'),
+    'achados_historico': ('id,achado_id,at,actor,action,from_state,to_state,note,prev_hash,hash', 'achado_log'),
 }
 
 

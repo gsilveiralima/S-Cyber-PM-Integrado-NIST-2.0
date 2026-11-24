@@ -5,7 +5,7 @@
 #  Descrição   : Análise de processos do SEI por automação do navegador
 #                (Selenium) - somente leitura
 #  Tipo        : Formulário (tkinter)
-#  Versão      : 1.4 (versão do aplicativo)
+#  Versão      : ver formAbout.APP_VERSAO (fonte única da versão)
 #  Revisão     : 2026-11-19
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
@@ -342,8 +342,8 @@ class SeiSelenium:
 
     @staticmethod
     def pasta_perfil(navegador):
-        base = os.environ.get("LOCALAPPDATA") or os.path.expanduser("~")
-        return os.path.join(base, "SCyberPM", f"sei_perfil_{navegador.lower()}")
+        import modCaminhos
+        return os.path.join(modCaminhos.pasta_instalacao(), f"sei_perfil_{navegador.lower()}")
 
     def abrir(self, navegador, endereco):
         """Inicia um navegador controlado, com perfil próprio, no endereço."""

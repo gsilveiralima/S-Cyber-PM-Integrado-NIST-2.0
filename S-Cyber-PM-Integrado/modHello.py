@@ -5,7 +5,7 @@
 #  Descrição   : Acesso ao aplicativo pelo Windows Hello (PIN / biometria),
 #                via UserConsentVerifier do Windows
 #  Tipo        : Módulo de apoio
-#  Versão      : 1.4 (versão do aplicativo)
+#  Versão      : ver formAbout.APP_VERSAO (fonte única da versão)
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
@@ -46,8 +46,6 @@ acesso continua valendo.
     verificar(mensagem)       -> True se o usuário passou no Hello; senão ErroHello
 """
 
-import os
-import subprocess
 
 TIMEOUT = 120                            # segundos (o usuário pode demorar no Hello)
 
@@ -100,19 +98,12 @@ FALHA = {
 
 def _powershell(script, **variaveis):
     """Roda o script e devolve o estado (texto após 'OK '). Mostra o Hello se preciso."""
+    import modPowerShell
     try:
-        r = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-             "-Command", script],
-            capture_output=True, encoding="utf-8", errors="replace", timeout=TIMEOUT,
-            env=dict(os.environ, **variaveis),
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
-    except FileNotFoundError:
-        raise ErroHello("PowerShell não encontrado.")
-    except subprocess.TimeoutExpired:
-        raise ErroHello("Tempo esgotado aguardando o Windows Hello.")
-    linhas = [l.strip() for l in (r.stdout or "").splitlines() if l.strip()]
-    resposta = linhas[-1] if linhas else (r.stderr or "").strip()
+        resposta = modPowerShell.executar(script, variaveis=variaveis, timeout=TIMEOUT).ultima_linha
+    except modPowerShell.ErroPowerShell as exc:
+        raise ErroHello("Tempo esgotado aguardando o Windows Hello." if "Tempo esgotado" in str(exc)
+                        else str(exc)) from exc
     if resposta.startswith("OK "):
         return resposta[3:].strip()
     raise ErroHello((resposta or "falha no Windows Hello").splitlines()[0])

@@ -6,7 +6,7 @@ têm um guia próprio: [ADMINISTRACAO_LICENCAS.md](ADMINISTRACAO_LICENCAS.md).
 Você não precisa instalar Python, editar código nem cadastrar impressões digitais à mão.
 
 ## 1. Instalar
-1. Baixe `SCyberPM-Setup-1.6.exe` e confira o SHA-256 dele com o do arquivo `SHA256SUMS.txt`.
+1. Abra a página **[Releases](https://github.com/gsilveiralima/S-Cyber-PM-Integrado-NIST-2.0/releases)** do repositório e baixe, da versão mais recente, o `SCyberPM-Setup-<versão>.exe` e o `SHA256SUMS.txt`. Confira o SHA-256 no PowerShell: `Get-FileHash .\SCyberPM-Setup-2.0.0.exe -Algorithm SHA256`.
 2. Dê dois cliques no instalador. Ele não pede administrador: o programa vai para
    `%LOCALAPPDATA%\Programs\S-Cyber PM`.
 3. O instalador ainda não é assinado. Se o Windows mostrar *"O Windows protegeu o computador"*,
@@ -33,7 +33,7 @@ ele usa a última lista conferida por até 30 dias.
 2. Clique em **Criar meu certificado…** e informe seu nome e posto. O programa cria o certificado
    com a chave privada **não exportável** e copia o **pedido de credenciamento**.
 3. Envie o pedido ao administrador. Depois do aviso dele, clique em **Verificar novamente**.
-4. No primeiro login, troque a senha de fábrica. A senha nova precisa:
+4. No primeiro acesso, crie as suas senhas (não existe senha de fábrica). Cada senha precisa:
    - ter 12 ou mais caracteres;
    - misturar pelo menos 3 tipos de caractere;
    - não aparecer em vazamentos públicos (o programa confere no Pwned Passwords).
@@ -72,6 +72,13 @@ Use a aba **Ativos e achados**:
     arquivos. Os originais ficam em `%APPDATA%\SCyberPM\arquivo`.
   - **Se o certificado antigo não está mais disponível:** nada é apagado. Um perfil novo só é criado se
     você digitar `NOVO PERFIL`.
+- **Licença vencida, revogada ou transferida:** na tela de ativação, use **Recuperar meus dados
+  (sem licença)**. Você precisa do certificado e da senha de acesso. O programa exporta:
+  - o backup cifrado do banco NIST;
+  - as planilhas CSV;
+  - um `MANIFESTO.txt` com o SHA-256 de cada arquivo.
+
+  A licença controla o uso do programa, não a posse dos seus dados.
 - Mantenha **uma só cópia** do programa. O diagnóstico avisa quando há duas cópias usando o mesmo perfil.
 
 ## 6. Atualizar e desinstalar
