@@ -29,6 +29,7 @@
 #                        Arquivos temporários cifrados; foto da página pelo DevTools; sem .ps1
 #                        Relatório cifrado na pasta temporária; apagado após o PDF e ao fechar
 #                        Trilha sonora (Surveillance Pulse.mp3) enquanto a Corujinha trabalha
+#            2026-11-24  S-Cyber 2.0: trilha sonora removida (aprovação do usuário; M9)
 #                        Coruja em toda a área de trabalho e linha de scan
 #                        PowerShell sem janelas; coruja e relatório protegidos contra captura
 #                        A coruja repete o scan e mostra o andamento até o relatório
@@ -128,10 +129,6 @@ from PIL import Image, ImageDraw, ImageFont, ImageGrab, ImageTk
 from modCriptoTemp import (EXTENSAO, PS_FUNCOES, ErroCripto, abrir_imagem,
                            ambiente_powershell, gravar, ler)
 from modRecursos import pasta_temporaria, proteger_contra_captura
-from modSom import Musica
-
-TOCAR_MUSICA = True                     # trilha sonora enquanto a Corujinha trabalha
-MUSICA = "Surveillance Pulse.mp3"       # embutida no .exe (gerarExe.py)
 
 RAMP = " .:-=+*#%@"            # do mais escuro ao mais claro
 MAX_COLS, MAX_ROWS = 110, 60
@@ -2228,24 +2225,10 @@ def executar_corujinha(master, janela=None):
     mexe na janela principal de quem chamou. Devolve o AsciiSplash; o
     formulário fica em splash.formulario desde o início (escondido)."""
 
-    # Trilha sonora (modSom/MCI): começa quando a LOGO acaba de se formar (não antes),
-    # e vai até o relatório ficar pronto
-    musica = Musica(MUSICA) if TOCAR_MUSICA else None
-
-    def tocar_musica():
-        if musica is not None:
-            musica.tocar(repetir=True)
-
-    def parar_musica(_evento=None):
-        if musica is not None:
-            musica.parar()
-
     form = janela if janela is not None else tk.Toplevel(master)
     form.withdraw()
     visualizador = build_main_form(form)
     proteger_contra_captura(form)                  # o relatório aberto não sai em capturas
-    # Fechar o formulário antes do fim também para a música
-    form.bind("<Destroy>", lambda e: parar_musica() if e.widget is form else None, add="+")
 
     def mostrar_formulario():
         if not form.winfo_exists():
@@ -2261,7 +2244,6 @@ def executar_corujinha(master, janela=None):
         visualizador.mostrar_andamento(linhas)
 
     def relatorio_pronto(arquivo, capturas=()):
-        parar_musica()
         # Ao terminar, limpa o relatório que a Corujinha deixou na área de transferência
         _limpar_area_transferencia(form)
         visualizador.carregar(arquivo, capturas)
@@ -2270,7 +2252,7 @@ def executar_corujinha(master, janela=None):
         else:
             splash.concluir()                      # ela se desfaz e chama mostrar_formulario
 
-    splash = AsciiSplash(master, on_done=mostrar_formulario, on_logo=tocar_musica)
+    splash = AsciiSplash(master, on_done=mostrar_formulario)
     splash.formulario = form
     iniciar_coleta(form, ao_concluir=relatorio_pronto, ao_progresso=progresso)
     return splash

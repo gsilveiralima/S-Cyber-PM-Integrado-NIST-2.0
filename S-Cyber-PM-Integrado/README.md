@@ -127,7 +127,6 @@ As opções e os dados de usuário são armazenados separadamente em `%APPDATA%\
 - `gerarExe.py` — geração do executável com PyInstaller.
 - `requirements.txt` — dependências Python.
 - `watermark.png`, `logo.png` e `espia.png` — imagens utilizadas pela interface.
-- `Surveillance Pulse.mp3` — trilha sonora da demonstração da Corujinha.
 
 ## Autoria
 

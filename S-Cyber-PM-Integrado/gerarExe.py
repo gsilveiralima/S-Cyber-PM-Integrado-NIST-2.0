@@ -32,7 +32,7 @@ S-Cyber PM - geração do executável único para distribuição.
 Resultado: dist\\SCyberPM.exe - um único arquivo, sem console, com o ícone da
 corujinha e as informações de versão do Windows (Propriedades > Detalhes)
 tiradas do formAbout.py. Leva junto o Python, todos os módulos, a marca
-d'água e a trilha sonora da Corujinha (Surveillance Pulse.mp3); o computador
+d'água e as imagens da interface; o computador
 de destino não precisa ter o Python instalado.
 
 O que NÃO vai dentro do .exe (e por quê):
@@ -114,8 +114,6 @@ def main():
         # a marca d'água vai para a raiz da pasta temporária (sys._MEIPASS),
         # um dos lugares onde o appSCyberPM a procura
         "--add-data", f"{PASTA / 'watermark.png'}{';' if sys.platform == 'win32' else ':'}.",
-        # Trilha sonora da Corujinha (tocada pelo próprio aplicativo, modSom)
-        "--add-data", f"{PASTA / 'Surveillance Pulse.mp3'}{';' if sys.platform == 'win32' else ':'}.",
         # Imagem da espiã que diz "Thank You!" na simulação ponta a ponta (formE2E)
         "--add-data", f"{PASTA / 'espia.png'}{';' if sys.platform == 'win32' else ':'}.",
         "--paths", str(PASTA),
