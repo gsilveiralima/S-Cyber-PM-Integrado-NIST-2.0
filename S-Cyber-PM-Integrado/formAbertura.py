@@ -52,8 +52,10 @@ class FormAbertura(tk.Toplevel):
                "opcoes": "Perfil cifrado com outro certificado"}
 
     def __init__(self, master, etapa, mensagem, ao_tentar, ao_sair, versao, programa, autorizados,
-                 thumb_atual=None):
+                 thumb_atual=None, codigo=None, validar=None):
         super().__init__(master)
+        # codigo: motivo da falha da licença; validar(): valida o certificado (para a recuperação)
+        self.codigo, self.validar = codigo, validar
         self.etapa, self.ao_tentar, self.ao_sair = etapa, ao_tentar, ao_sair
         self.versao, self.programa, self.autorizados = versao, programa, autorizados
         self.thumb_atual = thumb_atual
@@ -105,6 +107,43 @@ class FormAbertura(tk.Toplevel):
         self.chave = tk.Text(self.corpo, height=8, wrap="char")
         self.chave.pack(fill="both", expand=True, pady=6)
         ttk.Button(self.corpo, text="Ativar", command=self.ativar).pack(anchor="e")
+        import modRecuperacao
+        if self.validar and modRecuperacao.disponivel(self.codigo):
+            ttk.Label(self.corpo, wraplength=720, foreground="#555", text=(
+                "A licença controla o uso do programa, não a posse dos seus dados. Sem licença válida, você "
+                "pode exportar tudo (backup cifrado + planilhas) provando quem é: certificado + senha.")
+            ).pack(anchor="w", pady=(8, 0))
+            ttk.Button(self.corpo, text="Recuperar meus dados (sem licença)…", command=self.recuperar
+                       ).pack(anchor="w")
+
+    def recuperar(self):
+        import modRecuperacao
+        self.status.set("Validando o seu certificado…")
+
+        def validado(res, erro):
+            self.status.set("")
+            if erro or not getattr(res, "ok", False):
+                messagebox.showerror("Recuperação", f"O certificado não foi validado: {erro or res.mensagem}",
+                                     parent=self)
+                return
+            senha = simpledialog.askstring("Recuperação", "Sua senha de acesso ao S-Cyber PM:", show="•",
+                                           parent=self)
+            if not senha:
+                return
+            destino = filedialog.askdirectory(title="Pasta para os dados recuperados", parent=self)
+            if not destino:
+                return
+            self.status.set("Exportando…")
+
+            def fim(pasta, erro2):
+                self.status.set("")
+                if erro2:
+                    messagebox.showerror("Recuperação", str(erro2), parent=self)
+                else:
+                    messagebox.showinfo("Recuperação", f"Dados exportados em {pasta}.\nVeja o MANIFESTO.txt "
+                                                       "(SHA-256 de cada arquivo).", parent=self)
+            _em_segundo_plano(self, lambda: modRecuperacao.exportar(destino, res.thumb, senha, self.codigo), fim)
+        _em_segundo_plano(self, self.validar, validado)
 
     def abrir_licenca(self):
         arq = filedialog.askopenfilename(filetypes=[("Licença S-Cyber PM", "*.sclic"), ("Todos", "*.*")],

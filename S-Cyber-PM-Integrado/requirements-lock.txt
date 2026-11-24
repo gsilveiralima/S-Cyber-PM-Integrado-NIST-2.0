@@ -1,4 +1,4 @@
-# S-Cyber PM 1.5 + NIST Intelligence 1.0.0 — versões EXATAS validadas
+# S-Cyber PM — versões EXATAS validadas (a versão do aplicativo está em formAbout.APP_VERSAO)
 # Validado em 22/11/2026: Windows 11 x64, Python 3.14.8, 39 testes automáticos OK
 # e aplicação completa testada (certificado, login, painel NIST, coleta, PDF assinado).
 #
@@ -9,7 +9,7 @@
 # Dependências diretas (requirements.txt)
 cryptography==50.0.2
 pillow==13.0.0
-numpy==2.5.5
+numpy==2.5.5    # (dependência do matplotlib; não é importado diretamente)
 matplotlib==3.11.2
 reportlab==5.1.0
 pywin32==312

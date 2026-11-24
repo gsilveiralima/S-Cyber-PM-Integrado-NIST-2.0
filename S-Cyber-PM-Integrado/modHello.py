@@ -5,7 +5,7 @@
 #  Descrição   : Acesso ao aplicativo pelo Windows Hello (PIN / biometria),
 #                via UserConsentVerifier do Windows
 #  Tipo        : Módulo de apoio
-#  Versão      : 1.4 (versão do aplicativo)
+#  Versão      : ver formAbout.APP_VERSAO (fonte única da versão)
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO

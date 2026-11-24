@@ -100,9 +100,9 @@ def mascarar_email(email):
 
 
 # ------------------------------------------------------------------ credenciais
-def definir_credencial(db, nome, valor, role):
+def definir_credencial(db, nome, valor):
     """Guarda (cifrada com a chave do certificado) a credencial da fonte. Só revisor/admin."""
-    if role not in achados.REVIEW_ROLES:
+    if db.papel not in achados.REVIEW_ROLES:
         raise achados.FlowError('Só revisor ou administrador configura credenciais das fontes.')
     if nome not in ('github', 'hibp'):
         raise ValueError('Credencial desconhecida')

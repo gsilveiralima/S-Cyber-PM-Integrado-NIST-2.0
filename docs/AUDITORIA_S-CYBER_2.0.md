@@ -175,6 +175,30 @@ Cada fase termina com testes verdes e evidência. Não se avança com falha crí
 5. **Métricas.** As métricas de Windows (tempo de inicialização, memória, tamanho de cada arquivo,
    tempo de instalação) ficam pendentes até haver uma máquina ou CI.
 
-## 9. Próximo passo proposto
+## 9. Fase 2 — estabilização (executada localmente em 24/11/2026)
+
+**Caminho de validação escolhido:** nas máquinas do usuário. Nada vai para o GitHub; o script
+`S-Cyber-PM-Integrado/validar_no_windows.ps1` faz a validação no Windows.
+
+| Item | O que mudou | Prova automatizada | Situação |
+|---|---|---|---|
+| 5.1 | Chave conferida antes de qualquer gravação no banco | `test_auditoria_fase1.ChaveAntesDeGravarTests` (SHA-256 do arquivo igual) | Implementado e testado |
+| S1 | Papel da **sessão autenticada** dentro da conexão (`definir_sessao`, definido uma vez só). As regras de achados e fontes leem `db.papel`; a interface não passa mais o papel | `test_achados.SessaoTests` e o fluxo completo com outra sessão para o revisor | Implementado e testado |
+| S2 | **Recuperação sem licença:** certificado + senha → backup cifrado, CSVs e MANIFESTO com SHA-256; registrado na auditoria | `test_auditoria_fase1.RecuperacaoSemLicencaTests` | Implementado; não homologado na interface |
+| S5 | **Sem senha de fábrica:** num perfil novo, o titular cria as senhas logo após o certificado. Arquivos antigos são reconhecidos pelo SHA-256 da senha antiga e obrigados a trocar | `test_seguranca` (a senha antiga não está mais no código) | Implementado e testado; interface pendente |
+| M1 | Script de validação usa `requirements-lock.txt` num ambiente isolado e grava o `pip freeze` | `test_auditoria_fase1.ScriptValidacaoTests` | Implementado; **execução no Windows pendente** |
+| M2 | `numpy` fora das diretas; `selenium` e `pypdfium2` em `requirements-opcionais.txt` | `ConsistenciaTests.test_dependencias_declaradas` (lê as importações do código) | Implementado e testado |
+| M3 | Versão só em `formAbout.APP_VERSAO`; 35 cabeçalhos corrigidos | `ConsistenciaTests.test_versao_fonte_unica` | Implementado e testado |
+
+Testes: 116, todos OK (6 pulados pelos motivos da seção 3). A tela simulada confirmou que um usuário
+comum não consegue aprovar um achado e que a sessão de revisor consegue.
+
+Pendente no Windows (executar `validar_no_windows.ps1`):
+- instalador e tempos de abertura;
+- criação das senhas no primeiro acesso;
+- recuperação pela tela;
+- papéis pela interface.
+
+## 10. Próximo passo proposto
 Executar a **Fase 2** localmente (S1, S2, S5, M1, M2, M3), com testes de regressão para cada item.
 Validar no Windows quando o caminho (a) ou (b) do bloqueio 1 for definido.

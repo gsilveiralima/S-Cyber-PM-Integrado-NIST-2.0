@@ -128,7 +128,10 @@ class SEITests(unittest.TestCase):
 class HospedeiroTests(unittest.TestCase):
     def test_host_continua_protegido_por_login_original(self):
         source = (BASE / 'appSCyberPM.py').read_text(encoding='utf-8')
-        self.assertIn('SplashScreen(root, on_success=lambda: FormLogin(', source)
+        # certificado -> (perfil novo) criar senhas | (perfil existente) login -> principal
+        self.assertIn('SplashScreen(root, on_success=depois_do_certificado)', source)
+        self.assertIn('FormLogin(root, ao_entrar=mostrar_principal, ao_desistir=root.destroy)', source)
+        self.assertIn('if not formOpcoes.senhas_criadas():', source)
         self.assertIn('PainelNist(root, fundo, status, BASE_DIR)', source)
         nist = (BASE / 'modNist.py').read_text(encoding='utf-8')
         self.assertIn('from formNISTIntelligence import criar_painel', nist)

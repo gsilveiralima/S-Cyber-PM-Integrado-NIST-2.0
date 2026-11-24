@@ -37,7 +37,7 @@ powershell -ExecutionPolicy Bypass -File .\verificar_certificados.ps1
 
 Cada usuário precisa de um **certificado autorizado com a chave privada** no próprio Windows
 (ver [CERTIFICADOS.md](S-Cyber-PM-Integrado/CERTIFICADOS.md)). No primeiro acesso, o aplicativo obriga
-a trocar a senha de fábrica. Depois do login, o painel NIST abre sozinho (com `--nist`), com
+a criar as senhas (não existe senha de fábrica). Depois do login, o painel NIST abre sozinho (com `--nist`), com
 **Ctrl+Shift+N**, pelo menu **NIST Intelligence** ou pelo assistente.
 
 ## Documentação
@@ -61,7 +61,7 @@ S-Cyber-PM-Integrado/            aplicação (execute appSCyberPM.py daqui)
   appSCyberPM.py                 abertura, certificado, login e janela principal
   nist_intelligence/             módulo NIST (catálogo, avaliação, coleta, relatório, SEI, criptografia)
   formNISTIntelligence.py        ligação do painel NIST com a janela principal
-  formTrocaSenha.py              troca obrigatória da senha de fábrica
+  formTrocaSenha.py              criação das senhas no 1º acesso
   adicionar_certificado.py       inclui um usuário na lista de certificados
   verificar_certificados.ps1     diagnóstico dos certificados deste Windows
   requirements-lock.txt          versões exatas validadas

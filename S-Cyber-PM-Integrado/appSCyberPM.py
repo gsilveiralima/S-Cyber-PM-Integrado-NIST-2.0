@@ -6,7 +6,7 @@
 #                (desafio e resposta), login e formulário principal com Ribbon
 #                e barra de status
 #  Tipo        : Aplicativo principal
-#  Versão      : 1.5 (versão do aplicativo)
+#  Versão      : ver formAbout.APP_VERSAO (fonte única da versão)
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
@@ -297,6 +297,12 @@ _CERT_EM_USO = {"thumb": None}
 # Papel do certificado em uso ('administrador', 'revisor' ou 'usuario') e licença da instalação.
 PAPEL_EM_USO = {"papel": "usuario"}
 LICENCA_EM_USO = {}
+
+
+def _validar_para_recuperacao():
+    """Recuperação sem licença: o certificado continua obrigatório (mesmas listas)."""
+    import modLicenca
+    return validar_certificado(modLicenca.credenciados(modLicenca.Publicacao()))
 
 
 def _programa():
@@ -622,6 +628,7 @@ class SplashScreen(tk.Toplevel):
             if not ativa:
                 resultado = ResultadoValidacao(False, str(erro))
                 resultado.etapa = "licenca"
+                resultado.codigo = getattr(erro, "codigo", None)
                 self.resultado = resultado
                 return
             LICENCA_EM_USO.clear()
@@ -677,7 +684,8 @@ class SplashScreen(tk.Toplevel):
                 FormAbertura(self.parent, etapa, self.resultado.mensagem, ao_tentar=self._tentar_de_novo,
                              ao_sair=self.parent.destroy, versao=APP_VERSAO, programa=_programa(),
                              autorizados=_lista_normalizada(CERTIFICADOS_AUTORIZADOS),
-                             thumb_atual=_CERT_EM_USO["thumb"])
+                             thumb_atual=_CERT_EM_USO["thumb"], codigo=getattr(self.resultado, "codigo", None),
+                             validar=_validar_para_recuperacao)
             except Exception as erro:
                 messagebox.showerror("Authentication Failure",
                                      f"{self.resultado.mensagem}\n\n({erro})\n\nThe application will be terminated.",
@@ -1190,9 +1198,17 @@ def main():
         # Cópia diária do banco NIST e avisos (ANPD, ações vencidas, certificado), em segundo plano.
         root.after(2000, nist.ao_entrar)
 
-    # Splash (certificado) -> login -> formulário principal
-    SplashScreen(root, on_success=lambda: FormLogin(
-        root, ao_entrar=mostrar_principal, ao_desistir=root.destroy))
+    def depois_do_certificado():
+        # Perfil novo: não existe senha de fábrica; o titular (já autenticado pelo
+        # certificado) CRIA as senhas. Perfil existente: login normal.
+        if not formOpcoes.senhas_criadas():
+            from formTrocaSenha import FormTrocaSenha
+            FormTrocaSenha(root, ao_concluir=mostrar_principal, ao_desistir=root.destroy)
+        else:
+            FormLogin(root, ao_entrar=mostrar_principal, ao_desistir=root.destroy)
+
+    # Splash (certificado) -> criar senhas ou login -> formulário principal
+    SplashScreen(root, on_success=depois_do_certificado)
     try:
         root.mainloop()
     finally:

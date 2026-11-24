@@ -26,6 +26,11 @@ _STUBS = {name: mock.MagicMock() for name in (
     'formAbout', 'formLogin', 'formSign', 'formListCerts', 'modRibbon', 'PIL')}
 
 
+# A senha de fábrica das versões até 1.6 (pública no histórico do repositório): só os
+# testes a conhecem, para provar que arquivos antigos ainda são obrigados a trocar.
+SENHA_ANTIGA = 'not#_12345_senhorAgenteC'
+
+
 class SenhaTests(unittest.TestCase):
     def setUp(self):
         self._patch = mock.patch.dict(sys.modules, _STUBS)
@@ -43,34 +48,46 @@ class SenhaTests(unittest.TestCase):
     def test_politica(self):
         P = self.F.problema_senha
         self.assertIsNotNone(P('Ab1!x'))
-        self.assertIsNotNone(P(self.F.SENHA_PADRAO))
+        self.assertIsNotNone(P(SENHA_ANTIGA))
         self.assertIsNotNone(P('abcdefghijklmn'))
         self.assertIsNotNone(P('Agente#2026xyz', 'agente'))
         self.assertIsNotNone(P('Aa1!Aa1!Aa1!Aa1!'))
         self.assertIsNone(P('Corujinha#Goias2026'))
 
+    def test_sem_senha_de_fabrica(self):
+        F = self.F
+        fonte = (Path(__file__).resolve().parents[1] / 'formOpcoes.py').read_text(encoding='utf-8')
+        self.assertNotIn(SENHA_ANTIGA, fonte)                    # nenhuma senha no código
+        self.assertFalse(F.senhas_criadas())                     # perfil novo: senhas a criar
+        self.assertFalse(F.conferir_login('agente', ''))
+        self.assertFalse(F.conferir_login('agente', SENHA_ANTIGA))
+
     def test_primeiro_acesso_obriga_troca(self):
         F = self.F
-        self.assertTrue(F.precisa_trocar_senha(F.SENHA_PADRAO))
+        self.assertTrue(F.precisa_trocar_senha(SENHA_ANTIGA))
         with self.assertRaises(F.ErroOpcoes):
             F.definir_senhas_iniciais('fraca', 'Relatorio$Pdf2026x')
         F.definir_senhas_iniciais('Corujinha#Goias2026', 'Relatorio$Pdf2026x')
         self.assertFalse(F.precisa_trocar_senha('Corujinha#Goias2026'))
         self.assertTrue(F.conferir_login('agente', 'Corujinha#Goias2026'))
-        self.assertFalse(F.conferir_login('agente', F.SENHA_PADRAO))
+        self.assertFalse(F.conferir_login('agente', SENHA_ANTIGA))
+        self.assertTrue(F.senhas_criadas())
         self.assertEqual(self.gravado['senha_pdf'], 'Relatorio$Pdf2026x')
         self.assertIs(self.gravado['trocar_senha'], False)
 
     def test_arquivo_antigo_com_senha_de_fabrica(self):
-        dados = self.F._padrao()
-        dados.pop('trocar_senha')
-        self.F._estado['dados'] = dados
-        self.assertTrue(self.F.precisa_trocar_senha())
+        F = self.F
+        # arquivo de versão antiga, sem a marca, com as senhas de fábrica gravadas
+        F._estado['dados'] = {'usuario': 'agente', 'senha_acesso': F._hash_senha(SENHA_ANTIGA),
+                              'senha_pdf': SENHA_ANTIGA}
+        self.assertTrue(F.precisa_trocar_senha())
+        self.assertTrue(F.conferir_login('agente', SENHA_ANTIGA))
+        self.assertTrue(F.precisa_trocar_senha(SENHA_ANTIGA))
 
     def test_troca_pelas_opcoes(self):
         F = self.F
         F.salvar(senha_acesso_nova='Corujinha#Goias2026')
-        self.assertTrue(F._estado['dados']['trocar_senha'])      # PDF ainda de fábrica
+        self.assertTrue(F._estado['dados']['trocar_senha'])      # PDF ainda não criada
         F.salvar(senha_pdf_nova='Relatorio$Pdf2026x')
         self.assertFalse(F._estado['dados']['trocar_senha'])
 

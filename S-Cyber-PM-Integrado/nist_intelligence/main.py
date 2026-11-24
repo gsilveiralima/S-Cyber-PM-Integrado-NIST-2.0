@@ -71,7 +71,7 @@ class NISTPanel(AchadosMixin, ttk.Frame):
         # do S-Cyber PM, usados para conferir os pacotes de consolidação recebidos.
         # role: papel do certificado ('administrador', 'revisor' ou 'usuario'): só revisor/admin encerra achados.
         db = core.connect(db_path, key)
-        db.actor = actor or self._username()
+        db.definir_sessao(actor or self._username(), role)
         try:
             super().__init__(parent, style='NIST.TFrame')
         except Exception:
@@ -1658,17 +1658,17 @@ class NISTPanel(AchadosMixin, ttk.Frame):
         if not messagebox.askyesno('Restaurar backup', 'Os dados atuais do painel serão SUBSTITUÍDOS pelos do '
                                    'backup (o banco atual é guardado ao lado antes).\n\nContinuar?', parent=self):
             return
-        actor = self.db.actor
+        actor, papel = self.db.actor, self.db.papel
         self.db.close()
         try:
             saved = core.restore(source, self.db_path, self.key)
         except Exception as exc:
             self.db = core.connect(self.db_path, self.key)
-            self.db.actor = actor
+            self.db.definir_sessao(actor, papel)
             self._error('Restaurar backup', f'O backup não foi restaurado: {exc}')
             return
         self.db = core.connect(self.db_path, self.key)
-        self.db.actor = actor
+        self.db.definir_sessao(actor, papel)
         self.refresh()
         messagebox.showinfo('Restaurar backup', 'Backup restaurado.' + (
             f'\n\nO banco anterior foi guardado como {saved.name}.' if saved else ''), parent=self)

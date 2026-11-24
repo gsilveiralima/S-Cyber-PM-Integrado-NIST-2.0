@@ -89,6 +89,22 @@ class NistConnection(sqlite3.Connection):
     cipher = None
     encrypted = False      # o banco tem dados cifrados
     actor = 'operador'     # quem está usando (usuário do S-Cyber PM, Windows e certificado)
+    _papel = 'usuario'
+    _sessao_definida = False
+
+    def definir_sessao(self, actor, papel):
+        """Identidade da sessão AUTENTICADA (certificado validado na abertura). O papel vale
+        para as regras de negócio (achados, fontes) e só pode ser definido uma vez por
+        conexão: a interface não o altera depois."""
+        if self._sessao_definida:
+            raise PermissionError('A sessão desta conexão já foi definida.')
+        if papel not in PAPEIS:
+            raise ValueError(f'Papel desconhecido: {papel}')
+        self.actor, self._papel, self._sessao_definida = actor, papel, True
+
+    @property
+    def papel(self):
+        return self._papel
 
     def E(self, value):
         return self.cipher.encrypt(value) if self.cipher else value
@@ -102,6 +118,9 @@ class NistConnection(sqlite3.Connection):
             return self.cipher.decrypt(value)
         except (InvalidTag, ValueError):
             return crypto.LOCKED
+
+
+PAPEIS = ('usuario', 'revisor', 'administrador')
 
 
 def _sel(table, cols):
@@ -1354,6 +1373,12 @@ EXPORTS = {
     'custody': ('id,evidence_id,at,action,actor,note,sha256,prev_hash,hash', 'custody_log'),
     'findings': ('collection_id,check_id,title,status,detail,subcategories', 'findings'),
     'nist': ('category_code,actual,target,evidence_note,action_note,updated_at', 'nist_assessments'),
+    'ativos': ('id,name,kind,identifier,owner,criticality,vendor,product,version,notes,authorized,created_at',
+               'assets'),
+    'achados': ('id,asset_id,source,ref,title,event_date,first_seen,last_seen,state,discard_reason,sub_code,'
+                'priority,justification,owner,due_date,action,bulletin,fix_note,fixed_by,reviewer,review_note,'
+                'incident_id,divergence', 'achados'),
+    'achados_historico': ('id,achado_id,at,actor,action,from_state,to_state,note,prev_hash,hash', 'achado_log'),
 }
 
 

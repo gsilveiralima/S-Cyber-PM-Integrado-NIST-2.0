@@ -56,12 +56,34 @@ class Base(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.dir = Path(self.tmp.name)
         self.db = core.connect(self.dir / 'n.db', KEY)
-        self.db.actor = ANALISTA
+        self.db.definir_sessao(ANALISTA, 'usuario')
         self.ev = self.dir / 'evidencias'
 
     def tearDown(self):
         self.db.close()
         self.tmp.cleanup()
+
+    def como(self, actor, papel):
+        """Outro usuário = outra sessão autenticada (nova conexão ao mesmo banco)."""
+        self.db.close()
+        self.db = core.connect(self.dir / 'n.db', KEY)
+        self.db.definir_sessao(actor, papel)
+
+
+class SessaoTests(Base):
+    def test_papel_vem_da_sessao_e_nao_muda(self):
+        self.assertEqual(self.db.papel, 'usuario')
+        with self.assertRaises(PermissionError):
+            self.db.definir_sessao(REVISOR, 'administrador')
+        with self.assertRaises(AttributeError):
+            self.db.papel = 'administrador'
+        nova = core.connect(self.dir / 'n.db', KEY)
+        with self.assertRaises(ValueError):
+            nova.definir_sessao('x', 'superusuario')
+        nova.close()
+        at = A.save_asset(self.db, 'Site', 'Domínio/Serviço web', 'exemplo.gov.br')
+        with self.assertRaises(A.FlowError):
+            A.authorize_asset(self.db, at, True)
 
 
 class FluxoTests(Base):
@@ -87,18 +109,18 @@ class FluxoTests(Base):
         prova = core.save_evidence(self.db, 'versao.png', 'c' * 64, '', 1, 'print da versão')
         A.register_fix(self.db, aid, 'Atualizado para 10.2.9-h1', prova)
         with self.assertRaises(A.FlowError):                          # usuário comum não revisa
-            A.review(self.db, aid, True, '', 'usuario')
+            A.review(self.db, aid, True, '')
         with self.assertRaises(A.FlowError):                          # quem corrigiu não revisa
-            A.review(self.db, aid, True, '', 'revisor')
-        self.db.actor = REVISOR
+            self.como(ANALISTA, 'revisor'); A.review(self.db, aid, True, '')
+        self.como(REVISOR, 'revisor')
         with self.assertRaises(ValueError):
-            A.review(self.db, aid, False, '', 'revisor')              # devolver exige parecer
-        A.review(self.db, aid, False, 'Falta o print do hotfix', 'revisor')
+            A.review(self.db, aid, False, '')              # devolver exige parecer
+        A.review(self.db, aid, False, 'Falta o print do hotfix')
         self.assertEqual(A.achado(self.db, aid)['state'], 'Confirmado')
-        self.db.actor = ANALISTA
+        self.como(ANALISTA, 'usuario')
         A.register_fix(self.db, aid, 'Hotfix aplicado', prova)
-        self.db.actor = REVISOR
-        A.review(self.db, aid, True, 'Conferido', 'revisor')
+        self.como(REVISOR, 'revisor')
+        A.review(self.db, aid, True, 'Conferido')
         self.db.close()                                               # reinício: tudo continua rastreável
         self.db = core.connect(self.dir / 'n.db', KEY)
         a = A.achado(self.db, aid)
@@ -120,7 +142,7 @@ class FluxoTests(Base):
         A.discard(self.db, aid, 'Formulário desativado em 2025')
         with self.assertRaises(A.FlowError):
             A.discard(self.db, aid, 'de novo')
-        A.reopen(self.db, aid, 'Voltou a responder', 'usuario')
+        A.reopen(self.db, aid, 'Voltou a responder')
         A.confirm(self.db, aid, 'PR.DS-02', 'Alta', 'Dados pessoais trafegam sem cifra', 'Ten Web', '10/12/2026',
                   'Ativar HTTPS')
         iid = A.escalate(self.db, aid, 'Alta', True)
@@ -192,11 +214,11 @@ class FontesTests(Base):
         ativo = A.asset(self.db, site)
         self.assertEqual(fontes.hibp_dominio(self.db, ativo).situacao, fontes.SEM_CONFIGURACAO)
         with self.assertRaises(A.FlowError):
-            fontes.definir_credencial(self.db, 'hibp', 'k' * 32, 'usuario')
-        fontes.definir_credencial(self.db, 'hibp', 'k' * 32, 'administrador')
+            fontes.definir_credencial(self.db, 'hibp', 'k' * 32)
+        self.como(ANALISTA, 'administrador'); fontes.definir_credencial(self.db, 'hibp', 'k' * 32)
         r = fontes.hibp_dominio(self.db, ativo, fake({}))
         self.assertEqual(r.situacao, fontes.ACESSO_RECUSADO)          # ativo não autorizado
-        A.authorize_asset(self.db, site, True, 'revisor')
+        A.authorize_asset(self.db, site, True)
         resp = fake({fontes.HIBP + '/breacheddomain/exemplo.gov.br': (200, json.dumps(
             {'fulano': ['Exemplo'], 'beltrano': ['Exemplo', 'Outro']}).encode())})
         r = fontes.hibp_dominio(self.db, A.asset(self.db, site), resp)
@@ -213,9 +235,9 @@ class FontesTests(Base):
 
     def test_github_secret_scanning(self):
         repo = A.save_asset(self.db, 'Repositório do app', 'Repositório', 'pmgo/app')
-        A.authorize_asset(self.db, repo, True, 'administrador')
+        self.como(ANALISTA, 'administrador'); A.authorize_asset(self.db, repo, True)
         self.assertEqual(fontes.github_alertas(self.db, A.asset(self.db, repo)).situacao, fontes.SEM_CONFIGURACAO)
-        fontes.definir_credencial(self.db, 'github', 'ghp_teste', 'administrador')
+        fontes.definir_credencial(self.db, 'github', 'ghp_teste')
         alerta = {"number": 7, "state": "open", "secret_type": "aws_access_key_id",
                   "secret_type_display_name": "Amazon AWS Access Key ID", "created_at": "2026-11-01T10:00:00Z",
                   "html_url": "https://github.com/pmgo/app/security/secret-scanning/7", "validity": "active",

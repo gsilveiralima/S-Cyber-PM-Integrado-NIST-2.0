@@ -152,7 +152,7 @@ class AchadosMixin:
             return
         a = A.asset(self.db, self._asset_id)
         try:
-            A.authorize_asset(self.db, a['id'], not a['authorized'], self.role)
+            A.authorize_asset(self.db, a['id'], not a['authorized'])
         except A.FlowError as exc:
             self._error('Autorização', exc)
             return
@@ -264,7 +264,7 @@ class AchadosMixin:
         self.refresh()
 
     def edit_credentials(self):
-        if self.role not in A.REVIEW_ROLES:
+        if self.db.papel not in A.REVIEW_ROLES:
             messagebox.showwarning('Credenciais', 'Só revisor ou administrador configura as credenciais.', parent=self)
             return
         win = tk.Toplevel(self)
@@ -288,7 +288,7 @@ class AchadosMixin:
         def salvar():
             for nome, e in campos.items():
                 if e.get().strip():
-                    fontes.definir_credencial(self.db, nome, e.get(), self.role)
+                    fontes.definir_credencial(self.db, nome, e.get())
             win.destroy()
             self.refresh_audit()
         ttk.Button(win, text='Salvar', command=salvar).pack(pady=8)
@@ -414,13 +414,13 @@ class AchadosMixin:
                                       parent=self)
         if nota is None or (not approve and not nota.strip()):
             return
-        self._do('Revisão', lambda: A.review(self.db, self._achado_id, approve, nota, self.role))
+        self._do('Revisão', lambda: A.review(self.db, self._achado_id, approve, nota))
 
     def act_reopen(self):
         if self._need_achado():
             nota = simpledialog.askstring('Reabrir', 'Motivo da reabertura:', parent=self)
             if nota:
-                self._do('Reabrir', lambda: A.reopen(self.db, self._achado_id, nota, self.role))
+                self._do('Reabrir', lambda: A.reopen(self.db, self._achado_id, nota))
 
     def act_divergence(self):
         if self._need_achado():

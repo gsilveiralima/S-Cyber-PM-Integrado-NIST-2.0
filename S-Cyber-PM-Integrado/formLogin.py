@@ -4,7 +4,7 @@
 #  Arquivo     : formLogin.py
 #  Descrição   : Formulário de login de início (usuário e senha de acesso)
 #  Tipo        : Formulário (tkinter)
-#  Versão      : 1.5 (versão do aplicativo)
+#  Versão      : ver formAbout.APP_VERSAO (fonte única da versão)
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
@@ -29,7 +29,8 @@ S-Cyber PM - Formulário de login (depois da validação do certificado).
 
 Confere o usuário e a senha de acesso guardados no arquivo de opções
 (formOpcoes.py: hash PBKDF2, arquivo cifrado com chave derivada do certificado).
-Padrão de fábrica: usuário "agente"; a senha de fábrica é trocada obrigatoriamente no 1º acesso
+Usuário inicial "agente". Não há senha de fábrica: num perfil novo o titular cria as senhas logo
+após o certificado (formTrocaSenha); arquivos antigos com a senha de fábrica são obrigados a trocar
 (formTrocaSenha.py); depois, as senhas podem ser trocadas em Arquivo > Opções.
 
 Depois de MAX_TENTATIVAS erros o aplicativo é encerrado; a cada erro o botão

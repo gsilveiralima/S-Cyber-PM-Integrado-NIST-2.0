@@ -105,8 +105,9 @@ Para que o certificado valha para todos que baixam o projeto, envie a alteraçã
 Ou dê dois cliques em `iniciar_integrado_windows.bat`.
 
 1. A abertura mostra **Certificate Validated**.
-2. No login, use o usuário `agente` e a senha de fábrica (está em `formOpcoes.py`, na linha `SENHA_PADRAO`).
-3. Abre a janela **Primeiro acesso: defina suas senhas**:
+2. Num perfil novo, não há senha de fábrica nem login: abre direto a janela **Primeiro acesso:
+   defina suas senhas** (o usuário é `agente`).
+3. Na janela **Primeiro acesso: defina suas senhas**:
    - a senha precisa ter pelo menos 12 caracteres e misturar 3 tipos (minúsculas, maiúsculas, números, símbolos);
    - a senha de **acesso** e a dos **PDFs** precisam ser diferentes. Guarde a dos PDFs: ela abre os relatórios gerados.
 4. A janela principal abre. Nas próximas vezes, entre com a sua senha.

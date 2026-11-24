@@ -5,7 +5,7 @@
 #  Descrição   : Janela "Sobre": versão, autoria, padrões de mercado,
 #                componentes, sistemas compatíveis e instalação
 #  Tipo        : Formulário (tkinter)
-#  Versão      : 1.5 (versão do aplicativo)
+#  Versão      : ver formAbout.APP_VERSAO (fonte única da versão)
 #  Revisão     : 2026-11-16
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
