@@ -166,6 +166,14 @@ def connect(path=DB, key=None):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     _migrate_legacy(path)
+    # A chave é conferida ANTES de qualquer gravação: com o certificado errado o banco não
+    # pode receber nem as tabelas/colunas novas da atualização (somente leitura aqui).
+    if path.is_file() and key_status(path, key) == 'outra_chave':
+        raise PermissionError(
+            'O banco do NIST Intelligence está cifrado. Abra o painel pelo S-Cyber PM, depois da validação do '
+            'certificado.' if key is None else
+            'O banco do NIST Intelligence foi cifrado com OUTRO certificado e não pode ser lido com o '
+            'certificado atual.')
     db = sqlite3.connect(path, factory=NistConnection)
     db.create_function('dec', 1, db._dec, deterministic=True)
     db.execute('PRAGMA foreign_keys=ON')
