@@ -68,7 +68,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 import modHello
-from modRecursos import centralizar, pasta_aplicativo, pasta_dados, proteger_contra_captura
+from modRecursos import centralizar, em_segundo_plano, pasta_aplicativo, pasta_dados, proteger_contra_captura
 
 
 # ==========================================================
@@ -504,7 +504,14 @@ class FormOpcoes(tk.Toplevel):
     # ------------------------------------------------------
 
     def _atualizar_hello(self):
-        disp, motivo = modHello.disponivel()
+        """Consulta o Windows Hello em segundo plano (PowerShell) e atualiza a seção."""
+        self.hello_situacao.configure(text="Verificando o Windows Hello…", foreground="#606060")
+        self.bt_hello_ativar.state(["disabled"])
+        self.bt_hello_remover.state(["disabled"])
+        em_segundo_plano(self, modHello.disponivel,
+                         lambda res, erro: self._mostrar_hello(*(res if erro is None else (False, str(erro)))))
+
+    def _mostrar_hello(self, disp, motivo):
         if not disp:
             self.hello_situacao.configure(
                 text=f"Windows Hello indisponível neste computador ({motivo}).",
@@ -534,14 +541,16 @@ class FormOpcoes(tk.Toplevel):
         if not self._senha_atual_ok("cadastrar"):
             return
         self.config(cursor="watch")
-        self.update_idletasks()
-        try:
-            # Confirma agora, com o Hello, que o usuário consegue se autenticar
-            modHello.verificar("Cadastrar o Windows Hello no S-Cyber PM")
-        except modHello.ErroHello as e:
-            return messagebox.showwarning("Windows Hello", str(e), parent=self)
-        finally:
-            self.config(cursor="")
+        self.bt_hello_ativar.state(["disabled"])
+        # Confirma agora, com o Hello, que o usuário consegue se autenticar (até 2 min, sem travar a tela)
+        em_segundo_plano(self, lambda: modHello.verificar("Cadastrar o Windows Hello no S-Cyber PM"),
+                         self._hello_verificado)
+
+    def _hello_verificado(self, _resultado, erro):
+        self.config(cursor="")
+        self.bt_hello_ativar.state(["!disabled"])
+        if erro is not None:
+            return messagebox.showwarning("Windows Hello", str(erro), parent=self)
         try:
             definir_hello(True)
         except ErroOpcoes as e:
@@ -592,11 +601,16 @@ class FormOpcoes(tk.Toplevel):
             return
         if not _senha_confere(self.atual.var.get(), _estado["dados"]["senha_acesso"]):
             return self._erro("A senha de acesso atual está incorreta.", self.atual)
+        if getattr(self, "_conferindo", False):
+            return                      # a consulta anterior ainda está em andamento
+        self._conferindo = True
         import modSenhaVazada
-        for nova, rotulo in ((acesso_nova, "senha de acesso"), (pdf_nova, "senha dos PDFs")):
-            if nova and not modSenhaVazada.pode_usar(nova, rotulo, self):
-                return
+        modSenhaVazada.conferir_e_continuar(
+            self, [(acesso_nova, "senha de acesso"), (pdf_nova, "senha dos PDFs")],
+            lambda: self._gravar_opcoes(nome, mudou_usuario, acesso_nova, pdf_nova),
+            ao_terminar=lambda: setattr(self, "_conferindo", False))
 
+    def _gravar_opcoes(self, nome, mudou_usuario, acesso_nova, pdf_nova):
         try:
             salvar(usuario_novo=nome if mudou_usuario else None,
                    senha_acesso_nova=acesso_nova or None,

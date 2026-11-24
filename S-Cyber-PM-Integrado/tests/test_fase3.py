@@ -141,5 +141,90 @@ class CaminhosTests(unittest.TestCase):
         self.assertEqual(avulsos, [])
 
 
+class _JanelaFalsa:
+    """Imita o after/winfo_exists do Tk rodando os agendamentos num laço simples."""
+    def __init__(self):
+        self.fila, self.viva, self.cursor = [], True, None
+
+    def after(self, _ms, funcao, *args):
+        self.fila.append((funcao, args))
+
+    def winfo_exists(self):
+        return self.viva
+
+    def configure(self, **kw):
+        self.cursor = kw.get("cursor", self.cursor)
+
+    def rodar(self, limite=5.0):
+        import time
+        fim = time.time() + limite
+        while self.fila and time.time() < fim:
+            funcao, args = self.fila.pop(0)
+            funcao(*args)
+            time.sleep(0.01)
+
+
+class SegundoPlanoTests(unittest.TestCase):
+    def test_entrega_resultado_e_erro_na_thread_da_tela(self):
+        import threading
+        from modRecursos import em_segundo_plano
+        janela, recebidos = _JanelaFalsa(), []
+        principal = threading.get_ident()
+        em_segundo_plano(janela, lambda: threading.get_ident(),
+                         lambda r, e: recebidos.append((r != principal, e, threading.get_ident() == principal)))
+        em_segundo_plano(janela, lambda: 1 / 0, lambda r, e: recebidos.append((r, type(e).__name__, True)))
+        janela.rodar()
+        self.assertIn((True, None, True), recebidos)          # trabalho fora, entrega dentro
+        self.assertIn((None, "ZeroDivisionError", True), recebidos)
+
+    def test_janela_fechada_nao_recebe(self):
+        from modRecursos import em_segundo_plano
+        janela, recebidos = _JanelaFalsa(), []
+        janela.viva = False
+        em_segundo_plano(janela, lambda: 1, lambda r, e: recebidos.append(r))
+        janela.rodar(0.5)
+        self.assertEqual(recebidos, [])
+
+    @unittest.skipUnless(importlib.util.find_spec("tkinter"), "exige tkinter (roda no Windows)")
+    def test_senha_vazada_em_segundo_plano(self):
+        import modSenhaVazada
+        from nist_intelligence import fontes
+        janela, gravou, terminou = _JanelaFalsa(), [], []
+        respostas = {"boa": (fontes.SEM_CORRESPONDENCIA, 0), "vazada": (fontes.CORRESPONDENCIA, 9)}
+        with mock.patch.object(modSenhaVazada, "messagebox") as mb:
+            modSenhaVazada.conferir_e_continuar(janela, [("boa", "a"), ("vazada", "b")], lambda: gravou.append(1),
+                                                consultar=lambda s: respostas[s],
+                                                ao_terminar=lambda: terminou.append(1))
+            janela.rodar()
+            self.assertEqual(gravou, [])                          # a vazada bloqueia a gravação
+            mb.showwarning.assert_called_once()
+            modSenhaVazada.conferir_e_continuar(janela, [("boa", "a"), ("", "vazia")], lambda: gravou.append(1),
+                                                consultar=lambda s: respostas[s])
+            janela.rodar()
+        self.assertEqual((gravou, terminou, janela.cursor), ([1], [1], ""))
+
+
+class SemTravarTests(unittest.TestCase):
+    """As chamadas demoradas apontadas na auditoria (M8) não rodam mais na thread da tela."""
+
+    def test_pontos_corrigidos(self):
+        fonte = {n: (BASE / n).read_text(encoding="utf-8") for n in
+                 ("formListCerts.py", "formGerenciadorUsuarios.py", "formOpcoes.py", "formLogin.py",
+                  "formAbertura.py")}
+        self.assertIn("em_segundo_plano(self, trabalho, pronto)", fonte["formListCerts.py"])
+        self.assertIn("em_segundo_plano(self, lambda: excluir_certificado(", fonte["formListCerts.py"])
+        self.assertIn("em_segundo_plano(self, lambda: (listar_usuarios(), listar_grupos())",
+                      fonte["formGerenciadorUsuarios.py"])
+        self.assertIn("em_segundo_plano(self, lambda: func(*args), pronto)", fonte["formGerenciadorUsuarios.py"])
+        self.assertIn("em_segundo_plano(self, modHello.disponivel", fonte["formOpcoes.py"])
+        self.assertIn('em_segundo_plano(self, lambda: modHello.verificar("Cadastrar', fonte["formOpcoes.py"])
+        self.assertIn("em_segundo_plano(self, lambda: modHello.disponivel()[0]", fonte["formLogin.py"])
+        self.assertNotIn("_hello_disponivel()", fonte["formLogin.py"])
+        # Senhas digitadas em janelas protegidas contra captura (como o login)
+        self.assertIn('pedir_senha(self, "Recuperação"', fonte["formAbertura.py"])
+        self.assertIn('pedir_senha(self, "Senha do arquivo"', fonte["formListCerts.py"])
+        self.assertNotIn("simpledialog.askstring(\"Recupera", fonte["formAbertura.py"])
+
+
 if __name__ == "__main__":
     unittest.main()

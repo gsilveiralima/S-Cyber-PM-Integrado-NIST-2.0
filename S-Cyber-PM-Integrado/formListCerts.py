@@ -53,7 +53,7 @@ import tkinter as tk
 import warnings
 from datetime import datetime, timezone
 from pathlib import Path
-from tkinter import filedialog, messagebox, simpledialog, ttk
+from tkinter import filedialog, messagebox, ttk
 
 from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
@@ -62,6 +62,7 @@ from cryptography.utils import CryptographyDeprecationWarning
 from cryptography.x509.oid import NameOID
 
 from modPDFSimples import PdfSimples
+from modRecursos import em_segundo_plano, pedir_senha
 
 # Raízes antigas do Windows têm número de série zero ou negativo; a cryptography
 # avisa no console a cada leitura. O formulário as mostra normalmente.
@@ -997,27 +998,32 @@ class ListCerts(tk.Toplevel):
         if not caminho:
             return
 
-        try:
-            if Path(caminho).suffix.lower() in (".pfx", ".p12"):
-                senha = simpledialog.askstring(
-                    "Senha do arquivo", "Senha do arquivo PFX (deixe vazio se não houver):",
-                    show="*", parent=self)
-                if senha is None:
-                    return                      # cancelou
-                sha1 = adicionar_pfx(caminho, senha, repo)
-            else:
-                sha1 = adicionar_certificado(ler_certificado_de_arquivo(caminho), repo)
-        except (ErroCertificado, OSError) as e:
-            messagebox.showerror("Adicionar certificado",
-                                 f"Não foi possível adicionar o certificado.\n\n{e}",
-                                 parent=self)
-            return
+        if Path(caminho).suffix.lower() in (".pfx", ".p12"):
+            senha = pedir_senha(self, "Senha do arquivo", "Senha do arquivo PFX (deixe vazio se não houver):")
+            if senha is None:
+                return                          # cancelou
+            trabalho = lambda: adicionar_pfx(caminho, senha, repo)  # noqa: E731
+        else:
+            trabalho = lambda: adicionar_certificado(ler_certificado_de_arquivo(caminho), repo)  # noqa: E731
 
-        self.filtro.set("")
-        self.carregar()
-        self._selecionar_sha1(sha1, repo)
-        messagebox.showinfo("Adicionar certificado",
-                            f"Certificado instalado em {repo}.", parent=self)
+        def pronto(sha1, erro):
+            self._ocupado(False)
+            if erro is not None:
+                messagebox.showerror("Adicionar certificado",
+                                     f"Não foi possível adicionar o certificado.\n\n{erro}", parent=self)
+                return
+            self.filtro.set("")
+            self.carregar()
+            self._selecionar_sha1(sha1, repo)
+            messagebox.showinfo("Adicionar certificado", f"Certificado instalado em {repo}.", parent=self)
+
+        self._ocupado(True, "Instalando o certificado (o Windows pode pedir confirmação)…")
+        em_segundo_plano(self, trabalho, pronto)
+
+    def _ocupado(self, sim, texto=""):
+        """Ampulheta e aviso enquanto o Windows trabalha; a janela continua respondendo."""
+        self.configure(cursor="watch" if sim else "")
+        self.contagem.configure(text=texto if sim else f"{len(self.visiveis)} de {len(self.certs)} certificado(s)")
 
     # ------------------------------------------------------
     # Exportar
@@ -1079,14 +1085,16 @@ class ListCerts(tk.Toplevel):
         if not confirmar:
             return
 
-        try:
-            excluir_certificado(info.sha1, info.repositorio)
-        except ErroCertificado as e:
-            messagebox.showerror("Excluir certificado",
-                                 f"Não foi possível excluir o certificado.\n\n{e}",
-                                 parent=self)
-            return
-        self.carregar()
+        def pronto(_resultado, erro):
+            self._ocupado(False)
+            if erro is not None:
+                messagebox.showerror("Excluir certificado",
+                                     f"Não foi possível excluir o certificado.\n\n{erro}", parent=self)
+                return
+            self.carregar()
+
+        self._ocupado(True, "Excluindo o certificado…")
+        em_segundo_plano(self, lambda: excluir_certificado(info.sha1, info.repositorio), pronto)
 
     # ------------------------------------------------------
     # PDF

@@ -322,8 +322,11 @@ except ImportError:
 class SenhaVazadaFormTests(unittest.TestCase):
     def test_formularios_consultam_pwned_passwords(self):
         base = Path(__file__).resolve().parents[1]
-        self.assertIn('modSenhaVazada.pode_usar(acesso', (base / 'formTrocaSenha.py').read_text(encoding='utf-8'))
-        self.assertIn('modSenhaVazada.pode_usar(nova', (base / 'formOpcoes.py').read_text(encoding='utf-8'))
+        # Fase 3 (M8): a consulta roda em segundo plano, sem travar a tela
+        self.assertIn('modSenhaVazada.conferir_e_continuar(self, [(acesso, "senha de acesso"), (pdf, "senha dos PDFs")]',
+                      (base / 'formTrocaSenha.py').read_text(encoding='utf-8'))
+        self.assertIn('self, [(acesso_nova, "senha de acesso"), (pdf_nova, "senha dos PDFs")]',
+                      (base / 'formOpcoes.py').read_text(encoding='utf-8'))
 
     @unittest.skipUnless(TK, 'tkinter ausente')
     def test_recusa_senha_vazada_e_pergunta_sem_rede(self):

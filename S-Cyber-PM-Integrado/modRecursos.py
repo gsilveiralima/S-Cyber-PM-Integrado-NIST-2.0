@@ -111,6 +111,74 @@ def proteger_contra_captura(janela):
     return None
 
 
+# ==========================================================
+# TRABALHO EM SEGUNDO PLANO E SENHA PROTEGIDA (S-Cyber 2.0, Fase 3 / M8)
+# ==========================================================
+
+def em_segundo_plano(janela, trabalho, pronto, intervalo=100):
+    """Roda trabalho() numa thread e entrega pronto(resultado, erro) na thread do Tk.
+
+    Para PowerShell, rede e outras esperas: a janela continua respondendo (o Windows
+    não mostra "Não respondendo"). Se a janela fechar antes, pronto() não é chamado.
+    Exceções do trabalho chegam em 'erro'; pronto() decide o que mostrar."""
+    import threading
+    caixa = []
+
+    def rodar():
+        try:
+            caixa.append((trabalho(), None))
+        except Exception as erro:  # noqa: BLE001 — quem chamou mostra o motivo
+            caixa.append((None, erro))
+
+    def conferir():
+        try:
+            if not janela.winfo_exists():
+                return
+        except Exception:  # noqa: BLE001 — janela já destruída
+            return
+        if caixa:
+            pronto(*caixa[0])
+        else:
+            janela.after(intervalo, conferir)
+
+    threading.Thread(target=rodar, daemon=True).start()
+    janela.after(intervalo, conferir)
+
+
+def pedir_senha(janela, titulo, texto):
+    """Pede uma senha numa janela modal PROTEGIDA contra captura de tela (como o login).
+    Devolve o texto digitado, ou None se cancelar."""
+    import tkinter as tk
+    from tkinter import ttk
+    dlg = tk.Toplevel(janela)
+    dlg.title(titulo)
+    dlg.resizable(False, False)
+    dlg.transient(janela)
+    resultado = {"senha": None}
+    corpo = ttk.Frame(dlg, padding=14)
+    corpo.pack(fill="both", expand=True)
+    ttk.Label(corpo, text=texto, wraplength=360, justify="left").pack(anchor="w")
+    var = tk.StringVar()
+    campo = ttk.Entry(corpo, textvariable=var, show="•", width=40)
+    campo.pack(fill="x", pady=(8, 10))
+    botoes = ttk.Frame(corpo)
+    botoes.pack(anchor="e")
+
+    def ok(_evento=None):
+        resultado["senha"] = var.get()
+        dlg.destroy()
+
+    ttk.Button(botoes, text="OK", command=ok, default="active").pack(side="left")
+    ttk.Button(botoes, text="Cancelar", command=dlg.destroy).pack(side="left", padx=(8, 0))
+    dlg.bind("<Return>", ok)
+    dlg.bind("<Escape>", lambda _e: dlg.destroy())
+    proteger_contra_captura(dlg)
+    campo.focus_set()
+    dlg.grab_set()
+    janela.wait_window(dlg)
+    return resultado["senha"]
+
+
 def localizar_recurso(nome):
     """Arquivo que acompanha o aplicativo (som, imagem...): procura dentro do .exe
     (pasta _MEIPASS do PyInstaller), ao lado do .exe e na pasta dos scripts.

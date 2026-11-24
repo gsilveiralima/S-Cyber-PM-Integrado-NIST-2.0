@@ -58,7 +58,7 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import cm
-from modRecursos import botao_fechar_cabecalho, centralizar
+from modRecursos import botao_fechar_cabecalho, centralizar, em_segundo_plano
 from reportlab.platypus import (Image, Paragraph, SimpleDocTemplate, Spacer,
                                 Table, TableStyle)
 
@@ -580,18 +580,21 @@ class App(tk.Toplevel):
                   padding=(8, 2)).pack(fill="x", side="bottom")
 
     # ---------- dados ----------
-    def atualizar(self):
+    def atualizar(self, depois=None):
+        """Recarrega em segundo plano (o PowerShell demora); depois() roda ao terminar."""
         self.status.set("Carregando usuários...")
         self.config(cursor="watch")
-        self.update_idletasks()
-        try:
-            self.usuarios = listar_usuarios()
-            self.grupos = listar_grupos()
-        except Exception as e:
-            self._msg("showerror", "Erro", f"Não foi possível listar os usuários:\n{e}")
+        em_segundo_plano(self, lambda: (listar_usuarios(), listar_grupos()),
+                         lambda dados, erro: self._atualizado(dados, erro, depois))
+
+    def _atualizado(self, dados, erro, depois=None):
+        self.config(cursor="")
+        self._ocupado = False
+        if erro is not None:
+            self._msg("showerror", "Erro", f"Não foi possível listar os usuários:\n{erro}")
             self.usuarios = []
-        finally:
-            self.config(cursor="")
+        else:
+            self.usuarios, self.grupos = dados
         for u in self.usuarios:
             u["Status"] = "Ativo" if u["Ativo"] else "Bloqueado"
             u["SenhaObrigTxt"] = "Sim" if u["SenhaObrig"] else "Não"
@@ -603,6 +606,8 @@ class App(tk.Toplevel):
         self.status.set(f"{len(self.usuarios)} usuários  |  {ativos} ativos  |  "
                         f"{len(self.usuarios) - ativos} bloqueados  |  "
                         f"Atualizado em {datetime.now():%d/%m/%Y %H:%M:%S}")
+        if depois is not None and erro is None:
+            depois()
 
     def _usuarios_filtrados(self):
         f = self.filtro.get().strip().lower()
@@ -694,17 +699,28 @@ class App(tk.Toplevel):
         self.lbl_resumo.config(text="\n".join(f"• {k}: {v}" for k, v in cont.items()))
 
     # ---------- ações ----------
-    def _executar(self, descricao, func, *args):
-        try:
-            func(*args)
-        except Exception as e:
-            msg = str(e)
-            if "Acesso negado" in msg or "Access denied" in msg or "AccessDenied" in msg:
-                msg += "\n\nExecute o programa como Administrador."
-            self._msg("showerror", "Erro", f"Falha ao {descricao}:\n\n{msg}")
-            return False
-        self.atualizar()
-        return True
+    def _executar(self, descricao, func, *args, sucesso=None):
+        """Roda a alteração em segundo plano; recarrega a lista e chama sucesso() se der certo.
+        Enquanto uma alteração roda, novos cliques são ignorados."""
+        if getattr(self, "_ocupado", False):
+            return
+        self._ocupado = True
+        self.status.set(f"Aguarde: {descricao}...")
+        self.config(cursor="watch")
+
+        def pronto(_resultado, erro):
+            if erro is not None:
+                self._ocupado = False
+                self.config(cursor="")
+                msg = str(erro)
+                if "Acesso negado" in msg or "Access denied" in msg or "AccessDenied" in msg:
+                    msg += "\n\nExecute o programa como Administrador."
+                self._msg("showerror", "Erro", f"Falha ao {descricao}:\n\n{msg}")
+                self.status.set("")
+                return
+            self.atualizar(depois=sucesso)
+
+        em_segundo_plano(self, lambda: func(*args), pronto)
 
     def _eh_usuario_atual(self, u):
         return u["Nome"].lower() == getpass.getuser().lower()
@@ -715,11 +731,13 @@ class App(tk.Toplevel):
         if dlg.resultado is None:
             return
         nome = dlg.resultado[0]
-        if self._executar("criar o usuário", criar_usuario, *dlg.resultado):
+
+        def criado():
             if self.tree.exists(nome):
                 self.tree.selection_set(nome)
                 self.tree.see(nome)
             self._msg("showinfo", "Sucesso", f"Usuário '{nome}' criado.")
+        self._executar("criar o usuário", criar_usuario, *dlg.resultado, sucesso=criado)
 
     def acao_bloquear(self):
         u = self._selecionado()
@@ -731,8 +749,9 @@ class App(tk.Toplevel):
             return
         verbo = "bloquear" if bloquear else "desbloquear"
         if self._msg("askyesno", "Confirmar", f"Deseja {verbo} o usuário '{u['Nome']}'?"):
-            if self._executar(f"{verbo} o usuário", bloquear_usuario, u["Nome"], bloquear):
-                self._msg("showinfo", "Sucesso", f"Usuário '{u['Nome']}' {verbo.replace('ar', 'ado')}.")
+            self._executar(f"{verbo} o usuário", bloquear_usuario, u["Nome"], bloquear,
+                           sucesso=lambda: self._msg("showinfo", "Sucesso",
+                                                     f"Usuário '{u['Nome']}' {verbo.replace('ar', 'ado')}."))
 
     def acao_excluir(self):
         u = self._selecionado()
@@ -750,8 +769,8 @@ class App(tk.Toplevel):
                                f"Excluir permanentemente o usuário '{u['Nome']}'?\n\n"
                                "Esta ação não pode ser desfeita. (A pasta do perfil em "
                                "C:\\Users não é removida.)", icon="warning"):
-            if self._executar("excluir o usuário", excluir_usuario, u["Nome"]):
-                self._msg("showinfo", "Sucesso", f"Usuário '{u['Nome']}' excluído.")
+            self._executar("excluir o usuário", excluir_usuario, u["Nome"],
+                           sucesso=lambda: self._msg("showinfo", "Sucesso", f"Usuário '{u['Nome']}' excluído."))
 
     def acao_senha(self):
         u = self._selecionado()
@@ -760,8 +779,8 @@ class App(tk.Toplevel):
         dlg = DialogoSenha(self, u["Nome"])
         self.wait_window(dlg)
         if dlg.resultado is not None:
-            if self._executar("alterar a senha", alterar_senha, u["Nome"], dlg.resultado):
-                self._msg("showinfo", "Sucesso", f"Senha de '{u['Nome']}' alterada.")
+            self._executar("alterar a senha", alterar_senha, u["Nome"], dlg.resultado,
+                           sucesso=lambda: self._msg("showinfo", "Sucesso", f"Senha de '{u['Nome']}' alterada."))
 
     def acao_permissoes(self):
         u = self._selecionado()
@@ -778,8 +797,8 @@ class App(tk.Toplevel):
                 and not self._msg("askyesno", "Atenção", "Você removerá seus próprios privilégios de "
                                                        "administrador. Continuar?", icon="warning")):
             return
-        if self._executar("alterar as permissões", alterar_grupos, u["Nome"], adicionar, remover):
-            self._msg("showinfo", "Sucesso", f"Permissões de '{u['Nome']}' atualizadas.")
+        self._executar("alterar as permissões", alterar_grupos, u["Nome"], adicionar, remover,
+                       sucesso=lambda: self._msg("showinfo", "Sucesso", f"Permissões de '{u['Nome']}' atualizadas."))
 
     def acao_alterar_sessao(self):
         u = self._selecionado()

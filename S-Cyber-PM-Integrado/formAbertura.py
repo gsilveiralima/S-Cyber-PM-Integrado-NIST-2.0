@@ -7,36 +7,16 @@ credenciamento, migrar o perfil). Nada aqui grava sem confirmação do titular.
 from __future__ import annotations
 
 import os
-import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
 import modDiagnostico
 import modLicenca
 import modPerfil
+from modRecursos import em_segundo_plano as _em_segundo_plano  # executor único (M8)
+from modRecursos import pedir_senha
 
 FUNDO = "#f4f6f8"
-
-
-def _em_segundo_plano(janela, trabalho, pronto):
-    """Roda trabalho() numa thread e entrega (resultado, erro) a pronto() na thread do Tk."""
-    caixa = []
-
-    def rodar():
-        try:
-            caixa.append((trabalho(), None))
-        except Exception as erro:  # noqa: BLE001 — a tela mostra o motivo
-            caixa.append((None, erro))
-
-    def conferir():
-        if not janela.winfo_exists():
-            return
-        if caixa:
-            pronto(*caixa[0])
-        else:
-            janela.after(150, conferir)
-    threading.Thread(target=rodar, daemon=True).start()
-    janela.after(150, conferir)
 
 
 def _copiar(janela, texto, aviso="Copiado para a área de transferência."):
@@ -127,8 +107,7 @@ class FormAbertura(tk.Toplevel):
                 messagebox.showerror("Recuperação", f"O certificado não foi validado: {erro or res.mensagem}",
                                      parent=self)
                 return
-            senha = simpledialog.askstring("Recuperação", "Sua senha de acesso ao S-Cyber PM:", show="•",
-                                           parent=self)
+            senha = pedir_senha(self, "Recuperação", "Sua senha de acesso ao S-Cyber PM:")
             if not senha:
                 return
             # Basta escolher onde salvar: a subpasta recuperacao_scyber_<data> é criada automaticamente.
