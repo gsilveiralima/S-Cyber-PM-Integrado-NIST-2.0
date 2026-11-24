@@ -239,13 +239,24 @@ Esses binários não são assinados (S8) e não são reproduzíveis byte a byte,
    - 7 certificados de outros aplicativos aparecem como não autorizados, corretamente.
    - Os testes de fontes geram `ResourceWarning`, porque os `HTTPError` simulados não são fechados. É apenas limpeza, a fazer na Fase 5.
 
-**Ainda pendente (teste manual pela interface):**
-- ativação;
-- criação das senhas no primeiro acesso;
-- recuperação sem licença;
-- papéis (usuário comum × revisor);
-- tempo de abertura completa;
-- desinstalação com `-Desinstalar`.
+**Teste manual pela interface (24/11/2026, 14:13–14:35; evidência: gravações de tela do usuário):**
+
+| Item | Resultado | Situação |
+|---|---|---|
+| Tela de ativação e "Copiar pedido de ativação" | A tela abre; o pedido é copiado | Homologado |
+| Ativação offline | `admin_licencas` emite com o certificado B330B18E; as listas são copiadas para `%LOCALAPPDATA%\SCyberPM\licencas`; aparece "Instalação ativada", e certificado, login e painel NIST abrem com "banco cifrado" | Homologado |
+| Recusa de licença revogada | Depois do `revogar`, a tela mostra REVOGADA e reabrir o mesmo `.sclic` é recusado | Homologado |
+| Botão de recuperação sem licença | Aparece com a licença revogada; valida o certificado, pede a senha e abre o seletor de pasta | Parcial: a exportação não foi concluída pela interface (está coberta pelo teste automatizado) |
+| Reativação com licença nova (`LIC-9F1EE9A144F9`) | Ativa e abre o programa | Homologado |
+| Criação das senhas num perfil novo | Não foi possível confirmar pelo vídeo | Pendente |
+| Papéis: usuário comum × revisor | Exige um 2º certificado credenciado com o papel `usuario` | Pendente |
+
+**Observações dos testes:**
+- As telas de senha não aparecem em gravações (são excluídas da captura de propósito). A evidência dessas telas exige foto do monitor ou relato.
+- A janela de senha da recuperação (`simpledialog`) aparece na gravação, ao contrário do login. Os caracteres ficam mascarados, mas o tratamento é inconsistente. A corrigir na Fase 3.
+- O seletor de pasta da recuperação confundiu o usuário. Corrigido localmente (commit `33d0f8c`): agora abre na Área de Trabalho e explica que a subpasta é criada sozinha.
+- `admin_licencas iniciar` só confere se os arquivos das listas existem, sem checar a validade. A corrigir na Fase 7.
+- Nas máquinas de outros usuários, a ativação depende de as listas estarem publicadas na `main` do repositório original. Isso exige push, que depende de autorização expressa.
 
 ## 11. Próximo passo proposto
 1. Fazer o teste manual da interface (itens 1 a 4 do RESULTADO.txt) para fechar a Fase 2.
