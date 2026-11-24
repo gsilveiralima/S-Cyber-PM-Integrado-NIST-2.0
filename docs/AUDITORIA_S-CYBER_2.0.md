@@ -453,7 +453,36 @@ O regulamento foi lido pelo navegador do usuário, já que a leitura automática
   - o material do INOVA (proposta, roteiro do pitch, evidências) foi feito antes das demais fases, no documento "S-Cyber Business — Proposta INOVA 2026";
   - o INOVA concorre com a modalidade **Business**, para PMEs do comércio, e não com a PM.
 
-## 14. Próximo passo proposto
+## 15. Fase 7 (parte 1): modalidades PM e Business (executada localmente em 24/11/2026)
+
+- **Objetivo:** um só código-fonte, com a modalidade decidida pela licença assinada, sem configuração que o usuário possa trocar sozinho.
+- **Arquivos:**
+  - `modLicenca.py`: `MODALIDADES`, `EXCLUSIVO_PM = ("sei",)`, `modalidade()`, `nome_produto()`, `recurso_liberado()`;
+  - `admin_licencas.py`: `--modalidade {pm,business}`; a renovação e a transferência mantêm a modalidade;
+  - `appSCyberPM.py`: título e fundo mudam conforme a modalidade, e `abrir_sei` só roda quando o recurso está liberado.
+- **Decisões:**
+  - licença antiga, sem o campo, continua valendo como `pm`, então nada quebra para quem já está ativado;
+  - o bloqueio do SEI é feito na regra de negócio, não só no botão.
+- **Testes:** `test_ativacao.py` cobre a emissão Business, a recusa do SEI e o nome do produto.
+- **Situação:** implementado e testado automaticamente, mas **não homologado** no Windows com uma licença Business real.
+
+## 16. Publicação no GitHub (24/11/2026, autorizada expressamente pelo autor)
+
+- **Autorização do autor:** "salve e organize tudo no github agora, deixando as instruções de instalação".
+- **Nenhum repositório foi apagado nem criado.** Tudo foi para o repositório existente.
+- **Como foi publicado:**
+  - os commits da cópia local foram para o branch `s-cyber-2.0`;
+  - o PR #11 passou pelo CI (testes e geração do instalador no `windows-latest`) antes do merge na `main`;
+  - a tag `v2.0.0-beta.1` dispara o job `release`, que publica como **pré-release** o mesmo instalador gerado e testado pelo CI, com o `SHA256SUMS.txt`.
+- **Listas assinadas publicadas** em `S-Cyber-PM-Integrado/licencas/` (administradores, credenciamentos, revogações e registro):
+  - assinatura conferida antes de publicar e válidas até **24/12/2026**;
+  - precisam ser reassinadas e republicadas antes dessa data, senão o aplicativo passa a usar só o cache.
+- **Conferência de segurança antes do envio:**
+  - nenhuma chave privada (`.key`, `.pfx`, `.p12`, `.pem` com `PRIVATE KEY`);
+  - nenhum banco `.db` e nenhum token no conteúdo enviado.
+- **Limitação:** o instalador não tem assinatura de código, então o Windows SmartScreen mostra "Editor desconhecido". A integridade é conferida pelo hash SHA-256 publicado.
+
+## 17. Próximo passo proposto
 1. Testar no Windows a demonstração de nuvem (Diagnóstico → "Verificar nuvem (Azure)…" → Não) e, quando houver, a assinatura real.
 2. Fase 5, parte 2 (só trabalho local):
    - OSV.dev (dependências) e Google DNS no `fontes.py`;
