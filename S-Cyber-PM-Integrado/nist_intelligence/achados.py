@@ -315,13 +315,14 @@ def by_owner(db):
 
 
 def from_collection(db, collection_id, evidence_folder=None):
-    """Achados a partir de uma coleta técnica: o ativo é o Computador/Servidor com o mesmo nome."""
+    """Achados a partir de uma coleta técnica: o ativo é o Computador/Servidor, a assinatura de nuvem
+    ou o domínio com o mesmo identificador."""
     head = db.execute('SELECT dec(host),run_at,sha256 FROM collections WHERE id=?', (int(collection_id),)).fetchone()
     if not head:
         return []
     host, run_at, digest = head
     alvo = (asset_by_identifier(db, 'Computador', host) or asset_by_identifier(db, 'Servidor', host)
-            or asset_by_identifier(db, 'Nuvem', host))
+            or asset_by_identifier(db, 'Nuvem', host) or asset_by_identifier(db, 'Domínio', host))
     if not alvo:
         return []
     out = []

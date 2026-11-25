@@ -46,6 +46,16 @@ Depois de **cada** operação, publique com o mesmo comando:
 .\.venv\Scripts\python.exe admin_licencas.py emitir --pedido "SCPM-PEDIDO-ATIVACAO.xxxx" --unidade "1º BPM" --dias 365 --saida licenca_1bpm.sclic
 ```
 Resultado esperado: `Licença LIC-… para INST-…, válida até …`. Envie o arquivo `.sclic` ao usuário.
+A emissão não muda as listas: a licença já funciona no outro computador sem publicar nada. Publicar
+só guarda no GitHub o registro da operação.
+
+**Emitir para uma empresa (S-Cyber Business):** a licença leva a modalidade e o nome da empresa. Os
+dados dessa empresa ficam numa pasta só dela (`%APPDATA%\SCyberPM\perfis\<empresa>`), separados dos
+dados da PM e de qualquer outra empresa no mesmo computador:
+```powershell
+.\.venv\Scripts\python.exe admin_licencas.py emitir --pedido "SCPM-PEDIDO-ATIVACAO.xxxx" --unidade "Loja Centro" --modalidade business --organizacao "Empresa Fictícia Ltda" --dias 365 --saida licenca_empresa.sclic
+```
+Sem `--organizacao`, vale o nome de `--unidade`. Renovar e transferir mantêm a modalidade e a empresa.
 
 **Renovar** (com a licença atual do usuário):
 ```powershell
@@ -75,16 +85,27 @@ A revogação vale na próxima abertura do programa com internet. Sem internet, 
 .\.venv\Scripts\python.exe admin_licencas.py descredenciar --thumbprint ABCD... --motivo "transferido"
 ```
 
-**Republicar as listas** — obrigatório pelo menos a cada 3 semanas, porque as listas valem 30 dias:
+**Republicar as listas** — obrigatório pelo menos a cada 3 semanas, porque as listas valem 30 dias.
+Com a lista de revogações vencida, **nenhuma** instalação consegue conferir a licença. Por isso há
+três avisos:
+- o GitHub roda todo dia o workflow *Validade das listas de licença* e falha quando falta 10 dias
+  ou menos. O GitHub avisa por e-mail;
+- o diagnóstico do aplicativo mostra a validade e, a partir de 10 dias, pede para avisar o
+  administrador;
+- o `verificar` mostra `AVISO` a partir de 10 dias.
 ```powershell
 .\.venv\Scripts\python.exe admin_licencas.py publicar
 ```
 
-**Conferir tudo o que está publicado**:
+**Conferir tudo o que está publicado** (não precisa do certificado):
 ```powershell
 .\.venv\Scripts\python.exe admin_licencas.py verificar
 ```
-Resultado esperado: uma linha `OK` para cada lista e para o registro.
+Resultado esperado: uma linha `OK` para cada lista, com a data e os dias que faltam, e para o
+registro. `AVISO` = vence em até 10 dias (republique); `ERRO` = assinatura inválida ou lista vencida.
+
+**Pasta de um ZIP (sem Git):** se a ferramenta rodar numa pasta baixada como ZIP, ela avisa que o
+`git push` não funciona ali. Copie a pasta `licencas` para um clone do repositório e publique de lá.
 
 ## Registro das operações
 O arquivo `licencas/registro.jsonl` tem uma linha **assinada** por operação, com o administrador, a

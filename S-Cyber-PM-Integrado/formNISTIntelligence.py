@@ -62,10 +62,11 @@ def criar_painel(parent, _base_dir, ao_voltar):
                      trusted_thumbs=_certificados_autorizados(), cert_thumb=thumb, role=_papel_em_uso())
 
 
-def preparar_rotina_de_entrada(db_path=core.DB):
+def preparar_rotina_de_entrada(db_path=None):
     """Na thread do Tk (lê o formOpcoes); devolve a função que roda em segundo plano:
     cópia de segurança diária do banco NIST, avisos e notificação do Windows.
     None se o painel NIST ainda não foi usado neste computador."""
+    db_path = db_path or core.banco()
     if not os.path.exists(db_path):
         return None
     key, actor, thumb = _chave_do_certificado(), _quem_esta_usando(), _certificado_em_uso()

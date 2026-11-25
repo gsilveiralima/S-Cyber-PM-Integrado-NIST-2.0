@@ -183,6 +183,123 @@ class LicencaTests(Base):
         self.assertTrue(any(x.startswith("ERRO registro") for x in admin_licencas.verificar(self.pub_dir)))
 
 
+class VencimentoDasListasTests(Base):
+    """S-Cyber 2.0: as listas valem 30 dias; vencida a de revogações, NENHUMA instalação confere a
+    licença. Avisar antes, na ferramenta do administrador e no diagnóstico do aplicativo."""
+
+    def test_aviso_antes_de_vencer(self):
+        self.admin().iniciar()
+        pub = self.pub()
+        dias = {n: d for n, _, d in L.situacao_listas(pub, self.hoje)}
+        self.assertEqual(dias, {n: L.VALIDADE_LISTA_DIAS for n in L.LISTAS})
+        self.assertEqual(L.aviso_listas(pub, self.hoje), "")
+        perto = self.hoje + timedelta(days=L.VALIDADE_LISTA_DIAS - 3)
+        self.assertIn("vence em 3 dia(s)", L.aviso_listas(pub, perto))
+        self.assertIn("venceu há 2 dia(s)", L.aviso_listas(pub, self.hoje + timedelta(days=L.VALIDADE_LISTA_DIAS + 2)))
+        linhas = admin_licencas.verificar(self.pub_dir, hoje=perto)
+        self.assertTrue(all(x.startswith("AVISO") for x in linhas[1:4]), linhas)
+        self.assertTrue(all(x.startswith("OK") for x in admin_licencas.verificar(self.pub_dir)[1:4]))
+        vencidas = admin_licencas.verificar(self.pub_dir, hoje=self.hoje + timedelta(days=L.VALIDADE_LISTA_DIAS + 1))
+        self.assertTrue(all(x.startswith("ERRO") for x in vencidas[1:4]), vencidas)
+
+    def test_diagnostico_do_aplicativo_avisa(self):
+        adm = self.admin()
+        adm.iniciar()
+        _, chave = adm.emitir(self.pedido(), "Teste")
+        L.ativar(chave, self.inst_dir, self.pub())
+        agora = dt.datetime.now()
+        cert = {"thumb": "A" * 40, "titular": "CN=x", "chave_privada": True, "algoritmo": "RSA",
+                "inicio": (agora - dt.timedelta(days=1)).isoformat(timespec="seconds"),
+                "fim": (agora + dt.timedelta(days=300)).isoformat(timespec="seconds")}
+        perto = self.hoje + timedelta(days=L.VALIDADE_LISTA_DIAS - 5)
+        with mock.patch.object(L, "pasta_instalacao", return_value=self.inst_dir), \
+                mock.patch.object(L, "_hoje", return_value=perto), \
+                mock.patch.dict(os.environ, {"APPDATA": str(self.dir), "LOCALAPPDATA": str(self.dir)}):
+            texto = modDiagnostico.relatorio("2.0.0", self.dir / "app.py", ["A" * 40], publicacao=self.pub(),
+                                             certificados=[cert], analisar_perfil=False)
+        self.assertIn("ATIVA — licença", texto)
+        self.assertIn("Validade das listas: administradores até", texto)
+        acao = texto.split("PRÓXIMA AÇÃO:")[1]
+        self.assertIn("vence em 5 dia(s)", acao)
+        self.assertNotIn("Nenhuma falha", acao)
+
+    def test_como_publicar_conforme_a_pasta(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertIn("não é um clone do Git", admin_licencas._como_publicar("publicar", tmp))
+            self.assertIn("já pode ser enviada", admin_licencas._como_publicar("emitir", tmp))
+            (Path(tmp) / ".git").mkdir()
+            self.assertIn("PUBLIQUE", admin_licencas._como_publicar("revogar", tmp))
+            self.assertNotIn("ZIP", admin_licencas._como_publicar("revogar", tmp))
+
+
+class OrganizacaoTests(Base):
+    """S-Cyber 2.0: na modalidade Business os dados de cada empresa ficam numa pasta só dela,
+    definida pela licença ASSINADA (o usuário não escolhe). Na PM nada muda."""
+
+    def setUp(self):
+        super().setUp()
+        import modCaminhos
+        self.caminhos = modCaminhos
+        self.addCleanup(modCaminhos.definir_organizacao, None)
+
+    def test_business_isola_e_pm_fica_na_pasta_padrao(self):
+        adm = self.admin()
+        adm.iniciar()
+        lic, chave = adm.emitir(self.pedido(), "Loja Exemplo", modalidade="business",
+                                organizacao="Empresa Fictícia Ltda")
+        self.assertEqual(lic["organizacao"], "Empresa Fictícia Ltda")
+        L.ativar(chave, self.inst_dir, self.pub())
+        org = L.organizacao_da_instalacao(self.inst_dir, self.pub())
+        self.assertEqual(org, "Empresa Fictícia Ltda")
+        with mock.patch.dict(os.environ, {"APPDATA": "/a", "LOCALAPPDATA": "/l"}):
+            self.assertEqual(self.caminhos.definir_organizacao(org), "Empresa_Ficticia_Ltda")
+            self.assertEqual(self.caminhos.pasta_dados(criar=False), Path("/a/SCyberPM/perfis/Empresa_Ficticia_Ltda"))
+            from nist_intelligence import core
+            self.assertEqual(core.DB, Path("/a/SCyberPM/perfis/Empresa_Ficticia_Ltda/nist/nist.db"))
+            self.caminhos.definir_organizacao(None)
+            self.assertEqual(core.DB, Path("/a/SCyberPM/nist/nist.db"))      # resolvido a cada uso
+        # Renovar e transferir mantêm a organização.
+        nova, _ = adm.renovar(chave, dias=10)
+        self.assertEqual(nova["organizacao"], "Empresa Fictícia Ltda")
+        # PM: sem organização (pasta padrão, compatível com quem já usa).
+        lic_pm, chave_pm = adm.emitir(self.pedido(self.dir / "pc_pm"), "1º BPM")
+        self.assertNotIn("organizacao", lic_pm)
+        self.assertIsNone(L.organizacao(lic_pm))
+        L.ativar(chave_pm, self.dir / "pc_pm", self.pub())
+        self.assertIsNone(L.organizacao_da_instalacao(self.dir / "pc_pm", self.pub()))
+
+    def test_organizacao_vale_mesmo_com_a_licenca_revogada(self):
+        """A recuperação sem licença precisa achar a pasta da empresa."""
+        adm = self.admin()
+        adm.iniciar()
+        lic, chave = adm.emitir(self.pedido(), "Loja Exemplo", modalidade="business")
+        L.ativar(chave, self.inst_dir, self.pub())
+        adm.revogar(lic["licenca_id"], "teste")
+        self.assertEqual(L.estado(self.inst_dir, self.pub())[2].codigo, "revogada")
+        self.assertEqual(L.organizacao_da_instalacao(self.inst_dir, self.pub()), "Loja Exemplo")   # = unidade
+
+    def test_licenca_adulterada_ou_de_outra_instalacao_nao_escolhe_pasta(self):
+        adm = self.admin()
+        adm.iniciar()
+        _, chave = adm.emitir(self.pedido(self.dir / "outro_pc"), "x", modalidade="business", organizacao="Outra")
+        self.inst_dir.mkdir(parents=True, exist_ok=True)
+        L.instalacao(self.inst_dir)
+        L.arquivo_licenca(self.inst_dir).write_text(chave, encoding="utf-8")       # licença de OUTRO computador
+        self.assertIsNone(L.organizacao_da_instalacao(self.inst_dir, self.pub()))
+        L.arquivo_licenca(self.inst_dir).write_text("SCPM1.lixo", encoding="utf-8")
+        self.assertIsNone(L.organizacao_da_instalacao(self.inst_dir, self.pub()))
+
+    def test_nomes_de_pasta_seguros_no_windows(self):
+        for nome, esperado in (("CON", "_CON"), ("nul.txt", "_nul.txt"), ("Açaí & Cia", "Acai_Cia"),
+                               ("../../Windows", "Windows")):
+            self.assertEqual(self.caminhos.definir_organizacao(nome), esperado, nome)
+
+    def test_abertura_define_a_organizacao_antes_de_abrir_dados(self):
+        texto = (APP_DIR / "appSCyberPM.py").read_text(encoding="utf-8")
+        trecho = texto[texto.index("def _validar_em_segundo_plano"):texto.index("formOpcoes.iniciar(")]
+        self.assertLess(trecho.index("definir_organizacao("), trecho.index("modLicenca.estado("))
+
+
 class PublicacaoTests(Base):
     def test_usa_a_maior_sequencia_e_guarda_em_cache(self):
         adm = self.admin()

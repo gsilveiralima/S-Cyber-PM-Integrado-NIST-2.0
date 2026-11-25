@@ -29,3 +29,8 @@ jobs:
         env:
           SCYBER_FONTES_REAIS: "1"     # primeira consulta real: CISA KEV, catálogo HIBP, Pwned Passwords
         run: python -m unittest discover -s tests -v
+      - name: Dependências vulneráveis (OSV.dev)
+        # Informativo por enquanto: o resultado aparece no resumo da execução. Código 1 = há
+        # vulnerabilidade conhecida no requirements-lock.txt; 2 = o OSV.dev não respondeu.
+        continue-on-error: true
+        run: python -m nist_intelligence.dependencias requirements-lock.txt

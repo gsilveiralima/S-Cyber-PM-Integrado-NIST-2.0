@@ -144,6 +144,12 @@ def relatorio(versao, programa, autorizados, etapa=None, erro=None, thumb_atual=
               certificados=None, analisar_perfil=True, derivar=None):
     """Texto do diagnóstico. Nunca levanta exceção: cada parte registra a própria falha."""
     from modPerfil import pasta_dados
+    try:                                           # Business: a pasta de dados é a da empresa
+        import modCaminhos
+        import modLicenca
+        modCaminhos.definir_organizacao(modLicenca.organizacao_da_instalacao(publicacao=publicacao))
+    except Exception:  # noqa: BLE001 — sem licença legível, fica a pasta padrão
+        pass
     linhas = [f"S-Cyber PM — diagnóstico de abertura ({datetime.now():%d/%m/%Y %H:%M:%S})", "=" * 72,
               f"Versão em execução : {versao}", f"Programa           : {programa}",
               f"Pasta de dados     : {pasta_dados()}",
@@ -155,6 +161,7 @@ def relatorio(versao, programa, autorizados, etapa=None, erro=None, thumb_atual=
     # Ativação
     import modLicenca as L
     ativa = None                                   # None = não deu para verificar
+    aviso_listas = ""
     try:
         inst = L.instalacao()
         publicacao = publicacao or L.Publicacao()
@@ -166,10 +173,17 @@ def relatorio(versao, programa, autorizados, etapa=None, erro=None, thumb_atual=
         linhas.append("Listas publicadas  : " + (", ".join(f"{k}={v}" for k, v in publicacao.origem.items())
                                                  or "nenhuma encontrada")
                       + (f" (rede: {publicacao.falha_rede})" if publicacao.falha_rede else ""))
+        validades = [f"{n} até {a} ({d} dia(s))" if d is not None else f"{n}: ausente"
+                     for n, a, d in L.situacao_listas(publicacao)]
+        linhas.append("Validade das listas: " + "; ".join(validades))
+        aviso_listas = L.aviso_listas(publicacao)
+        if aviso_listas:
+            linhas.append(f"AVISO              : {aviso_listas}")
         credenciados = L.credenciados(publicacao)
     except Exception as e:  # noqa: BLE001
         linhas.append(f"Ativação           : não foi possível verificar ({e})")
         credenciados = {}
+        aviso_listas = ""
     linhas.append("")
 
     # Certificados
@@ -223,6 +237,8 @@ def relatorio(versao, programa, autorizados, etapa=None, erro=None, thumb_atual=
                 "pedido ao administrador e cole a chave recebida.")
     elif ativa is None:
         acao = "Não foi possível verificar a ativação (veja a mensagem acima); repita o diagnóstico."
+    elif aviso_listas:
+        acao = "Instalação ativa e certificado pronto, mas: " + aviso_listas
     else:
         acao = "Nenhuma falha encontrada: instalação ativa e certificado pronto."
     linhas += ["PRÓXIMA AÇÃO:", f"  {acao}"]

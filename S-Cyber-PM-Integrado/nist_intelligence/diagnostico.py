@@ -54,7 +54,7 @@ def estado_exibicao(situacao, estado_achado=None):
 GRAVIDADE = {'Falha': 3, 'Atenção': 2}
 PESO_CRITICIDADE = {'Baixa': 0, 'Média': 1, 'Alta': 2, 'Crítica': 3}
 # Verificações cuja falha deixa o computador alcançável pela rede (exposição)
-EXPOSTOS = frozenset({'firewall', 'rdp', 'smb1', 'ports', 'az_storage_public', 'az_nsg'})
+EXPOSTOS = frozenset({'firewall', 'rdp', 'smb1', 'ports', 'az_storage_public', 'az_nsg', 'dom_spf', 'dom_dmarc'})
 METODOLOGIA_PRIORIDADE = (
     'Pontuação = gravidade observada (Falha 3, Atenção 2) + criticidade do ativo (Baixa 0, Média 1, '
     'Alta 2, Crítica 3) + exposição à rede (1 para firewall, RDP, SMBv1, portas e, na nuvem, armazenamento '
@@ -267,6 +267,33 @@ RECOMENDACOES.update({
         _AZ_LEITOR, 'Nova verificação de nuvem: "Azure: exportação do Log de Atividades" em OK.',
         'Microsoft Learn: Log de atividades do Azure Monitor (configurações de diagnóstico)'),
 })
+_DNS = 'Quem administra o domínio (painel do provedor de DNS: Registro.br, Cloudflare ou a hospedagem)'
+RECOMENDACOES.update({
+    'dom_spf': _rec(
+        'Sem SPF correto, golpistas enviam e-mail "da empresa" (boletos e cobranças falsas, pedidos de senha) e os '
+        'provedores não têm como saber que é falso. O cliente é enganado e o nome da empresa é usado no golpe.',
+        'No DNS do domínio, publique UM registro TXT começando com "v=spf1" que liste os serviços que enviam o seu '
+        'e-mail (o provedor informa o "include", por exemplo include:_spf.google.com ou '
+        'include:spf.protection.outlook.com) e termine em "-all" (ou "~all" enquanto testa). Domínio que não envia '
+        'e-mail: "v=spf1 -all". Nunca use "+all".',
+        _DNS, 'Nova verificação do domínio: "E-mail: SPF do domínio" em OK.',
+        'RFC 7208 (Sender Policy Framework); NIST CSF 2.0 PR.AA-03'),
+    'dom_dmarc': _rec(
+        'Sem DMARC em quarentena ou rejeição, o e-mail falso em nome da empresa continua chegando na caixa de entrada '
+        'dos clientes, mesmo com SPF.',
+        'Publique um TXT em _dmarc.<domínio>. Comece com "v=DMARC1; p=none; rua=mailto:<e-mail da empresa>" para '
+        'receber os relatórios por algumas semanas, confira que o e-mail legítimo passa (SPF e DKIM do provedor '
+        'ativos) e então mude para "p=quarantine" e, por fim, "p=reject".',
+        _DNS, 'Nova verificação do domínio: "E-mail: política DMARC" em OK (p=quarantine ou p=reject, 100%).',
+        'RFC 7489 (DMARC); NIST CSF 2.0 PR.AA-03 e DE.CM-01'),
+    'dom_dnssec': _rec(
+        'Sem DNSSEC, um atacante que consiga falsificar respostas do DNS pode desviar o site e o e-mail da empresa '
+        'para servidores dele.',
+        'Ative o DNSSEC no provedor de DNS (no Registro.br, em "DNSSEC" do domínio, quando o DNS é do próprio '
+        'Registro.br; em outros provedores, gere as chaves no provedor e cadastre o registro DS no Registro.br).',
+        _DNS, 'Nova verificação do domínio: "DNS: assinatura DNSSEC" em OK.',
+        'RFC 4033 (DNSSEC); NIST CSF 2.0 PR.DS-02'),
+})
 SEM_REGRA = _rec('Verificação sem regra de recomendação cadastrada.', 'Consulte o detalhe técnico e o suporte.',
                  'A definir', 'Novo diagnóstico.', '—')
 
@@ -278,7 +305,8 @@ def recomendacao(check_id):
 # ------------------------------------------------------------------ ativo, itens e comparação
 def garantir_ativo(db, host, tipo='Computador', nome=None):
     """Ativo deste host/assinatura (cria na 1ª vez, criticidade Média). Devolve o dict do ativo."""
-    prefixos = ('Nuvem',) if tipo.startswith('Nuvem') else ('Computador', 'Servidor')
+    prefixos = (('Nuvem',) if tipo.startswith('Nuvem') else ('Domínio',) if tipo.startswith('Domínio')
+                else ('Computador', 'Servidor'))
     for prefixo in prefixos:
         alvo = ach.asset_by_identifier(db, prefixo, host)
         if alvo:
@@ -393,20 +421,26 @@ def executar(db, thumb=None, evidence_folder=None, progresso=None, cancelado=Non
     return registrar(db, raw, evidence_folder, progresso)
 
 
-def registrar(db, raw, evidence_folder=None, progresso=None, nuvem=False):
+def registrar(db, raw, evidence_folder=None, progresso=None, nuvem=False, dominio=False):
     """Da coleta bruta ao resultado: avalia, grava a evidência, atualiza os achados, monta as
-    recomendações e compara com o diagnóstico anterior do mesmo computador (ou assinatura,
-    com nuvem=True: dados de nist_intelligence.nuvem, mesmo fluxo)."""
+    recomendações e compara com o diagnóstico anterior do mesmo computador. Mesmo fluxo para a
+    assinatura de nuvem (nuvem=True, dados de nist_intelligence.nuvem) e para o domínio da
+    organização (dominio=True, DNS público via nist_intelligence.dominio)."""
+    from . import dominio as dm
     from . import nuvem as nv
     progresso = progresso or (lambda n, etapa: None)
     progresso(2, ETAPAS[2])
-    resultados = nv.evaluate(raw) if nuvem else collector.evaluate(raw)
-    meta = nv.meta(raw) if nuvem else collector.meta(raw)
+    modulo = nv if nuvem else dm if dominio else collector
+    resultados = modulo.evaluate(raw)
+    meta = modulo.meta(raw)
     progresso(3, ETAPAS[3])
     if nuvem:
         origem = 'Nuvem (simulada)' if meta['simulado'] else 'Nuvem Azure'
         ativo = garantir_ativo(db, meta['host'], 'Nuvem (assinatura)',
                                f"Azure: {meta['nome'] or meta['host']}" + (' [SIMULADO]' if meta['simulado'] else ''))
+    elif dominio:
+        origem = 'Domínio (DNS público)'
+        ativo = garantir_ativo(db, meta['host'], 'Domínio/Serviço web', f"Domínio {meta['host']}")
     else:
         origem = 'Local'
         ativo = garantir_ativo(db, meta['host'] or 'este-computador')
@@ -427,7 +461,7 @@ def registrar(db, raw, evidence_folder=None, progresso=None, nuvem=False):
     db.commit()
     return {'coleta_id': coleta_id, 'anterior_id': anterior, 'ativo': ativo, 'itens': lista,
             'comparacao': comparacao, 'resumo': res, 'admin': meta['admin'], 'nuvem': nuvem,
-            'simulado': bool(meta.get('simulado'))}
+            'dominio': dominio, 'simulado': bool(meta.get('simulado'))}
 
 
 def ultimo(db):

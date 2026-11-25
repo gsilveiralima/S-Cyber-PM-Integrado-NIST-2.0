@@ -35,9 +35,26 @@ VERSION = '1.3.0'
 # Mesma pasta de dados do S-Cyber PM (%APPDATA%\SCyberPM), numa subpasta própria.
 import modCaminhos  # noqa: E402 — fonte única das pastas (S-Cyber 2.0, M5)
 
-DATA = modCaminhos.pasta_nist()
-DB = DATA / 'nist.db'
 LEGACY_DB = Path.home() / 'SCyberNISTIntelligence' / 'nist.db'   # até a v0.3.1
+
+
+def pasta_dados():
+    """Pasta do NIST Intelligence da organização em uso (resolvida a cada chamada: a organização é
+    definida pela licença só DEPOIS da importação deste módulo)."""
+    return modCaminhos.pasta_nist()
+
+
+def banco():
+    return pasta_dados() / 'nist.db'
+
+
+def __getattr__(nome):
+    """core.DATA e core.DB continuam funcionando, mas sempre com a organização atual."""
+    if nome == 'DATA':
+        return pasta_dados()
+    if nome == 'DB':
+        return banco()
+    raise AttributeError(f'module {__name__!r} has no attribute {nome!r}')
 
 SUB_CODES = {code for code, _ in SUBCATEGORIES}
 SUB_TEXT = dict(SUBCATEGORIES)
@@ -160,7 +177,9 @@ def _date(value, field, required=False):
 
 # ============================================================ conexão / esquema
 def _migrate_legacy(path):
-    if path == DB and not path.exists() and LEGACY_DB.is_file():
+    # A cópia do banco antigo (v0.3) vale só para a pasta padrão: nunca para a de uma organização.
+    if (modCaminhos.organizacao() is None and path == banco() and not path.exists()
+            and LEGACY_DB.is_file()):
         try:
             shutil.copy2(LEGACY_DB, path)
         except OSError:
@@ -178,12 +197,13 @@ def _add_columns(db, table, columns):
             db.execute(f'ALTER TABLE {table} ADD COLUMN {name} {decl}')
 
 
-def connect(path=DB, key=None):
-    """Abre o banco. key = chave de 32 bytes (crypto.derive_key) para cifrar os textos.
+def connect(path=None, key=None):
+    """Abre o banco (padrão: o da organização em uso). key = chave de 32 bytes
+    (crypto.derive_key) para cifrar os textos.
 
     Sem chave, um banco que já tem dados cifrados é recusado: gravar em claro
     misturaria dados protegidos e desprotegidos."""
-    path = Path(path)
+    path = Path(path) if path else banco()
     path.parent.mkdir(parents=True, exist_ok=True)
     _migrate_legacy(path)
     # A chave é conferida ANTES de qualquer gravação: com o certificado errado o banco não
@@ -1184,14 +1204,14 @@ def rekey(source, old_key, new_key, destination):
     return counts
 
 
-def restore(source, destination=DB, key=None):
+def restore(source, destination=None, key=None):
     """Restaura um backup sobre o banco do usuário.
 
     O backup é validado numa cópia temporária: precisa abrir com o certificado atual e
     ter as cadeias de hash íntegras. O banco atual é guardado ao lado antes da troca.
     Devolve o caminho dessa cópia de segurança (None se não havia banco)."""
     import tempfile
-    source, destination = Path(source), Path(destination)
+    source, destination = Path(source), (Path(destination) if destination else banco())
     with tempfile.TemporaryDirectory(prefix='scyber_nist_restore_') as tmp:
         check = Path(tmp) / 'check.db'
         shutil.copy2(source, check)

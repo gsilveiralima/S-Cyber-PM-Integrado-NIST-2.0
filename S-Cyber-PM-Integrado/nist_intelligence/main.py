@@ -62,7 +62,7 @@ def _br(iso):
 class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
     """Painel embutível no Tk raiz do S-Cyber PM."""
 
-    def __init__(self, parent, original_root=None, embedded=False, on_back=None, db_path=core.DB, key=None,
+    def __init__(self, parent, original_root=None, embedded=False, on_back=None, db_path=None, key=None,
                  actor=None, auto_collect=None, signer=None, trusted_thumbs=(), cert_thumb=None, role='usuario'):
         # key: chave de 32 bytes derivada do certificado (crypto.derive_key). Abre o banco
         # antes de criar a janela: se a chave não servir, nada fica pela metade.
@@ -71,6 +71,7 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
         # signer: assina bytes com o certificado do usuário (CMS); trusted_thumbs: certificados autorizados
         # do S-Cyber PM, usados para conferir os pacotes de consolidação recebidos.
         # role: papel do certificado ('administrador', 'revisor' ou 'usuario'): só revisor/admin encerra achados.
+        db_path = db_path or core.banco()
         db = core.connect(db_path, key)
         db.definir_sessao(actor or self._username(), role)
         try:

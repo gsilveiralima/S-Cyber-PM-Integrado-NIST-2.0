@@ -190,19 +190,34 @@ class FontesTests(Base):
     def test_situacoes_distintas(self):
         def erro(code, headers=None):
             return urllib.error.HTTPError('u', code, 'x', headers or {}, None)
-        for exc, situacao in ((erro(401), fontes.ACESSO_RECUSADO), (erro(403), fontes.ACESSO_RECUSADO),
-                              (erro(429, {'Retry-After': '7'}), fontes.LIMITE), (erro(503), fontes.INDISPONIVEL),
-                              (urllib.error.URLError('dns'), fontes.INDISPONIVEL)):
-            with unittest.mock.patch('urllib.request.urlopen', side_effect=exc):
+        for exc, situacao, chamadas in ((erro(401), fontes.ACESSO_RECUSADO, 1), (erro(403), fontes.ACESSO_RECUSADO, 1),
+                                        (erro(429, {'Retry-After': '7'}), fontes.LIMITE, 1),
+                                        (erro(503), fontes.INDISPONIVEL, 3),
+                                        (urllib.error.URLError('dns'), fontes.INDISPONIVEL, 3)):
+            with unittest.mock.patch('urllib.request.urlopen', side_effect=exc) as abrir, \
+                    unittest.mock.patch.object(fontes, '_dormir') as dormir:
                 with self.assertRaises(fontes.FalhaFonte) as c:
                     fontes.http_get('https://exemplo')
                 self.assertEqual(c.exception.situacao, situacao)
+                # Só as falhas passageiras (5xx e rede) são repetidas, com espera crescente.
+                self.assertEqual(abrir.call_count, chamadas)
+                self.assertEqual([a.args[0] for a in dormir.call_args_list], [1.0, 2.0][:chamadas - 1])
         with unittest.mock.patch('urllib.request.urlopen', side_effect=erro(404)):
             self.assertEqual(fontes.http_get('https://exemplo'), (404, b''))
         r = fontes.hibp_catalogo('exemplo.gov.br', fake({fontes.HIBP: (200, b'[]')}))
         self.assertEqual(r.situacao, fontes.SEM_CORRESPONDENCIA)
         r = fontes.hibp_catalogo('exemplo.gov.br', fake({}))
         self.assertEqual(r.situacao, fontes.INDISPONIVEL)
+
+    def test_retentativa_recupera_falha_passageira(self):
+        resposta = unittest.mock.MagicMock()
+        resposta.__enter__.return_value.status = 200
+        resposta.__enter__.return_value.read.return_value = b'ok'
+        falha = urllib.error.HTTPError('u', 502, 'x', {}, None)
+        with unittest.mock.patch('urllib.request.urlopen', side_effect=[falha, resposta]) as abrir, \
+                unittest.mock.patch.object(fontes, '_dormir'):
+            self.assertEqual(fontes.http_get('https://exemplo'), (200, b'ok'))
+        self.assertEqual(abrir.call_count, 2)
 
     def test_hibp_catalogo_e_dominio(self):
         site = A.save_asset(self.db, 'Portal', 'Domínio/Serviço web', 'exemplo.gov.br')

@@ -1,0 +1,33 @@
+name: Validade das listas de licença
+
+# As listas assinadas (administradores, revogações, credenciamentos) valem 30 dias. Vencida a de
+# revogações, NENHUMA instalação consegue conferir a licença. Esta verificação diária falha quando
+# alguma lista vence em até 10 dias: o GitHub avisa por e-mail, e um administrador republica com
+#   admin_licencas.py publicar   (precisa do certificado administrativo, que não sai do Windows dele).
+
+on:
+  schedule:
+    - cron: '17 11 * * *'      # todo dia, 08:17 em Brasília
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['S-Cyber-PM-Integrado/licencas/**']
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: S-Cyber-PM-Integrado
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Instalar a biblioteca de criptografia
+        run: python -m pip install "$(grep -i '^cryptography==' requirements-lock.txt)"
+      - name: Conferir assinaturas e validade
+        run: python admin_licencas.py verificar --alerta-dias 10

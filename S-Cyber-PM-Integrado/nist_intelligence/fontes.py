@@ -11,6 +11,9 @@
     número, tipo, estado e link; o segredo nunca é baixado.
   * Pwned Passwords — na troca de senha: envia só os 5 primeiros caracteres do SHA-1
     (k-anonimato, com Add-Padding) e compara o resto aqui.
+  * OSV.dev — vulnerabilidades conhecidas em pacotes com versão exata (consulta em lote; só o
+    nome e a versão dos pacotes saem do computador).
+  * Google Public DNS — registros públicos do domínio (SPF, DMARC, DNSSEC), em dominio.py.
 
 Situações distintas para a interface: correspondência, sem correspondência, sem
 configuração, acesso recusado, limite de consultas e fonte indisponível.
@@ -35,6 +38,8 @@ KEV_URLS = ('https://www.cisa.gov/sites/default/files/feeds/known_exploited_vuln
 HIBP = 'https://haveibeenpwned.com/api/v3'
 PWNED_RANGE = 'https://api.pwnedpasswords.com/range/'
 GITHUB_API = 'https://api.github.com'
+OSV = 'https://api.osv.dev/v1'
+OSV_LOTE = 1000                    # máximo de consultas por chamada do querybatch
 
 CORRESPONDENCIA = 'correspondência'
 SEM_CORRESPONDENCIA = 'sem correspondência'
@@ -63,24 +68,63 @@ class FalhaFonte(Exception):
         self.situacao = situacao
 
 
-def http_get(url, headers=None, timeout=20, limit=8 * 1024 * 1024):
-    """GET com as situações separadas. Devolve (status, corpo bytes); 404 volta como (404, b'')."""
-    req = urllib.request.Request(url, headers={'User-Agent': USER_AGENT, **(headers or {})})
+TRANSITORIOS = (500, 502, 503, 504)      # falhas passageiras do servidor: vale tentar de novo
+_dormir = time.sleep                       # trocado nos testes
+
+
+def _requisitar(req, timeout, limit):
+    """Uma tentativa. Devolve (status, corpo); 404 volta como (404, b''). Falha → FalhaFonte, com
+    o atributo `transitoria` dizendo se vale tentar de novo."""
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:      # noqa: S310 — URLs fixas https
             return resp.status, resp.read(limit)
     except urllib.error.HTTPError as exc:
-        if exc.code == 404:
+        codigo = exc.code
+        espera = exc.headers.get('Retry-After', '?') if exc.headers else '?'
+        exc.close()                        # libera a conexão (evita ResourceWarning)
+        if codigo == 404:
             return 404, b''
-        if exc.code in (401, 403):
-            raise FalhaFonte(ACESSO_RECUSADO, f'Acesso recusado (HTTP {exc.code}): confira a credencial e a '
-                                              'permissão.') from exc
-        if exc.code == 429:
-            espera = exc.headers.get('Retry-After', '?') if exc.headers else '?'
-            raise FalhaFonte(LIMITE, f'Limite de consultas atingido: tente de novo em {espera} s.') from exc
-        raise FalhaFonte(INDISPONIVEL, f'A fonte respondeu HTTP {exc.code}.') from exc
+        if codigo in (401, 403):
+            raise FalhaFonte(ACESSO_RECUSADO, f'Acesso recusado (HTTP {codigo}): confira a credencial e a '
+                                              'permissão.') from None
+        if codigo == 429:
+            raise FalhaFonte(LIMITE, f'Limite de consultas atingido: tente de novo em {espera} s.') from None
+        falha = FalhaFonte(INDISPONIVEL, f'A fonte respondeu HTTP {codigo}.')
+        falha.transitoria = codigo in TRANSITORIOS
+        raise falha from None
     except (urllib.error.URLError, TimeoutError, OSError) as exc:
-        raise FalhaFonte(INDISPONIVEL, f'Fonte indisponível: {getattr(exc, "reason", exc)}') from exc
+        falha = FalhaFonte(INDISPONIVEL, f'Fonte indisponível: {getattr(exc, "reason", exc)}')
+        falha.transitoria = True
+        raise falha from exc
+
+
+def _com_retentativa(req, timeout, limit, tentativas, espera):
+    """Repete só as falhas passageiras (5xx e rede), com espera crescente (1 s, 2 s...).
+    Acesso recusado e limite de consultas não são repetidos: repetir não resolve e pode piorar."""
+    for n in range(1, max(1, tentativas) + 1):
+        try:
+            return _requisitar(req, timeout, limit)
+        except FalhaFonte as exc:
+            if not getattr(exc, 'transitoria', False) or n >= tentativas:
+                if n > 1:
+                    exc.args = (f'{exc} ({n} tentativas)',)
+                raise
+            _dormir(espera * n)
+
+
+def http_get(url, headers=None, timeout=20, limit=8 * 1024 * 1024, tentativas=3, espera=1.0):
+    """GET com as situações separadas e retentativa das falhas passageiras.
+    Devolve (status, corpo bytes); 404 volta como (404, b'')."""
+    req = urllib.request.Request(url, headers={'User-Agent': USER_AGENT, **(headers or {})})
+    return _com_retentativa(req, timeout, limit, tentativas, espera)
+
+
+def http_post_json(url, dados, headers=None, timeout=30, limit=8 * 1024 * 1024, tentativas=3, espera=1.0):
+    """POST de JSON (consulta, sem efeito colateral na fonte), com as mesmas situações do GET."""
+    req = urllib.request.Request(url, data=json.dumps(dados).encode('utf-8'), method='POST',
+                                 headers={'User-Agent': USER_AGENT, 'Content-Type': 'application/json',
+                                          **(headers or {})})
+    return _com_retentativa(req, timeout, limit, tentativas, espera)
 
 
 def _resultado(fonte, funcao):
@@ -283,3 +327,65 @@ def senha_vazada(senha, baixar=http_get):
         if sufixo == resto and n.strip().isdigit() and int(n) > 0:
             return CORRESPONDENCIA, int(n)
     return SEM_CORRESPONDENCIA, 0
+
+
+# ------------------------------------------------------------------ OSV.dev
+_LINHA_REQ = re.compile(r'^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[[^\]]*\])?\s*==\s*([A-Za-z0-9.!+_-]+)')
+
+
+def pacotes_de_requirements(texto):
+    """[(nome, versão)] das linhas "pacote==versão" (comentários, marcadores e hashes ignorados).
+    Linhas sem versão exata ficam de fora: sem versão não há como saber se é afetada."""
+    out = []
+    for linha in texto.splitlines():
+        m = _LINHA_REQ.match(linha.split('#', 1)[0].split(';', 1)[0])
+        if m:
+            out.append((m.group(1).lower(), m.group(2)))
+    return sorted(set(out))
+
+
+def _osv_detalhe(vid, baixar):
+    status, corpo = baixar(f'{OSV}/vulns/{urllib.parse.quote(vid)}', timeout=20)
+    return json.loads(corpo) if status != 404 and corpo else {'id': vid}
+
+
+def _corrigido_em(vuln, nome):
+    versoes = []
+    for afetado in vuln.get('affected') or []:
+        if (afetado.get('package') or {}).get('name', '').lower() != nome:
+            continue
+        for faixa in afetado.get('ranges') or []:
+            versoes += [e['fixed'] for e in faixa.get('events') or [] if 'fixed' in e]
+    return ', '.join(sorted(set(versoes)))
+
+
+def osv_pacotes(pacotes, ecossistema='PyPI', post=None, baixar=None):
+    """Consulta o OSV.dev. pacotes: [(nome, versão)]. Itens: um por (pacote, vulnerabilidade), com
+    resumo, apelidos (CVE/GHSA) e a versão que corrige, quando o OSV informa."""
+    post = post or http_post_json
+    baixar = baixar or http_get
+    pacotes = list(pacotes)
+
+    def busca():
+        if not pacotes:
+            raise FalhaFonte(SEM_CONFIGURACAO, 'Nenhum pacote com versão exata (pacote==versão) para consultar.')
+        ids = []
+        for i in range(0, len(pacotes), OSV_LOTE):
+            lote = pacotes[i:i + OSV_LOTE]
+            _, corpo = post(f'{OSV}/querybatch', {'queries': [
+                {'package': {'name': n, 'ecosystem': ecossistema}, 'version': v} for n, v in lote]})
+            resultados = json.loads(corpo or b'{}').get('results')
+            if not isinstance(resultados, list) or len(resultados) != len(lote):
+                raise FalhaFonte(INDISPONIVEL, 'Resposta inesperada do OSV.dev.')
+            for (nome, versao), res in zip(lote, resultados):
+                ids += [(nome, versao, v['id']) for v in (res or {}).get('vulns') or [] if v.get('id')]
+        detalhes = {vid: _osv_detalhe(vid, baixar) for vid in sorted({vid for *_, vid in ids})}
+        itens = []
+        for nome, versao, vid in ids:
+            d = detalhes[vid]
+            itens.append({'pacote': nome, 'versao': versao, 'id': vid,
+                          'resumo': d.get('summary') or (d.get('details') or '')[:300],
+                          'apelidos': sorted(d.get('aliases') or []), 'corrigido_em': _corrigido_em(d, nome),
+                          'publicado': str(d.get('published', ''))[:10]})
+        return itens
+    return _resultado('OSV.dev', busca)

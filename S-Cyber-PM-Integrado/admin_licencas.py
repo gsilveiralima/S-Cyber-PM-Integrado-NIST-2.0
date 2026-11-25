@@ -101,7 +101,8 @@ class Admin:
         self._registrar("iniciar", detalhes=", ".join(feitos) or "listas já existiam")
         return feitos
 
-    def _licenca(self, instalacao, maquina, unidade, titular, dias, operacao, origem="", modalidade="pm"):
+    def _licenca(self, instalacao, maquina, unidade, titular, dias, operacao, origem="", modalidade="pm",
+                 organizacao=""):
         if not (instalacao and maquina):
             raise L.ErroLicenca("invalida", "Pedido sem instalação ou máquina.")
         if modalidade not in L.MODALIDADES:
@@ -110,15 +111,20 @@ class Admin:
                "instalacao": instalacao, "maquina": maquina, "unidade": unidade, "titular": titular,
                "emitida_em": _agora(), "valida_ate": (self.hoje + timedelta(days=int(dias))).isoformat(),
                "operacao": operacao, "substitui": origem, "emitida_por": self.nome, "modalidade": modalidade}
+        if modalidade == "business":
+            # Os dados da empresa ficam numa pasta só dela (modCaminhos.definir_organizacao).
+            lic["organizacao"] = (organizacao or unidade or "").strip() or "empresa"
         chave = L.para_chave(L.empacotar(lic, self.assinador))
         self._registrar(operacao, lic["licenca_id"], instalacao,
                         f"{L.MODALIDADES[modalidade]}; unidade {unidade}; até {lic['valida_ate']}"
+                        + (f"; organização {lic['organizacao']}" if lic.get("organizacao") else "")
                         + (f"; substitui {origem}" if origem else ""))
         return lic, chave
 
-    def emitir(self, pedido, unidade, titular="", dias=365, modalidade="pm"):
+    def emitir(self, pedido, unidade, titular="", dias=365, modalidade="pm", organizacao=""):
         p = L.ler_pedido(pedido)
-        return self._licenca(p["instalacao"], p["maquina"], unidade, titular, dias, "emitir", modalidade=modalidade)
+        return self._licenca(p["instalacao"], p["maquina"], unidade, titular, dias, "emitir", modalidade=modalidade,
+                             organizacao=organizacao)
 
     def _abrir_chave(self, chave):
         lic, _ = L.abrir(L.de_chave(chave), self.pub.administradores())
@@ -129,7 +135,7 @@ class Admin:
     def renovar(self, chave, dias=365):
         lic = self._abrir_chave(chave)
         nova = self._licenca(lic["instalacao"], lic["maquina"], lic.get("unidade", ""), lic.get("titular", ""),
-                             dias, "renovar", lic["licenca_id"], L.modalidade(lic))
+                             dias, "renovar", lic["licenca_id"], L.modalidade(lic), lic.get("organizacao", ""))
         return nova
 
     def transferir(self, chave, pedido_novo, motivo="transferência"):
@@ -138,7 +144,7 @@ class Admin:
         self.revogar(lic["licenca_id"], f"{motivo} para {p['instalacao']}", lic["instalacao"])
         return self._licenca(p["instalacao"], p["maquina"], lic.get("unidade", ""), lic.get("titular", ""),
                              (datetime.fromisoformat(lic["valida_ate"]).date() - self.hoje).days or 1,
-                             "transferir", lic["licenca_id"], L.modalidade(lic))
+                             "transferir", lic["licenca_id"], L.modalidade(lic), lic.get("organizacao", ""))
 
     def revogar(self, licenca_id, motivo, instalacao=""):
         doc = self._lista("revogacoes")
@@ -195,15 +201,20 @@ class Admin:
         self._registrar("publicar", detalhes=f"listas válidas até {self.hoje + timedelta(days=L.VALIDADE_LISTA_DIAS)}")
 
 
-def verificar(pasta=PASTA, hoje=None):
-    """Confere assinaturas e validade de tudo o que está publicado. Devolve linhas de texto."""
+def verificar(pasta=PASTA, hoje=None, alerta_dias=L.AVISO_LISTA_DIAS):
+    """Confere assinaturas e validade de tudo o que está publicado. Devolve linhas de texto:
+    'ERRO' (assinatura ou lista vencida/ausente) e 'AVISO' (vence em até `alerta_dias` dias)."""
     pub = L.Publicacao(pasta_cache=Path(pasta) / "_nao_usado", pasta_pacote=pasta, online=False)
     out = [f"Administradores: {', '.join(sorted(set(pub.administradores().values())))}"]
+    dias = {n: d for n, _, d in L.situacao_listas(pub, hoje)}
     for nome in L.LISTAS:
         try:
             doc = pub.vigente(nome, hoje)
-            out.append(f"OK  {nome}: sequência {doc['sequencia']}, válida até {doc['valida_ate']} "
-                       f"(assinada por {doc.get('emitida_por')})")
+            restam = dias.get(nome)
+            rotulo = "AVISO" if restam is not None and restam <= alerta_dias else "OK  "
+            out.append(f"{rotulo} {nome}: sequência {doc['sequencia']}, válida até {doc['valida_ate']} "
+                       f"({restam} dia(s)), assinada por {doc.get('emitida_por')}"
+                       + (" — republique: admin_licencas.py publicar" if rotulo == "AVISO" else ""))
         except L.ErroLicenca as exc:
             out.append(f"ERRO {nome}: {exc}")
     reg = Path(pasta) / "registro.jsonl"
@@ -241,6 +252,8 @@ def main(argv=None):
     e.add_argument("--dias", type=int, default=365)
     e.add_argument("--modalidade", choices=list(L.MODALIDADES), default="pm",
                    help="business = S-Cyber Business (empresas, sem integrações da PM); pm = S-Cyber PM")
+    e.add_argument("--organizacao", default="",
+                   help="business: nome da empresa (os dados dela ficam numa pasta só dela); padrão = --unidade")
     e.add_argument("--saida")
     r = sub.add_parser("renovar")
     r.add_argument("--chave", required=True, help="arquivo .sclic ou o texto SCPM1....")
@@ -266,20 +279,25 @@ def main(argv=None):
     a.add_argument("--nome", default="")
     a.add_argument("--remover")
     sub.add_parser("publicar")
-    sub.add_parser("verificar")
+    vf = sub.add_parser("verificar", help="confere assinaturas e validade (não precisa de certificado)")
+    vf.add_argument("--alerta-dias", type=int, default=L.AVISO_LISTA_DIAS,
+                    help="avisa (e sai com código 1) quando uma lista vence em até N dias")
     args = ap.parse_args(argv)
 
     if args.cmd == "verificar":
-        print("\n".join(verificar()))
-        return 0
+        linhas = verificar(alerta_dias=args.alerta_dias)
+        print("\n".join(linhas))
+        return 1 if any(x.startswith(("ERRO", "AVISO")) for x in linhas) else 0
     try:
         adm = Admin()
         print(f"Administrador: {adm.nome} (certificado {adm.thumb[:8]}…)")
         lic = chave = None
         if args.cmd == "iniciar":
             print("Listas criadas:", adm.iniciar() or "nenhuma (já existiam)")
+            print("\n".join(x for x in verificar(adm.pasta) if not x.startswith("Administradores")))
         elif args.cmd == "emitir":
-            lic, chave = adm.emitir(args.pedido, args.unidade, args.titular, args.dias, args.modalidade)
+            lic, chave = adm.emitir(args.pedido, args.unidade, args.titular, args.dias, args.modalidade,
+                                    args.organizacao)
         elif args.cmd == "renovar":
             lic, chave = adm.renovar(_texto(args.chave), args.dias)
         elif args.cmd == "transferir":
@@ -309,11 +327,31 @@ def main(argv=None):
                 print(f"Chave gravada em {args.saida} (envie ao usuário).")
             else:
                 print("\nCHAVE DE ATIVAÇÃO (envie ao usuário):\n" + chave)
-        print('\nPublique: git add licencas ; git commit -m "Licenças: ' + args.cmd + '" ; git push')
+        print("\n" + _como_publicar(args.cmd))
         return 0
     except (L.ErroLicenca, ValueError, KeyError) as exc:
         print(f"ERRO: {exc}", file=sys.stderr)
         return 2
+
+
+MUDAM_LISTAS = ("iniciar", "revogar", "credenciar", "descredenciar", "administradores", "publicar")
+
+
+def _como_publicar(cmd, raiz=None):
+    """O que fazer depois da operação. Só as listas precisam chegar ao GitHub para valer nas outras
+    instalações; a emissão, a renovação e a transferência acrescentam só uma linha ao registro."""
+    raiz = Path(raiz) if raiz else PASTA.parent.parent
+    git = (raiz / ".git").exists()
+    comando = f'git add licencas ; git commit -m "Licenças: {cmd}" ; git push'
+    if cmd in MUDAM_LISTAS:
+        inicio = "PUBLIQUE para valer nas outras instalações"
+    else:
+        inicio = ("A licença já pode ser enviada ao usuário. Para guardar o registro desta operação no GitHub "
+                  "(recomendado)")
+    if git:
+        return f"{inicio}: {comando}"
+    return (f"{inicio}: esta pasta não é um clone do Git (veio de um ZIP). Copie a pasta licencas para um clone "
+            f"do repositório e rode lá: {comando}")
 
 
 def _texto(valor):
