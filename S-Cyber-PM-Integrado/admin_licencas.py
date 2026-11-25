@@ -349,6 +349,10 @@ def publicar_no_github(pasta=PASTA, mensagem="Licenças: atualização", executa
         return False, ("Esta pasta veio de um ZIP (não é um clone do Git), então não dá para enviar daqui. "
                        "Copie a pasta 'licencas' para um clone do repositório e envie de lá.")
     rel = str(Path(pasta).resolve().relative_to(raiz))
+    pendente = operacao_pendente(raiz)
+    if pendente:
+        return False, (f"Não dá para enviar: a pasta do repositório ficou no meio de uma {pendente} que não "
+                       f"terminou (por exemplo, um 'git pull' com conflito).\n\n{CONSERTAR_PASTA}")
     try:
         situacao = executar(["git", "-C", str(raiz), "status", "--porcelain", "--", rel],
                             capture_output=True, text=True, timeout=60)
@@ -396,6 +400,22 @@ def impressao_valida(texto):
     return limpo
 
 
+CONSERTAR_PASTA = ("Para deixar a pasta igual ao GitHub (o que já foi enviado não se perde), rode na pasta do "
+                   "repositório, um comando por vez:\n  git merge --abort\n  git rebase --abort\n  git fetch\n"
+                   "  git reset --hard origin/main\n(Os dois primeiros podem dizer que não há nada a desfazer: tudo "
+                   "bem.) Depois, abra esta tela de novo e refaça só a operação que ainda não aparece no GitHub.")
+
+
+def operacao_pendente(raiz):
+    """Junção (merge) ou rebase que parou no meio, por exemplo um 'git pull' com conflito."""
+    git = Path(raiz) / ".git"
+    if (git / "MERGE_HEAD").exists():
+        return "junção (merge)"
+    if (git / "rebase-merge").exists() or (git / "rebase-apply").exists():
+        return "rebase"
+    return None
+
+
 def sincronizar(pasta=PASTA, executar=None):
     """Traz do GitHub as listas mais novas ANTES de operar (git pull --ff-only), para não assinar
     em cima de uma lista velha. Devolve (ok, texto). Pasta sem Git: (True, '') — nada a fazer."""
@@ -404,6 +424,9 @@ def sincronizar(pasta=PASTA, executar=None):
     raiz = raiz_git(pasta)
     if raiz is None:
         return True, ""
+    pendente = operacao_pendente(raiz)
+    if pendente:
+        return False, f"A pasta do repositório ficou no meio de uma {pendente} que não terminou.\n\n{CONSERTAR_PASTA}"
     try:
         r = executar(["git", "-C", str(raiz), "pull", "--ff-only", "--autostash"], capture_output=True, text=True,
                      timeout=120)
