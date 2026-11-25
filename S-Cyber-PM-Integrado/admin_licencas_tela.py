@@ -50,7 +50,23 @@ class TelaAdministrador(tk.Tk):
         self.papel = tk.StringVar(value="usuario")
         self._montar()
         if self.adm is None:
-            em_segundo_plano(self, lambda: AL.Admin(self.pasta), self._admin_pronto)
+            # Primeiro traz as listas mais novas do GitHub (pasta com Git); depois carrega o administrador.
+            def preparar():
+                ok, texto = AL.sincronizar(self.pasta)
+                return ok, texto, AL.Admin(self.pasta)
+
+            def pronto(res, erro):
+                if erro:
+                    self._admin_pronto(None, erro)
+                    return
+                ok, texto, adm = res
+                self._admin_pronto(adm, None)
+                self._atualizar_listas()
+                if texto:
+                    self.status.set(texto if ok else "Pasta NÃO atualizada com o GitHub.")
+                if not ok:
+                    messagebox.showwarning(TITULO, texto, parent=self)
+            em_segundo_plano(self, preparar, pronto)
         else:
             self._admin_pronto(self.adm, None)
 

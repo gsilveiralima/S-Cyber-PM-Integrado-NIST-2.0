@@ -13,7 +13,7 @@ Uso (PowerShell, na pasta S-Cyber-PM-Integrado do repositório):
     .venv\\Scripts\\python.exe admin_licencas.py revogar --licenca LIC-... --motivo "computador baixado"
     .venv\\Scripts\\python.exe admin_licencas.py credenciar --pedido SCPM-PEDIDO-CERTIFICADO.zzz --papel revisor
     .venv\\Scripts\\python.exe admin_licencas.py descredenciar --thumbprint ABCD...
-    .venv\\Scripts\\python.exe admin_licencas.py administradores --adicionar THUMB --nome "SGT Gabriel (novo cert.)"
+    .venv\\Scripts\\python.exe admin_licencas.py administradores --adicionar <IMPRESSAO DIGITAL DE 40 CARACTERES> --nome "..."
     .venv\\Scripts\\python.exe admin_licencas.py publicar        (renova a validade das listas: faça a cada 3 semanas)
     .venv\\Scripts\\python.exe admin_licencas.py verificar
 
@@ -184,7 +184,8 @@ class Admin:
         doc = self._lista("administradores")
         admins = {k.upper(): v for k, v in doc.get("administradores", {}).items()}
         if adicionar:
-            admins[adicionar.upper()] = nome or adicionar[:8]
+            adicionar = impressao_valida(adicionar)
+            admins[adicionar] = nome or adicionar[:8]
         if remover:
             if remover.upper() == self.thumb:
                 raise L.ErroLicenca("invalida", "Um administrador não remove o próprio certificado.")
@@ -307,6 +308,38 @@ def ja_credenciado(adm, pedido, papel):
     return False
 
 
+def _juntar_e_reenviar(raiz, executar, saida):
+    """O GitHub tem algo mais novo (outra pasta de administração enviou antes). Junta com
+    'git pull --rebase' e envia de novo. O registro.jsonl se junta sozinho (merge=union no
+    .gitattributes). Se a MESMA lista assinada mudou dos dois lados, não dá para juntar: desfaz e
+    explica, sem perder nada do que está no GitHub."""
+    import subprocess
+
+    def git(*args):
+        return executar(["git", "-C", str(raiz), *args], capture_output=True, text=True, timeout=180)
+    try:
+        r = git("pull", "--rebase", "--autostash")
+        if r.returncode != 0:
+            conflito = "CONFLICT" in ((r.stdout or "") + (r.stderr or ""))
+            git("rebase", "--abort")
+            if not conflito:
+                return False, "Não foi possível juntar com o GitHub.\n" + ((r.stdout or "") + (r.stderr or "")).strip()
+            return False, (
+                "Outra pasta de administração alterou a mesma lista no GitHub, e listas assinadas não podem ser "
+                "misturadas. Faça assim, na pasta do repositório:\n"
+                "  git fetch\n  git reset --hard origin/main\n"
+                "Depois, abra esta tela de novo e REFAÇA a última operação (a licença já enviada continua "
+                "valendo; só o credenciamento ou a renovação precisam ser refeitos).")
+        r = git("push")
+    except subprocess.TimeoutExpired:
+        return False, "O GitHub demorou demais para responder. Tente de novo."
+    texto = ((r.stdout or "") + (r.stderr or "")).strip()
+    if r.returncode != 0:
+        return False, "Falhou em 'git push' depois de juntar com o GitHub.\n" + texto
+    return True, ("O GitHub tinha uma atualização mais nova (de outra pasta de administração): juntei as duas e "
+                  "enviei. Em alguns minutos vale em todos os computadores.")
+
+
 def publicar_no_github(pasta=PASTA, mensagem="Licenças: atualização", executar=None):
     """git add/commit/push só da pasta das listas. Devolve (ok, texto para mostrar)."""
     import subprocess
@@ -342,13 +375,47 @@ def publicar_no_github(pasta=PASTA, mensagem="Licenças: atualização", executa
             if cmd[3] == "commit" and ("nothing" in saida[-1].lower() or "no changes" in saida[-1].lower()):
                 saida[-1] = "Nada novo para enviar."
                 continue
-            dica = (" O GitHub tem alterações mais novas: rode 'git pull' na pasta do repositório e tente de novo."
-                    if cmd[3] == "push" and ("rejected" in saida[-1] or "fetch first" in saida[-1]) else "")
-            return False, f"Falhou em 'git {cmd[3]}'.{dica}\n" + "\n".join(x for x in saida if x)
+            if cmd[3] == "push" and ("rejected" in saida[-1] or "fetch first" in saida[-1]):
+                return _juntar_e_reenviar(raiz, executar, saida)
+            return False, f"Falhou em 'git {cmd[3]}'.\n" + "\n".join(x for x in saida if x)
     if nada_novo:
         return True, "Nada novo para enviar: as listas desta pasta já estão no GitHub."
     return True, "Enviado ao GitHub. Em alguns minutos vale em todos os computadores.\n" + \
         "\n".join(x for x in saida if x)
+
+
+def impressao_valida(texto):
+    """Impressão digital (SHA-1) de um certificado: 40 caracteres de 0-9 e A-F. Espaços e dois-pontos
+    são aceitos e removidos. Qualquer outra coisa é recusada: um texto de exemplo copiado por engano
+    não pode virar administrador."""
+    import re
+    limpo = re.sub(r"[\s:]", "", texto or "").upper()
+    if not re.fullmatch(r"[0-9A-F]{40}", limpo):
+        raise L.ErroLicenca("invalida", f"Impressão digital inválida: {texto!r}. Ela tem 40 caracteres de 0 a 9 "
+                                        "e A a F (veja em certmgr.msc → certificado → Detalhes → Impressão digital).")
+    return limpo
+
+
+def sincronizar(pasta=PASTA, executar=None):
+    """Traz do GitHub as listas mais novas ANTES de operar (git pull --ff-only), para não assinar
+    em cima de uma lista velha. Devolve (ok, texto). Pasta sem Git: (True, '') — nada a fazer."""
+    import subprocess
+    executar = executar or subprocess.run
+    raiz = raiz_git(pasta)
+    if raiz is None:
+        return True, ""
+    try:
+        r = executar(["git", "-C", str(raiz), "pull", "--ff-only", "--autostash"], capture_output=True, text=True,
+                     timeout=120)
+    except FileNotFoundError:
+        return False, "O Git não está instalado: não deu para conferir se as listas estão atualizadas."
+    except subprocess.TimeoutExpired:
+        return False, "O GitHub não respondeu: confira a internet antes de emitir ou credenciar."
+    saida = ((r.stdout or "") + (r.stderr or "")).strip()
+    if r.returncode != 0:
+        return False, ("Não foi possível atualizar a pasta com o GitHub. Antes de emitir ou credenciar, rode na "
+                       f"pasta do repositório: git pull\n\n{saida[-600:]}")
+    return True, "Atualizado com o GitHub." if "Already up to date" not in saida else "Já estava atualizado."
 
 
 def _certificado_admin(admins):
