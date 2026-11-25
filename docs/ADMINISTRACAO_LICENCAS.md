@@ -55,6 +55,17 @@ em **Enviar ao GitHub**: o credenciamento só vale nos outros computadores depoi
 Clicar de novo em **Credenciar** num certificado que já está credenciado com o mesmo papel não assina
 outra vez: a tela avisa que falta só enviar ao GitHub.
 
+### Rotina sem instabilidade
+- **Uma pasta só para administrar:** o clone `S-Cyber-Admin`. Não use pastas de ZIP para administrar
+  e não extraia um ZIP novo por cima de uma pasta antiga: os arquivos se misturam.
+- **Atualizar = um comando:** `git -C "$env:USERPROFILE\S-Cyber-Admin" pull`, antes de usar a tela.
+- **Instalar nos computadores = só pela página Releases.** A `main` do GitHub é a versão em
+  desenvolvimento e muda várias vezes por dia. Uma Release só é criada depois que o CI e o teste do
+  administrador passam.
+- **Se a tela não abrir:** o atalho mostra o motivo numa janela preta. Erros depois de aberta aparecem
+  numa mensagem e ficam gravados em `admin_tela_erro.log`, na mesma pasta. Mande esse arquivo ao
+  desenvolvimento.
+
 ### Preparar a pasta do administrador com Git (uma vez, recomendado)
 Com um clone, o envio fica automático, sem navegador.
 1. Instale o Git (PowerShell): `winget install --id Git.Git -e`. Feche e abra o PowerShell de novo.
