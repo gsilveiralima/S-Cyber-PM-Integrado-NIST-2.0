@@ -183,6 +183,27 @@ class GithubTests(unittest.TestCase):
             self.assertEqual(feitos[1][-1], str(Path("S-Cyber-PM-Integrado") / "licencas"))
             self.assertIn("--", feitos[2])                      # commit só dessa pasta
 
+    def test_merge_pela_metade_explica_o_conserto(self):
+        """Visto pelo autor: 'cannot do a partial commit during a merge'."""
+        with tempfile.TemporaryDirectory() as tmp:
+            raiz = Path(tmp)
+            (raiz / ".git").mkdir()
+            (raiz / ".git" / "MERGE_HEAD").write_text("abc", encoding="utf-8")
+            pasta = raiz / "licencas"
+            pasta.mkdir()
+            chamadas = []
+            ok, texto = AL.publicar_no_github(pasta, executar=lambda *a, **k: chamadas.append(a))
+            self.assertFalse(ok)
+            self.assertIn("git merge --abort", texto)
+            self.assertIn("git reset --hard origin/main", texto)
+            self.assertEqual(chamadas, [])                       # nem tenta o git
+            ok, texto = AL.sincronizar(pasta, executar=lambda *a, **k: chamadas.append(a))
+            self.assertFalse(ok)
+            self.assertEqual(chamadas, [])
+            (raiz / ".git" / "MERGE_HEAD").unlink()
+            (raiz / ".git" / "rebase-merge").mkdir()
+            self.assertIn("rebase", AL.publicar_no_github(pasta, executar=lambda *a, **k: None)[1])
+
     def test_nada_novo_nao_e_falha(self):
         """Visto pelo autor: o clone tinha outro arquivo alterado e as listas já estavam no GitHub."""
         with tempfile.TemporaryDirectory() as tmp:
