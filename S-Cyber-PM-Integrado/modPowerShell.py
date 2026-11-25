@@ -44,7 +44,11 @@ import sys
 
 TIMEOUT_PADRAO = 60                     # segundos
 _SEM_JANELA = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-_PREFIXO_UTF8 = "[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false; "
+# UTF-8 na saída e SEM barras de progresso: num Windows novo (Sandbox, máquina limpa), a primeira
+# execução escreve "Preparing modules for first use." como progresso no stderr, em CLIXML, e isso
+# era mostrado como erro ("Não foi possível listar os certificados: #< CLIXML ...").
+_PREFIXO_UTF8 = ("[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false; "
+                 "$ProgressPreference = 'SilentlyContinue'; ")
 _ARGS = ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass"]
 
 
@@ -92,7 +96,22 @@ def argumentos(script, codificado=False):
 
 def _texto(dados):
     texto = (dados or b"").decode("utf-8", errors="replace")
-    return texto[1:] if texto.startswith("﻿") else texto
+    return texto[1:] if texto.startswith("\ufeff") else texto
+
+
+def limpar_erro(texto):
+    """O stderr do PowerShell redirecionado vem em CLIXML (#< CLIXML <Objs ...>). Fica só o texto
+    dos registros de erro; registros de progresso e de informação são descartados."""
+    import html
+    import re
+    texto = texto or ""
+    if "#< CLIXML" not in texto:
+        return texto
+    antes = texto.split("#< CLIXML", 1)[0].strip()
+    erros = re.findall(r'<S S="Error">(.*?)</S>', texto, flags=re.S)
+    limpo = "".join(html.unescape(e) for e in erros)
+    limpo = re.sub(r"_x000D_|_x000A_", lambda m: "\n" if m.group(0) == "_x000A_" else "", limpo)
+    return "\n".join(x for x in (antes, limpo.strip()) if x)
 
 
 def executar(script, variaveis=None, entrada=None, timeout=TIMEOUT_PADRAO, codificado=False):
@@ -108,7 +127,7 @@ def executar(script, variaveis=None, entrada=None, timeout=TIMEOUT_PADRAO, codif
         raise ErroPowerShell("PowerShell não encontrado.") from exc
     except subprocess.TimeoutExpired as exc:
         raise ErroPowerShell(f"Tempo esgotado ({timeout} s) aguardando o Windows.") from exc
-    return Resultado(r.returncode, _texto(r.stdout), _texto(r.stderr))
+    return Resultado(r.returncode, _texto(r.stdout), limpar_erro(_texto(r.stderr)))
 
 
 def iniciar(script, variaveis=None):

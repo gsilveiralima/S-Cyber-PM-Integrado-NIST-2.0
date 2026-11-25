@@ -35,6 +35,21 @@ class PowerShellTests(unittest.TestCase):
         self.assertEqual(r.linhas, ["Ação ok", "OK fim"])     # acentos e BOM corretos
         self.assertEqual(r.ultima_linha, "OK fim")
 
+    def test_progresso_da_primeira_execucao_nao_e_erro(self):
+        """Visto na Windows Sandbox: 'Não foi possível listar os certificados: #< CLIXML ...'."""
+        progresso = ('#< CLIXML\r\n<Objs Version="1.1.0.1" xmlns="http://schemas.microsoft.com/powershell/2004/04">'
+                     '<Obj S="progress" RefId="0"><TN RefId="0"><T>System.Management.Automation.PSCustomObject</T>'
+                     '</TN><MS><I64 N="SourceId">1</I64><PR N="Record"><AV>Preparing modules for first use.</AV>'
+                     '<AI>0</AI><Nil /><PI>-1</PI><PC>-1</PC><T>Completed</T><SR>-1</SR><SD> </SD></PR></MS>'
+                     '</Obj></Objs>')
+        with mock.patch.object(subprocess, "run", return_value=_Saida(b"", progresso.encode())) as run:
+            r = modPowerShell.executar("Get-ChildItem Cert:\\CurrentUser\\My")
+        self.assertEqual(r.erro, "")
+        self.assertIn("$ProgressPreference = 'SilentlyContinue'", run.call_args[0][0][-1])
+        erro_real = progresso.replace("</Objs>", '<S S="Error">Acesso negado_x000D__x000A_</S></Objs>')
+        self.assertEqual(modPowerShell.limpar_erro(erro_real), "Acesso negado")
+        self.assertEqual(modPowerShell.limpar_erro("erro comum"), "erro comum")
+
     def test_codificado_e_entrada(self):
         with mock.patch.object(subprocess, "run", return_value=_Saida(b'{"a": 1}\n')) as run:
             r = modPowerShell.executar("$x = 'aspas \"duplas\"'", entrada="QUJD", codificado=True)
