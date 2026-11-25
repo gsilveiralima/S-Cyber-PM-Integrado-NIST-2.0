@@ -3,7 +3,7 @@
 ; Os dados do usuário (%APPDATA%\SCyberPM) e a ativação (%LOCALAPPDATA%\SCyberPM) NÃO são
 ; apagados na desinstalação nem na atualização.
 #ifndef AppVersion
-  #define AppVersion "2.0.0"
+  #define AppVersion "2.0.1"
 #endif
 
 [Setup]
