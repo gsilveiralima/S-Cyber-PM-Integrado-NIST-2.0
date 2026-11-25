@@ -26,9 +26,9 @@ um atalho dele na Área de Trabalho. A tela encontra sozinha o seu certificado d
 **Ativar um computador novo:**
 1. No computador novo, a pessoa clica em **Enviar pedido por e-mail**. O pedido chega em
    `scybersuporte@gmail.com`, com nome, unidade ou empresa e telefone.
-2. Copie o pedido do e-mail (a linha que começa com `SCPM-PEDIDO-`). Se vier quebrado em várias
-   linhas, não tem problema. Na tela, clique em **Colar**: ela mostra que é um pedido de ATIVAÇÃO e
-   de qual computador.
+2. Copie o pedido do e-mail. Pode ser **o e-mail inteiro**: clique no texto do e-mail, `Ctrl+A`,
+   `Ctrl+C`. A tela acha sozinha o trecho que começa com `SCPM-PEDIDO-`, mesmo quebrado em várias
+   linhas. Na tela, clique em **Colar**: ela mostra que é um pedido de ATIVAÇÃO e de qual computador.
 3. Escolha a modalidade (**PM** ou **Business**) e preencha a unidade e, na Business, a empresa.
    A validade padrão é de 365 dias.
 4. Clique em **Emitir licença**. A **resposta pronta** (instruções + chave) já fica copiada.
@@ -63,9 +63,9 @@ quem a controlar pode se passar pelo suporte. Por isso:
 3. **Senha** longa e exclusiva, que não seja usada em nenhum outro lugar.
 4. **Mais de um atendente:** use a delegação do Gmail (Configurações → Contas → "Conceder acesso à
    sua conta"). Nunca compartilhe a senha.
-5. **Filtro:** os assuntos são padronizados ("S-Cyber: pedido de ativação…" e "S-Cyber:
-   credenciamento de certificado…"). Crie um filtro por "S-Cyber:" que aplique um marcador, por
-   exemplo "Pedidos S-Cyber".
+5. **Filtro:** crie um filtro no Gmail com **Contém as palavras: `SCPM-PEDIDO`** que aplique um
+   marcador, por exemplo "Pedidos S-Cyber". Filtre pelo texto, não pelo assunto: quem usa o Gmail no
+   navegador cola o e-mail pronto no corpo, e o assunto pode chegar vazio.
 6. **Golpes:** o suporte **nunca** pede senha, código de verificação nem arquivo de certificado
    (`.pfx`). A chave de ativação só serve para o computador que fez o pedido.
 

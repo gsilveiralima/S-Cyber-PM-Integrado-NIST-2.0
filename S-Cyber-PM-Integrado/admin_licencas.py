@@ -232,9 +232,22 @@ def verificar(pasta=PASTA, hoje=None, alerta_dias=L.AVISO_LISTA_DIAS):
 
 
 # ------------------------------------------------------------------ apoio à tela do administrador
+def extrair_pedido(texto):
+    """O pedido dentro de um texto maior: o e-mail inteiro colado, com o pedido quebrado em várias
+    linhas pelo programa de e-mail. Vai de 'SCPM-PEDIDO' até a primeira linha em branco."""
+    import re
+    texto = texto or ""
+    inicio = texto.find("SCPM-PEDIDO")
+    if inicio < 0:
+        return "".join(texto.split())
+    trecho = re.split(r"\n\s*\n|Computador:", texto[inicio:].replace("\r\n", "\n"), maxsplit=1)[0]
+    return "".join(trecho.split())
+
+
 def resumo_pedido(texto):
-    """Lê um pedido colado (de ativação ou de certificado) e diz o que é. ValueError se não for."""
-    limpo = "".join((texto or "").split())
+    """Lê um pedido colado (de ativação ou de certificado), sozinho ou dentro do e-mail inteiro, e
+    diz o que é. ValueError se não for."""
+    limpo = extrair_pedido(texto)
     try:
         dados = L.ler_pedido(limpo)
     except (ValueError, UnicodeDecodeError) as exc:

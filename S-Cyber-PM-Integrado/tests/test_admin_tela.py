@@ -31,6 +31,17 @@ class ResumoPedidoTests(Base):
         self.assertIn(r["dados"]["instalacao"], r["texto"])
         self.assertEqual(L.ler_pedido(quebrado)["instalacao"], r["dados"]["instalacao"])
 
+    def test_aceita_o_email_inteiro_colado(self):
+        """O administrador copia o e-mail todo, com o pedido quebrado em linhas pelo Gmail."""
+        pedido = self.pedido()
+        _, corpo, _ = L.email_pedido(pedido)
+        quebrado = corpo.replace(pedido, "SCPM-PEDIDO-\n" + "\n".join(
+            pedido[len("SCPM-PEDIDO-"):][i:i + 60] for i in range(0, len(pedido) - 12, 60)))
+        colado = "De: Fulano <fulano@exemplo.com>\r\nPara: suporte\r\n\r\n" + quebrado.replace("\n", "\r\n")
+        r = AL.resumo_pedido(colado)
+        self.assertEqual(r["tipo"], "ativacao")
+        self.assertEqual(r["pedido"], pedido)
+
     def test_reconhece_certificado(self):
         inst = L.instalacao(self.inst_dir)
         r = AL.resumo_pedido(L.pedido_credenciamento("AB" * 20, "SD Fulano", inst))

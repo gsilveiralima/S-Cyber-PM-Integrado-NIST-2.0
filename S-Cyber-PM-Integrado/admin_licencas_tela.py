@@ -58,8 +58,8 @@ class TelaAdministrador(tk.Tk):
         self.quem = ttk.Label(corpo, text="", font=("Segoe UI", 11, "bold"))
         self.quem.pack(anchor="w")
 
-        ttk.Label(corpo, text="1. Cole o pedido que a pessoa mandou (de ativação ou de certificado):"
-                  ).pack(anchor="w", pady=(10, 2))
+        ttk.Label(corpo, text="1. Cole o pedido que chegou por e-mail (pode ser o e-mail inteiro; de ativação "
+                              "ou de certificado):").pack(anchor="w", pady=(10, 2))
         self.caixa_pedido = tk.Text(corpo, height=4, wrap="char")
         self.caixa_pedido.pack(fill="x")
         self.caixa_pedido.bind("<<Modified>>", self._pedido_mudou)
