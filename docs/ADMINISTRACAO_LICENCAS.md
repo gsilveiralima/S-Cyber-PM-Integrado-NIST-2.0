@@ -52,6 +52,32 @@ que seja um clone do repositório (não num ZIP) e com o Git instalado. Se apare
 
 Renovar, transferir, revogar e trocar administradores continuam pelos comandos abaixo.
 
+## Conta de suporte: scybersuporte@gmail.com
+
+Os pedidos de ativação e de certificado chegam a essa conta. Ela é um **canal oficial** do S-Cyber:
+quem a controlar pode se passar pelo suporte. Por isso:
+
+1. **Verificação em duas etapas** ligada (myaccount.google.com → Segurança), de preferência com
+   app autenticador ou chave de acesso, não só por SMS.
+2. **Recuperação:** um telefone e um e-mail de recuperação que só o titular controla.
+3. **Senha** longa e exclusiva, que não seja usada em nenhum outro lugar.
+4. **Mais de um atendente:** use a delegação do Gmail (Configurações → Contas → "Conceder acesso à
+   sua conta"). Nunca compartilhe a senha.
+5. **Filtro:** os assuntos são padronizados ("S-Cyber: pedido de ativação…" e "S-Cyber:
+   credenciamento de certificado…"). Crie um filtro por "S-Cyber:" que aplique um marcador, por
+   exemplo "Pedidos S-Cyber".
+6. **Golpes:** o suporte **nunca** pede senha, código de verificação nem arquivo de certificado
+   (`.pfx`). A chave de ativação só serve para o computador que fez o pedido.
+
+O endereço fica num lugar só do código (`modLicenca.EMAIL_SUPORTE`). Para trocar, é preciso gerar e
+distribuir uma versão nova.
+
+### Teste de ponta a ponta (depois de cada versão nova)
+1. Instale a versão num computador ainda não ativado.
+2. Clique em **Enviar pedido por e-mail** e confira se o e-mail chegou à conta de suporte.
+3. Na tela do administrador, cole o pedido, emita a licença e responda ao e-mail com a resposta pronta.
+4. No outro computador, cole a chave e clique em **Ativar**: deve aparecer "Instalação ativada".
+
 ## Preparação (uma vez)
 Terminal: **Windows PowerShell**. Pasta: `S-Cyber-PM-Integrado` do repositório. Rode um comando por
 vez.

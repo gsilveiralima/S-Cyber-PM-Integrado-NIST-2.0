@@ -9,7 +9,7 @@ O núcleo é um só, com duas modalidades definidas pela licença assinada:
 | **S-Cyber Business** | Pequenas e médias empresas do comércio, serviços e turismo; INOVA Senac | Sem as integrações institucionais (SEI) |
 | **S-Cyber PM** | Polícia Militar do Estado de Goiás, mediante autorização | Inclui as integrações institucionais |
 
-> **Situação (24/11/2026):** **pré-lançamento** do S-Cyber 2.0, versão 2.0.0. **Homologado apenas no Windows 10/11 (64 bits).** O que foi testado, e como, está no [relatório de auditoria e homologação](docs/AUDITORIA_S-CYBER_2.0.md). As versões para Linux e macOS não fazem parte desta entrega.
+> **Situação (25/11/2026):** **pré-lançamento** do S-Cyber 2.0, versão 2.0.0. **Homologado apenas no Windows 10/11 (64 bits).** O que foi testado, e como, está no [relatório de auditoria e homologação](docs/AUDITORIA_S-CYBER_2.0.md). As versões para Linux e macOS não fazem parte desta entrega.
 
 ## Instalação
 
@@ -74,17 +74,39 @@ O passo a passo antigo, com problemas encontrados e soluções, está em [docs/I
   - Verifica armazenamento público, criptografia, regras de rede abertas à internet, proprietários da assinatura, backup e exportação de logs.
   - Usa o Azure CLI já conectado, com o papel Leitor.
   - Tem uma demonstração simulada, sempre identificada como simulada.
+- **E-mail da empresa (SPF, DMARC e DNSSEC).**
+  - Lê o DNS público do domínio para ver se golpistas conseguem mandar e-mail em nome da empresa.
+  - Usa o mesmo fluxo de achado, prioridade, NIST e recomendação.
+  - Por enquanto roda pela linha de comando (`python -m nist_intelligence.dominio empresa.com.br`); o botão na tela está no roadmap.
 - **Corujinha.** Gera um inventário detalhado, só com o consentimento do usuário. Câmera, captura de tela e internet vêm desligadas por padrão, e os processos aparecem com o PID.
 - **Licenças assinadas.**
   - Ativação offline e recusa de licença revogada.
   - Modalidade Business ou PM.
+  - Na Business, os dados de cada empresa ficam numa pasta só dela.
   - Recuperação dos dados mesmo sem licença válida.
+  - Pedido de ativação por e-mail com um clique, para o suporte (`scybersuporte@gmail.com`).
+  - Tela do administrador, sem PowerShell, com resposta pronta para o e-mail.
+  - Aviso antes de as listas de licença vencerem: diagnóstico do programa e e-mail diário do GitHub.
 - **Segurança.**
   - Login por certificado, com desafio e resposta.
   - Sem senha de fábrica.
   - Papéis definidos pela sessão autenticada, não pela interface.
   - Banco cifrado com AES-256-GCM.
   - Trilha de auditoria encadeada por hash.
+  - Dependências conferidas no OSV.dev a cada execução do CI.
+
+## Roadmap (planejado, ainda não disponível)
+
+Nada desta lista faz parte da versão atual.
+
+| Quando | O que |
+|---|---|
+| Depois do pitch do INOVA | Interface em 5 áreas, assistente de primeiro acesso, indicadores históricos e botão de verificação do domínio |
+| Fase 7 | Autoridade certificadora privada e offline para os certificados das empresas; autenticação própria da Business; duas assinaturas para remover um administrador; pontos de verificação assinados na auditoria |
+| Fase 8 | Instalador com assinatura de código, para sair o aviso "Editor desconhecido"; atualização segura, com backup e sem aceitar versão mais antiga; o programa fechar sozinho quando o instalador pedir |
+| Versão comercial da Business | Ativação online automática: o pedido vai sozinho, o administrador aprova na tela, e a licença chega sem copiar nada. A assinatura continua no computador do administrador |
+| Futuro (opcional) | IA aberta rodando no próprio computador, para resumir o diagnóstico em linguagem simples, sem mensalidade e sem enviar dados para fora. As regras técnicas continuam decidindo o que é risco, e a licença do modelo deve permitir uso comercial |
+| Avaliar | Dois instaladores do mesmo código: Business, sem os módulos da PM, e PM, completo |
 
 ## Documentação
 
@@ -93,7 +115,7 @@ O passo a passo antigo, com problemas encontrados e soluções, está em [docs/I
 | [docs/INOVA_2026.md](docs/INOVA_2026.md) | **INOVA 2026 (Prêmio Atena)**: equipe, prazos, proposta pelos 5 critérios, checklist de envio e roteiro do pitch |
 | [docs/AUDITORIA_S-CYBER_2.0.md](docs/AUDITORIA_S-CYBER_2.0.md) | **S-Cyber 2.0**: auditoria, fases executadas, testes e medições no Windows, limitações |
 | [docs/GUIA_WINDOWS_INSTALADOR.md](docs/GUIA_WINDOWS_INSTALADOR.md) | Guia curto do usuário: instalador, ativação, certificado, achados, diagnóstico |
-| [docs/ADMINISTRACAO_LICENCAS.md](docs/ADMINISTRACAO_LICENCAS.md) | Licenças e credenciamentos (somente SGT Gabriel e MAJ Leonídio) |
+| [docs/ADMINISTRACAO_LICENCAS.md](docs/ADMINISTRACAO_LICENCAS.md) | Licenças e credenciamentos (somente SGT Gabriel e MAJ Leonídio): tela do administrador, pedidos por e-mail e conta de suporte |
 | [docs/INSTALACAO_WINDOWS.md](docs/INSTALACAO_WINDOWS.md) | Instalação passo a passo e solução de problemas |
 | [S-Cyber-PM-Integrado/CERTIFICADOS.md](S-Cyber-PM-Integrado/CERTIFICADOS.md) | Certificados autorizados, inclusão de usuário, AC institucional |
 | [S-Cyber-PM-Integrado/GUIA_NIST_INTELLIGENCE.md](S-Cyber-PM-Integrado/GUIA_NIST_INTELLIGENCE.md) | Uso de cada aba do painel NIST |
