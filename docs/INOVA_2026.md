@@ -1,6 +1,8 @@
 # S-Cyber Business — Proposta INOVA 2026
 
-Projeto Integrador do curso **Técnico em Defesa Cibernética** do Senac Goiás, inscrito na categoria
+Projeto Integrador do curso **Técnico em Defesa Cibernética** do
+[Centro de Educação Profissional Senac Cora Coralina](https://www.go.senac.br/unidades/centro-de-educacao-profissional-cora-coralina/)
+(Goiânia – GO), turma em parceria com a Polícia Militar do Estado de Goiás, inscrito na categoria
 **INOVA – Soluções Inovadoras para o Mercado** do Prêmio Atena 2026 (Programa de Reconhecimento Senac).
 
 > **Versão pública.** Os números de matrícula, o link interno do formulário de inscrição e os dados de
@@ -99,10 +101,10 @@ Situação em 25/11/2026.
 |---|---|---|
 | **1. Identificação** | | |
 | Título do Projeto Integrador | Proposto | "S-Cyber Business: diagnóstico de segurança cibernética em um clique para pequenas e médias empresas". Confirmar com o docente |
-| Unidade educacional e curso | Falta a unidade | Curso: Técnico em Defesa Cibernética. Falta a unidade Senac e a turma |
+| Unidade educacional e curso | Pronto | Centro de Educação Profissional Senac Cora Coralina, Goiânia – GO. Técnico em Defesa Cibernética, turma em parceria com a PMGO |
 | Alunos participantes | Pronto | Tabela "Equipe" |
 | Docente responsável | Pronto | Fabiana Fernandes Harami |
-| Comprovação da matrícula | **Falta** | Declaração da secretaria de matrícula ativa no período |
+| Comprovação da matrícula | Pronto | Para esta turma basta o número da matrícula, informado no formulário (confirmado com a docente e a secretaria em 25/11/2026) |
 | Período de desenvolvimento | Falta confirmar | Datas da turma e do PI, dentro de 01/12/2025 a 30/11/2026 |
 | **2. Descrição da proposta** | | |
 | Problema, solução, objetivos, procedimentos, originalidade | Pronto | Seções acima e [relatório de auditoria](AUDITORIA_S-CYBER_2.0.md) |
@@ -110,11 +112,11 @@ Situação em 25/11/2026.
 | Impactos econômicos, tecnológicos e socioambientais | Parcial | Falta escrever o impacto socioambiental (proteção de dados de clientes e acesso à segurança para quem não pode pagar um especialista) |
 | Resultados alcançados ou esperados | Pronto | Resultados medidos no Windows e no Azure da equipe |
 | **3. Documentação e evidências** | | |
-| Relatório do docente | **Falta** | Modelo abaixo |
+| Relatório do docente | Adiado | Não é necessário por enquanto (decisão da equipe, 25/11/2026). Modelo abaixo |
 | Fotos ou vídeos | **Falta** | Fotos datadas da equipe trabalhando |
-| Participação dos alunos e do docente | **Falta, ponto crítico** | O histórico do GitHub mostra só os commits de um aluno. Os outros 4 precisam de evidência própria |
+| Participação dos alunos e do docente | Adiado | Não é necessário por enquanto (decisão da equipe, 25/11/2026). Se for pedido, cada aluno precisa de evidência própria |
 | Entregas parciais e consolidação | Parcial | Commits datados e relatório de auditoria; falta a confirmação do docente |
-| Desenvolvimento dentro da UC Projeto Integrador | **Falta** | Relatório do docente |
+| Desenvolvimento dentro da UC Projeto Integrador | Adiado | Comprovado pelo relatório da docente, adiado junto com ele |
 | **4. Vídeo pitch** | Falta gravar | Roteiro abaixo |
 
 ## Roteiro do pitch (até 3 minutos)
