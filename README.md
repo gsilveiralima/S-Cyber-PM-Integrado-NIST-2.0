@@ -88,6 +88,7 @@ O passo a passo antigo, com problemas encontrados e soluções, está em [docs/I
 
 | Documento | Conteúdo |
 |---|---|
+| [docs/INOVA_2026.md](docs/INOVA_2026.md) | **INOVA 2026 (Prêmio Atena)**: equipe, prazos, proposta pelos 5 critérios, checklist de envio e roteiro do pitch |
 | [docs/AUDITORIA_S-CYBER_2.0.md](docs/AUDITORIA_S-CYBER_2.0.md) | **S-Cyber 2.0**: auditoria, fases executadas, testes e medições no Windows, limitações |
 | [docs/GUIA_WINDOWS_INSTALADOR.md](docs/GUIA_WINDOWS_INSTALADOR.md) | Guia curto do usuário: instalador, ativação, certificado, achados, diagnóstico |
 | [docs/ADMINISTRACAO_LICENCAS.md](docs/ADMINISTRACAO_LICENCAS.md) | Licenças e credenciamentos (somente SGT Gabriel e MAJ Leonídio) |
@@ -170,6 +171,9 @@ docs/                            instalação, validação, segurança e changel
   [Leonidiojr/S-Cyber-prj](https://github.com/Leonidiojr/S-Cyber-prj).
 - **S-Cyber NIST Intelligence** (módulo NIST, `nist_intelligence/` e arquivos relacionados):
   SGT Gabriel Silveira Lima.
+- **Equipe do Projeto Integrador / INOVA 2026** (Técnico em Defesa Cibernética, Senac Goiás):
+  Leonídio Alves De Moraes Junior, Daniel Otavio De Lima Medrado, Juliano Porto De Souza,
+  Juliano Santos Borges e Gabriel Silveira Lima. Detalhes em [docs/INOVA_2026.md](docs/INOVA_2026.md).
 
 Todo o conteúdo deste repositório, inclusive os arquivos da aplicação original S-Cyber PM, é
 distribuído sob a **licença Apache 2.0** (arquivo `LICENSE`), com a concordância do MAJ Leonidio Alves
