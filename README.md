@@ -31,12 +31,14 @@ O guia completo, com telas e solução de problemas, está em **[docs/GUIA_WINDO
 
 Os administradores emitem, renovam, transferem e revogam licenças com o próprio certificado administrativo. A chave privada desse certificado nunca sai do Windows de quem o tem.
 
-```powershell
-.\.venv\Scripts\python.exe admin_licencas.py emitir --pedido "SCPM-PEDIDO-ATIVACAO...." --unidade "Empresa X" --modalidade business --dias 365 --saida licenca.sclic
-```
+- **Tela do administrador (sem PowerShell):** dois cliques em `S-Cyber-PM-Integrado/Administrar licencas.bat`. Cole o pedido que a pessoa mandou e clique em **Emitir licença**: a chave já fica copiada para mandar de volta pelo WhatsApp ou por e-mail. A pessoa cola a chave na tela de ativação, sem precisar de arquivo. A mesma tela credencia certificados e renova as listas.
+- **Linha de comando** (renovar, transferir, revogar):
+  ```powershell
+  .\.venv\Scripts\python.exe admin_licencas.py emitir --pedido "SCPM-PEDIDO-ATIVACAO...." --unidade "Empresa X" --modalidade business --organizacao "Empresa X Ltda" --dias 365 --saida licenca.sclic
+  ```
 
 - **Listas assinadas:** a pasta `S-Cyber-PM-Integrado/licencas/` guarda as listas públicas: administradores, revogações e credenciamentos. Os aplicativos instalados baixam essas listas daqui.
-- **Validade:** as listas valem 30 dias. Republique no máximo a cada 3 semanas com `admin_licencas.py publicar`, depois faça commit e push.
+- **Validade:** as listas valem 30 dias. Renove no máximo a cada 3 semanas, pela tela (**Renovar listas** e depois **Enviar ao GitHub**) ou com `admin_licencas.py publicar`. Um aviso diário do GitHub chega por e-mail quando faltam 10 dias.
 - **Passo a passo:** [docs/ADMINISTRACAO_LICENCAS.md](docs/ADMINISTRACAO_LICENCAS.md).
 
 ### Desenvolvimento (pelo código-fonte)

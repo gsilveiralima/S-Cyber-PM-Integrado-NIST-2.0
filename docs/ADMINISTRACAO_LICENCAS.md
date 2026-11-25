@@ -18,6 +18,35 @@ Os administradores fixados no aplicativo são:
 A ferramenta **não vai no instalador**. Ela roda a partir do repositório clonado, no computador do
 administrador.
 
+## Jeito mais fácil: a tela do administrador (sem PowerShell)
+
+Na pasta `S-Cyber-PM-Integrado`, dê **dois cliques em `Administrar licencas.bat`**. Se quiser, crie
+um atalho dele na Área de Trabalho. A tela encontra sozinha o seu certificado de administrador.
+
+**Ativar um computador novo:**
+1. No computador novo, a pessoa clica em **Copiar pedido de ativação** e te manda o texto pelo
+   WhatsApp ou por e-mail. Se o texto chegar quebrado em várias linhas, não tem problema.
+2. Na tela, clique em **Colar**. Ela mostra que é um pedido de ATIVAÇÃO e de qual computador.
+3. Escolha a modalidade (**PM** ou **Business**) e preencha a unidade e, na Business, a empresa.
+   A validade padrão é de 365 dias.
+4. Clique em **Emitir licença**. A chave já fica **copiada**.
+5. Mande a chave de volta pelo WhatsApp ou por e-mail. No computador novo, a pessoa cola na tela de
+   ativação e clica em **Ativar**. **Não precisa de arquivo .sclic.** Se preferir mandar arquivo,
+   use "Salvar arquivo .sclic…".
+
+**Credenciar o certificado de uma pessoa:** o caminho é o mesmo, com o pedido de certificado. A tela
+reconhece sozinha. Escolha **Usuário** ou **Revisor**, clique em **Credenciar certificado** e depois
+em **Enviar ao GitHub**: o credenciamento só vale nos outros computadores depois de publicado.
+
+**Listas:** a parte de baixo da tela mostra até quando as listas valem e fica vermelha quando faltam
+10 dias ou menos. Para renovar, use **Renovar listas (+30 dias)** e depois **Enviar ao GitHub**.
+
+**Enviar ao GitHub** faz o `git add/commit/push` só da pasta `licencas`. Ele só funciona numa pasta
+que seja um clone do repositório (não num ZIP) e com o Git instalado. Se aparecer "rejected", rode
+`git pull` na pasta do repositório e tente de novo.
+
+Renovar, transferir, revogar e trocar administradores continuam pelos comandos abaixo.
+
 ## Preparação (uma vez)
 Terminal: **Windows PowerShell**. Pasta: `S-Cyber-PM-Integrado` do repositório. Rode um comando por
 vez.
