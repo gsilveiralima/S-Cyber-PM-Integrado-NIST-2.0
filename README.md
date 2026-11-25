@@ -27,7 +27,7 @@ O núcleo é um só, com duas modalidades definidas pela licença assinada:
 
 O guia completo, com telas e solução de problemas, está em **[docs/GUIA_WINDOWS_INSTALADOR.md](docs/GUIA_WINDOWS_INSTALADOR.md)**.
 
-### Administradores (SGT Gabriel e MAJ Leonídio)
+### Administradores (MAJOR Leonídio Alves de Moraes Junior; e SARGENTO Gabriel Silveira Lima)
 
 Os administradores emitem, renovam, transferem e revogam licenças com o próprio certificado administrativo. A chave privada desse certificado nunca sai do Windows de quem o tem.
 
