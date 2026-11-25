@@ -503,7 +503,28 @@ Feitas sem mexer na interface, porque o pitch do INOVA ainda vai ser gravado.
 - Os módulos de treinamento (rádio, ponta a ponta, memória, disco e processador) continuam visíveis na Business. Ficam para a Fase 6 (área "Treinamento").
 - A verificação do domínio ganha botão na aba Diagnóstico na Fase 6.
 
-## 18. Próximo passo proposto
+## 18. Tela do administrador: ativação sem PowerShell (25/11/2026, a pedido do autor)
+
+**Problema relatado:** para ativar um computador novo, o administrador precisava:
+- rodar um comando longo no PowerShell, numa pasta de caminho longo;
+- colar um pedido que chegava quebrado em várias linhas;
+- levar o arquivo `.sclic` de volta;
+- e ainda interpretava "Publique: git…" como obrigatório.
+
+**Solução escolhida pelo autor:** a tela do administrador (`admin_licencas_tela.py`, aberta com dois cliques em `Administrar licencas.bat`).
+- **O que a tela faz:**
+  - reconhece o tipo de pedido colado (ativação ou certificado), mesmo com quebras de linha;
+  - emite a licença PM ou Business, já com a empresa;
+  - deixa a **chave copiada** para voltar por WhatsApp ou e-mail, sem arquivo;
+  - credencia certificados;
+  - mostra a validade das listas e as renova;
+  - envia ao GitHub só a pasta `licencas`.
+- **O que não muda:** é a mesma `admin_licencas.Admin` da linha de comando, com o mesmo certificado e as mesmas regras. Nenhuma lógica nova de emissão.
+- **Segurança:** como a linha de comando, a tela **não vai no instalador**. O `gerarExe.py` exclui `admin_licencas` e `admin_licencas_tela`, e um teste impede que o aplicativo importe esses módulos. O aplicativo instalado continua recusando qualquer documento não assinado por um administrador.
+- **Testes:** `tests/test_admin_tela.py` (resumo do pedido, envio ao GitHub com Git simulado, exclusão do executável e atalho). A tela real é testada no Windows do CI: colar, emitir como Business, a chave copiada ativar a instalação, credenciar como revisor. Também foi exercitada no simulador de interface.
+- **Situação:** implementado e testado. A homologação pelo autor no Windows dele está pendente.
+
+## 19. Próximo passo proposto
 1. **Validar no Windows** (script de sempre, `validar_no_windows.ps1`):
    - testes, instalador e abertura da versão nova;
    - uma licença Business com `--organizacao`: os dados vão para `perfis\<empresa>`, e a instalação PM continua com os dados de sempre;

@@ -192,7 +192,7 @@ def pedido_credenciamento(thumb, titular, inst):
 
 
 def ler_pedido(texto):
-    texto = texto.strip()
+    texto = "".join((texto or "").split())        # quebras de linha do WhatsApp/e-mail não atrapalham
     for prefixo in ("SCPM-PEDIDO-ATIVACAO.", "SCPM-PEDIDO-CERTIFICADO."):
         if texto.startswith(prefixo):
             corpo = texto[len(prefixo):]

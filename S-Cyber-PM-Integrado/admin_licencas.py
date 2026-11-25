@@ -231,6 +231,75 @@ def verificar(pasta=PASTA, hoje=None, alerta_dias=L.AVISO_LISTA_DIAS):
     return out
 
 
+# ------------------------------------------------------------------ apoio à tela do administrador
+def resumo_pedido(texto):
+    """Lê um pedido colado (de ativação ou de certificado) e diz o que é. ValueError se não for."""
+    limpo = "".join((texto or "").split())
+    try:
+        dados = L.ler_pedido(limpo)
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise ValueError("Isto não é um pedido do S-Cyber. Ele começa com SCPM-PEDIDO-ATIVACAO. ou "
+                         "SCPM-PEDIDO-CERTIFICADO. Peça para a pessoa copiar de novo pelo botão da tela.") from exc
+    if not isinstance(dados, dict):
+        raise ValueError("Pedido incompleto: peça para copiar de novo.")
+    origem = f"computador {dados.get('computador') or '?'}, conta {dados.get('conta') or '?'}"
+    if limpo.startswith("SCPM-PEDIDO-ATIVACAO."):
+        if not (dados.get("instalacao") and dados.get("maquina")):
+            raise ValueError("Pedido de ativação incompleto: peça para copiar de novo.")
+        return {"tipo": "ativacao", "pedido": limpo, "dados": dados,
+                "texto": f"Pedido de ATIVAÇÃO da instalação {dados['instalacao']} ({origem}, versão "
+                         f"{dados.get('versao') or '?'})."}
+    if not dados.get("thumbprint"):
+        raise ValueError("Pedido de certificado incompleto: peça para copiar de novo.")
+    return {"tipo": "certificado", "pedido": limpo, "dados": dados,
+            "texto": f"Pedido de CREDENCIAMENTO do certificado {dados['thumbprint'][:8]}… de "
+                     f"{dados.get('titular') or '?'} ({origem}, instalação {dados.get('instalacao') or '?'})."}
+
+
+def nome_arquivo(lic):
+    return f"licenca_{lic['instalacao']}.sclic"
+
+
+def raiz_git(pasta=PASTA):
+    """Raiz do clone do repositório que contém a pasta das listas, ou None (pasta de um ZIP)."""
+    for p in [Path(pasta).resolve(), *Path(pasta).resolve().parents]:
+        if (p / ".git").exists():
+            return p
+    return None
+
+
+def publicar_no_github(pasta=PASTA, mensagem="Licenças: atualização", executar=None):
+    """git add/commit/push só da pasta das listas. Devolve (ok, texto para mostrar)."""
+    import subprocess
+    executar = executar or subprocess.run
+    raiz = raiz_git(pasta)
+    if raiz is None:
+        return False, ("Esta pasta veio de um ZIP (não é um clone do Git), então não dá para enviar daqui. "
+                       "Copie a pasta 'licencas' para um clone do repositório e envie de lá.")
+    rel = str(Path(pasta).resolve().relative_to(raiz))
+    passos = (["git", "-C", str(raiz), "add", "--", rel],
+              ["git", "-C", str(raiz), "commit", "-m", mensagem, "--", rel],
+              ["git", "-C", str(raiz), "push"])
+    saida = []
+    for cmd in passos:
+        try:
+            r = executar(cmd, capture_output=True, text=True, timeout=180)
+        except FileNotFoundError:
+            return False, "O Git não está instalado neste computador (https://git-scm.com)."
+        except subprocess.TimeoutExpired:
+            return False, "O Git demorou demais para responder. Confira a internet e tente de novo."
+        saida.append(((r.stdout or "") + (r.stderr or "")).strip())
+        if r.returncode != 0:
+            if cmd[3] == "commit" and "nothing" in saida[-1].lower():
+                saida[-1] = "Nada novo para enviar."
+                continue
+            dica = (" O GitHub tem alterações mais novas: rode 'git pull' na pasta do repositório e tente de novo."
+                    if cmd[3] == "push" and ("rejected" in saida[-1] or "fetch first" in saida[-1]) else "")
+            return False, f"Falhou em 'git {cmd[3]}'.{dica}\n" + "\n".join(x for x in saida if x)
+    return True, "Enviado ao GitHub. Em alguns minutos vale em todos os computadores.\n" + \
+        "\n".join(x for x in saida if x)
+
+
 def _certificado_admin(admins):
     """Primeiro certificado administrativo com chave privada no Windows deste usuário."""
     from modDiagnostico import listar_certificados
