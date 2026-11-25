@@ -46,9 +46,25 @@ em **Enviar ao GitHub**: o credenciamento só vale nos outros computadores depoi
 **Listas:** a parte de baixo da tela mostra até quando as listas valem e fica vermelha quando faltam
 10 dias ou menos. Para renovar, use **Renovar listas (+30 dias)** e depois **Enviar ao GitHub**.
 
-**Enviar ao GitHub** faz o `git add/commit/push` só da pasta `licencas`. Ele só funciona numa pasta
-que seja um clone do repositório (não num ZIP) e com o Git instalado. Se aparecer "rejected", rode
-`git pull` na pasta do repositório e tente de novo.
+**Enviar ao GitHub** depende de como a pasta foi obtida:
+- **Pasta de ZIP:** a tela abre a pasta das listas e a página de envio do GitHub. Entre na sua conta,
+  arraste os arquivos `.scsig` e o `registro.jsonl` para a página e clique em **Commit changes**.
+- **Clone do Git:** a tela faz o `git add/commit/push` só da pasta `licencas`, sem abrir o navegador.
+  Se aparecer "rejected", rode `git pull` na pasta do repositório e tente de novo.
+
+Clicar de novo em **Credenciar** num certificado que já está credenciado com o mesmo papel não assina
+outra vez: a tela avisa que falta só enviar ao GitHub.
+
+### Preparar a pasta do administrador com Git (uma vez, recomendado)
+Com um clone, o envio fica automático, sem navegador.
+1. Instale o Git (PowerShell): `winget install --id Git.Git -e`. Feche e abra o PowerShell de novo.
+2. Baixe o repositório para uma pasta fixa:
+   `git clone https://github.com/gsilveiralima/S-Cyber-PM-Integrado-NIST-2.0.git "$env:USERPROFILE\S-Cyber-Admin"`
+3. Abra `S-Cyber-Admin\S-Cyber-PM-Integrado` e dê dois cliques em **`Administrar licencas.bat`**. Na
+   primeira vez, ele cria sozinho o ambiente Python (uns 2 minutos).
+4. No primeiro **Enviar ao GitHub**, o Windows pede para entrar na conta do GitHub. Isso acontece uma
+   vez só.
+5. Antes de cada uso, atualize a pasta: `git -C "$env:USERPROFILE\S-Cyber-Admin" pull`.
 
 Renovar, transferir, revogar e trocar administradores continuam pelos comandos abaixo.
 
