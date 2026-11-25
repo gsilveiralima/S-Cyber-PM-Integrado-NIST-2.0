@@ -134,12 +134,30 @@ class GithubTests(unittest.TestCase):
 
             def executar(cmd, **kw):
                 feitos.append(cmd)
-                return self.resultado()
+                return self.resultado(0, " M S-Cyber-PM-Integrado/licencas/credenciamentos.scsig"
+                                      if cmd[3] == "status" else "")
             ok, _ = AL.publicar_no_github(pasta, "Licenças: teste", executar)
             self.assertTrue(ok)
-            self.assertEqual([c[3] for c in feitos], ["add", "commit", "push"])
-            self.assertEqual(feitos[0][-1], str(Path("S-Cyber-PM-Integrado") / "licencas"))
-            self.assertIn("--", feitos[1])                      # commit só dessa pasta
+            self.assertEqual([c[3] for c in feitos], ["status", "add", "commit", "push"])
+            self.assertEqual(feitos[1][-1], str(Path("S-Cyber-PM-Integrado") / "licencas"))
+            self.assertIn("--", feitos[2])                      # commit só dessa pasta
+
+    def test_nada_novo_nao_e_falha(self):
+        """Visto pelo autor: o clone tinha outro arquivo alterado e as listas já estavam no GitHub."""
+        with tempfile.TemporaryDirectory() as tmp:
+            raiz = Path(tmp)
+            (raiz / ".git").mkdir()
+            pasta = raiz / "licencas"
+            pasta.mkdir()
+            feitos = []
+
+            def executar(cmd, **kw):
+                feitos.append(cmd[3])
+                return self.resultado()                          # status vazio: listas sem mudança
+            ok, texto = AL.publicar_no_github(pasta, executar=executar)
+            self.assertTrue(ok)
+            self.assertIn("Nada novo", texto)
+            self.assertEqual(feitos, ["status", "push"])
 
     def test_nada_novo_e_push_recusado(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -147,7 +165,8 @@ class GithubTests(unittest.TestCase):
             (raiz / ".git").mkdir()
             pasta = raiz / "licencas"
             pasta.mkdir()
-            respostas = iter([self.resultado(), self.resultado(1, "nothing to commit"),
+            respostas = iter([self.resultado(0, " M licencas/x"), self.resultado(),
+                              self.resultado(1, "no changes added to commit"),
                               self.resultado(1, "! [rejected] main -> main (fetch first)")])
             ok, texto = AL.publicar_no_github(pasta, executar=lambda cmd, **kw: next(respostas))
             self.assertFalse(ok)
