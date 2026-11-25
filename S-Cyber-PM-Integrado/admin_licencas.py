@@ -256,6 +256,17 @@ def resumo_pedido(texto):
                      f"{dados.get('titular') or '?'} ({origem}, instalação {dados.get('instalacao') or '?'})."}
 
 
+def resposta_licenca(lic, chave):
+    """Texto para responder ao e-mail do pedido: instruções curtas + a chave."""
+    produto = L.MODALIDADES[L.modalidade(lic)]
+    return (f"Olá! Sua licença do {produto} foi emitida.\n\n"
+            f"Licença: {lic['licenca_id']} | Instalação: {lic['instalacao']} | Válida até: {lic['valida_ate']}\n\n"
+            "Como ativar:\n1. Abra o S-Cyber neste mesmo computador.\n"
+            "2. Copie a CHAVE abaixo inteira (de SCPM1. até o fim) e cole na tela de ativação.\n"
+            "3. Clique em Ativar.\n\nCHAVE DE ATIVAÇÃO:\n"
+            f"{chave}\n\nEquipe de suporte do S-Cyber ({L.EMAIL_SUPORTE})\n")
+
+
 def nome_arquivo(lic):
     return f"licenca_{lic['instalacao']}.sclic"
 

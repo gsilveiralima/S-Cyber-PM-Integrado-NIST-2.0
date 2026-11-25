@@ -24,15 +24,20 @@ Na pasta `S-Cyber-PM-Integrado`, dê **dois cliques em `Administrar licencas.bat
 um atalho dele na Área de Trabalho. A tela encontra sozinha o seu certificado de administrador.
 
 **Ativar um computador novo:**
-1. No computador novo, a pessoa clica em **Copiar pedido de ativação** e te manda o texto pelo
-   WhatsApp ou por e-mail. Se o texto chegar quebrado em várias linhas, não tem problema.
-2. Na tela, clique em **Colar**. Ela mostra que é um pedido de ATIVAÇÃO e de qual computador.
+1. No computador novo, a pessoa clica em **Enviar pedido por e-mail**. O pedido chega em
+   `scybersuporte@gmail.com`, com nome, unidade ou empresa e telefone.
+2. Copie o pedido do e-mail (a linha que começa com `SCPM-PEDIDO-`). Se vier quebrado em várias
+   linhas, não tem problema. Na tela, clique em **Colar**: ela mostra que é um pedido de ATIVAÇÃO e
+   de qual computador.
 3. Escolha a modalidade (**PM** ou **Business**) e preencha a unidade e, na Business, a empresa.
    A validade padrão é de 365 dias.
-4. Clique em **Emitir licença**. A chave já fica **copiada**.
-5. Mande a chave de volta pelo WhatsApp ou por e-mail. No computador novo, a pessoa cola na tela de
-   ativação e clica em **Ativar**. **Não precisa de arquivo .sclic.** Se preferir mandar arquivo,
-   use "Salvar arquivo .sclic…".
+4. Clique em **Emitir licença**. A **resposta pronta** (instruções + chave) já fica copiada.
+5. **Responda ao e-mail do pedido** e cole a resposta. No computador novo, a pessoa cola a chave na
+   tela de ativação e clica em **Ativar**. **Não precisa de arquivo .sclic.** Se preferir mandar
+   arquivo, use "Salvar arquivo .sclic…".
+
+O e-mail de suporte fica num lugar só do código (`modLicenca.EMAIL_SUPORTE`). Para trocar, é preciso
+uma versão nova do programa.
 
 **Credenciar o certificado de uma pessoa:** o caminho é o mesmo, com o pedido de certificado. A tela
 reconhece sozinha. Escolha **Usuário** ou **Revisor**, clique em **Credenciar certificado** e depois

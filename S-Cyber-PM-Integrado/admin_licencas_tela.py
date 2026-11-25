@@ -5,7 +5,7 @@ só na pasta do administrador e assina com o certificado administrativo dele, qu
 Windows. Abra com dois cliques em "Administrar licencas.bat".
 
 Fluxo:
-  1. A pessoa clica em "Copiar pedido" no S-Cyber dela e manda o texto (WhatsApp, e-mail...).
+  1. A pessoa clica em "Enviar pedido por e-mail" no S-Cyber dela: o pedido chega ao suporte.
   2. O administrador cola o pedido aqui. A tela reconhece se é de ATIVAÇÃO ou de CERTIFICADO.
   3. Ativação: escolhe modalidade, unidade/empresa e prazo e clica em Emitir. A chave já fica
      copiada; a pessoa cola na tela de ativação e clica em Ativar. Não precisa mandar arquivo.
@@ -111,7 +111,8 @@ class TelaAdministrador(tk.Tk):
         self.caixa_chave = tk.Text(self.quadro_resultado, height=4, wrap="char")
         barra = ttk.Frame(self.quadro_resultado)
         barra.pack(fill="x", side="bottom", pady=(6, 0))
-        self.botao_copiar = ttk.Button(barra, text="Copiar chave", command=self.copiar_chave)
+        self.botao_resposta = ttk.Button(barra, text="Copiar resposta pronta", command=self.copiar_resposta)
+        self.botao_copiar = ttk.Button(barra, text="Copiar só a chave", command=self.copiar_chave)
         self.botao_salvar = ttk.Button(barra, text="Salvar arquivo .sclic…", command=self.salvar)
         self.botao_github = ttk.Button(barra, text="Enviar ao GitHub", command=self.enviar_github)
 
@@ -244,14 +245,13 @@ class TelaAdministrador(tk.Tk):
 
         def pronto(res):
             self.lic, self.chave = res
-            self.clipboard_clear()
-            self.clipboard_append(self.chave)
             self._mostrar_resultado(
                 f"Licença {self.lic['licenca_id']} ({produto}) emitida para a instalação {self.lic['instalacao']}, "
-                f"válida até {self.lic['valida_ate']}.\n\nA CHAVE JÁ ESTÁ COPIADA. Mande por WhatsApp ou e-mail; "
-                "no outro computador, a pessoa cola na tela de ativação e clica em Ativar. Não precisa de "
-                "arquivo. (Enviar ao GitHub é opcional: só guarda o registro desta emissão.)", chave=True)
-            self.status.set("Licença emitida e chave copiada.")
+                f"válida até {self.lic['valida_ate']}.\n\nA RESPOSTA PRONTA JÁ ESTÁ COPIADA (instruções + chave): "
+                "responda ao e-mail do pedido colando-a. A pessoa cola a chave na tela de ativação e clica em "
+                "Ativar; não precisa de arquivo. (Enviar ao GitHub é opcional: só guarda o registro.)", chave=True)
+            self.copiar_resposta()
+            self.status.set("Licença emitida e resposta pronta copiada.")
         self._rodar(lambda: self.adm.emitir(pedido, unidade, titular, dias, modalidade, organizacao), pronto,
                     "Assinando a licença com o seu certificado…")
 
@@ -289,15 +289,22 @@ class TelaAdministrador(tk.Tk):
     def _mostrar_resultado(self, texto, chave):
         self.quadro_resultado.pack(fill="x", before=self.quadro_listas, pady=(8, 0))
         self.texto_resultado.configure(text=texto)
-        for w in (self.caixa_chave, self.botao_copiar, self.botao_salvar, self.botao_github):
+        for w in (self.caixa_chave, self.botao_resposta, self.botao_copiar, self.botao_salvar, self.botao_github):
             w.pack_forget()
         if chave:
             self.caixa_chave.delete("1.0", "end")
             self.caixa_chave.insert("1.0", self.chave)
             self.caixa_chave.pack(fill="x", pady=(6, 0))
-            self.botao_copiar.pack(side="left")
+            self.botao_resposta.pack(side="left")
+            self.botao_copiar.pack(side="left", padx=6)
             self.botao_salvar.pack(side="left", padx=6)
         self.botao_github.pack(side="right")
+
+    def copiar_resposta(self):
+        if self.chave:
+            self.clipboard_clear()
+            self.clipboard_append(AL.resposta_licenca(self.lic, self.chave))
+            self.status.set("Resposta pronta copiada: cole no e-mail de resposta.")
 
     def copiar_chave(self):
         if self.chave:

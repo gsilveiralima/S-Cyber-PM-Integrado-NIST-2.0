@@ -43,6 +43,8 @@ ADMINISTRADORES_FIXOS = {
     "7CB36ED157A30DCEA274B44450B78C16370F15EE": "SGT Gabriel Silveira Lima",
 }
 REPOSITORIO = "gsilveiralima/S-Cyber-PM-Integrado-NIST-2.0"
+# Para onde vão os pedidos de ativação e de credenciamento (botão "Enviar pedido por e-mail").
+EMAIL_SUPORTE = "scybersuporte@gmail.com"
 URL_PUBLICACAO = f"https://raw.githubusercontent.com/{REPOSITORIO}/main/S-Cyber-PM-Integrado/licencas/"
 LISTAS = ("administradores", "revogacoes", "credenciamentos")
 VALIDADE_LISTA_DIAS = 30          # prazo máximo até uma revogação valer sem internet
@@ -189,6 +191,27 @@ def pedido_credenciamento(thumb, titular, inst):
     dados = {"thumbprint": thumb, "titular": titular, "instalacao": inst["id"],
              "computador": socket.gethostname(), "conta": os.environ.get("USERNAME") or ""}
     return "SCPM-PEDIDO-CERTIFICADO." + base64.urlsafe_b64encode(json.dumps(dados).encode()).decode().rstrip("=")
+
+
+def email_pedido(pedido, para=EMAIL_SUPORTE):
+    """(assunto, corpo, link mailto:) do e-mail que leva um pedido ao suporte. O pedido não é
+    segredo: identifica a instalação (ou o certificado) e o computador, nada mais."""
+    import urllib.parse
+    dados = ler_pedido(pedido)
+    ativacao = pedido.strip().startswith("SCPM-PEDIDO-ATIVACAO.")
+    if ativacao:
+        assunto = f"S-Cyber: pedido de ativação ({dados.get('instalacao', '?')})"
+        o_que = "a ATIVAÇÃO desta instalação do S-Cyber"
+    else:
+        assunto = f"S-Cyber: credenciamento de certificado ({dados.get('titular') or dados.get('thumbprint', '?')[:8]})"
+        o_que = "o CREDENCIAMENTO do meu certificado no S-Cyber"
+    corpo = (f"Olá, equipe de suporte do S-Cyber.\n\nSolicito {o_que}.\n\n"
+             "Nome:\nUnidade ou empresa:\nTelefone:\n\n"
+             f"Pedido (gerado pelo programa, não altere):\n{pedido.strip()}\n\n"
+             f"Computador: {dados.get('computador') or '?'} | Conta: {dados.get('conta') or '?'}\n")
+    link = (f"mailto:{para}?subject={urllib.parse.quote(assunto)}"
+            f"&body={urllib.parse.quote(corpo.replace(chr(10), chr(13) + chr(10)))}")
+    return assunto, corpo, link
 
 
 def ler_pedido(texto):
