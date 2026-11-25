@@ -112,7 +112,48 @@ class RepetidoESiteTests(Base):
                                                "/upload/main/S-Cyber-PM-Integrado/licencas")
 
 
+class AdministradoresTests(Base):
+    def test_texto_de_exemplo_nao_vira_administrador(self):
+        """Visto em 25/11: o exemplo NOVA_IMPRESSAO foi executado e entrou na lista."""
+        adm = self.admin()
+        adm.iniciar()
+        for ruim in ("NOVA_IMPRESSAO", "THUMB", "AB" * 19, "G" * 40, "<IMPRESSAO DIGITAL DE 40 CARACTERES>"):
+            with self.assertRaises(L.ErroLicenca, msg=ruim):
+                adm.administradores(adicionar=ruim, nome="x")
+        boa = " ".join(["ab12"] * 10)                                   # com espaços, minúsculas
+        adm.administradores(adicionar=boa, nome="Novo")
+        self.assertIn("AB12" * 10, L.Publicacao(pasta_cache=self.dir / "c", pasta_pacote=self.pub_dir,
+                                                online=False).administradores())
+
+    def test_remover_entrada_invalida_ja_publicada(self):
+        adm = self.admin()
+        adm.iniciar()
+        doc = adm._lista("administradores")
+        doc["administradores"]["NOVA_IMPRESSAO"] = "lixo"
+        adm._publicar("administradores", doc)
+        adm.administradores(remover="NOVA_IMPRESSAO")
+        admins = L.Publicacao(pasta_cache=self.dir / "c2", pasta_pacote=self.pub_dir, online=False).administradores()
+        self.assertNotIn("NOVA_IMPRESSAO", admins)
+
+
 class GithubTests(unittest.TestCase):
+    def test_sincronizar_antes_de_operar(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(AL.sincronizar(Path(tmp) / "licencas"), (True, ""))          # ZIP: nada a fazer
+            (Path(tmp) / ".git").mkdir()
+            feitos = []
+
+            def executar(cmd, **kw):
+                feitos.append(cmd[3:])
+                return subprocess.CompletedProcess([], 0, "Fast-forward", "")
+            ok, texto = AL.sincronizar(Path(tmp) / "licencas", executar)
+            self.assertTrue(ok)
+            self.assertEqual(feitos, [["pull", "--ff-only", "--autostash"]])
+            ok, texto = AL.sincronizar(Path(tmp) / "licencas",
+                                       lambda c, **k: subprocess.CompletedProcess([], 1, "", "fatal: diverging"))
+            self.assertFalse(ok)
+            self.assertIn("git pull", texto)
+
     def test_pasta_de_zip_nao_tenta_enviar(self):
         with tempfile.TemporaryDirectory() as tmp:
             chamadas = []
@@ -165,12 +206,30 @@ class GithubTests(unittest.TestCase):
             (raiz / ".git").mkdir()
             pasta = raiz / "licencas"
             pasta.mkdir()
+            # Visto pelo autor: outra pasta de administração enviou antes. Junta e reenvia sozinho.
             respostas = iter([self.resultado(0, " M licencas/x"), self.resultado(),
                               self.resultado(1, "no changes added to commit"),
-                              self.resultado(1, "! [rejected] main -> main (fetch first)")])
-            ok, texto = AL.publicar_no_github(pasta, executar=lambda cmd, **kw: next(respostas))
+                              self.resultado(1, "! [rejected] main -> main (fetch first)"),
+                              self.resultado(0, "Successfully rebased"), self.resultado(0, "main -> main")])
+            feitos = []
+
+            def executar(cmd, **kw):
+                feitos.append(" ".join(cmd[3:5]))
+                return next(respostas)
+            ok, texto = AL.publicar_no_github(pasta, executar=executar)
+            self.assertTrue(ok, texto)
+            self.assertIn("juntei", texto)
+            self.assertEqual(feitos[-2:], ["pull --rebase", "push"])
+            # A MESMA lista mudou dos dois lados: desfaz e explica como refazer.
+            respostas = iter([self.resultado(0, " M licencas/x"), self.resultado(), self.resultado(),
+                              self.resultado(1, "! [rejected] main -> main (fetch first)"),
+                              self.resultado(1, "CONFLICT (content): Merge conflict in credenciamentos.scsig"),
+                              self.resultado()])
+            feitos.clear()
+            ok, texto = AL.publicar_no_github(pasta, executar=executar)
             self.assertFalse(ok)
-            self.assertIn("git pull", texto)
+            self.assertIn("reset --hard origin/main", texto)
+            self.assertEqual(feitos[-1], "rebase --abort")
 
             def sem_git(cmd, **kw):
                 raise FileNotFoundError

@@ -1,2 +1,5 @@
 *.ps1 text eol=crlf
 *.bat text eol=crlf
+# O registro das operações só cresce (uma linha assinada por operação): duas pastas de
+# administração que acrescentaram linhas se juntam sem conflito.
+S-Cyber-PM-Integrado/licencas/registro.jsonl merge=union

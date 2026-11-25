@@ -55,6 +55,15 @@ em **Enviar ao GitHub**: o credenciamento só vale nos outros computadores depoi
 Clicar de novo em **Credenciar** num certificado que já está credenciado com o mesmo papel não assina
 outra vez: a tela avisa que falta só enviar ao GitHub.
 
+### Duas pastas de administração (dois computadores ou dois administradores)
+- Ao abrir, a tela **traz as listas mais novas do GitHub** (`git pull`) antes de qualquer operação,
+  para não assinar em cima de uma lista velha.
+- Se outra pasta enviou algo enquanto esta estava aberta, o **Enviar ao GitHub** junta as duas e envia
+  sozinho. O `registro.jsonl` se junta sem conflito (`merge=union` no `.gitattributes`).
+- Se as duas mudaram **a mesma lista assinada**, não dá para misturar. A tela desfaz a junção e mostra
+  o que fazer: `git fetch`, `git reset --hard origin/main` e **refazer** a última operação. Uma licença
+  já enviada continua valendo.
+
 ### Rotina sem instabilidade
 - **Uma pasta só para administrar:** o clone `S-Cyber-Admin`. Não use pastas de ZIP para administrar
   e não extraia um ZIP novo por cima de uma pasta antiga: os arquivos se misturam.
@@ -203,9 +212,12 @@ qualquer linha alterada.
 Se um de vocês perder o certificado (computador formatado, por exemplo), o outro autoriza o
 certificado novo e retira o perdido:
 ```powershell
-.\.venv\Scripts\python.exe admin_licencas.py administradores --adicionar NOVO_THUMBPRINT --nome "SGT Gabriel (novo)" --remover THUMBPRINT_PERDIDO
+.\.venv\Scripts\python.exe admin_licencas.py administradores --adicionar <impressão digital nova> --nome "SGT Gabriel (novo)" --remover <impressão digital perdida>
 ```
-Um administrador não pode remover o próprio certificado. Se os dois certificados forem perdidos, só
+Troque os textos entre `< >` pelas impressões digitais **reais** (40 caracteres de 0 a 9 e A a F; em
+`certmgr.msc` → certificado → Detalhes → Impressão digital). A ferramenta recusa qualquer outro texto,
+para que um exemplo copiado por engano não vire administrador. Um administrador não pode remover o
+próprio certificado. Se os dois certificados forem perdidos, só
 uma versão nova do aplicativo, com as impressões digitais novas em `ADMINISTRADORES_FIXOS`
 (`modLicenca.py`), restabelece a emissão.
 
