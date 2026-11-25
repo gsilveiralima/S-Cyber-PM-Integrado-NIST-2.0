@@ -46,6 +46,7 @@ REPOSITORIO = "gsilveiralima/S-Cyber-PM-Integrado-NIST-2.0"
 URL_PUBLICACAO = f"https://raw.githubusercontent.com/{REPOSITORIO}/main/S-Cyber-PM-Integrado/licencas/"
 LISTAS = ("administradores", "revogacoes", "credenciamentos")
 VALIDADE_LISTA_DIAS = 30          # prazo máximo até uma revogação valer sem internet
+AVISO_LISTA_DIAS = 10             # a partir daqui, avisar que as listas precisam ser republicadas
 FORMATO = "scyber-assinado"
 PREFIXO_CHAVE = "SCPM1."
 PAPEIS = ("usuario", "revisor")
@@ -66,6 +67,31 @@ def nome_produto(licenca):
 
 def recurso_liberado(licenca, recurso):
     return not (recurso in EXCLUSIVO_PM and modalidade(licenca) != "pm")
+
+
+def organizacao(licenca):
+    """Organização cujos dados ficam isolados (modalidade Business), ou None (S-Cyber PM: pasta
+    padrão, como sempre foi). Vem da licença ASSINADA: o usuário não escolhe nem troca."""
+    if modalidade(licenca) != "business":
+        return None
+    nome = str((licenca or {}).get("organizacao") or (licenca or {}).get("unidade") or "").strip()
+    return nome or "empresa"
+
+
+def organizacao_da_instalacao(pasta=None, publicacao=None):
+    """Organização da licença gravada NESTA instalação, mesmo vencida ou revogada: a recuperação
+    de dados sem licença precisa achar a pasta certa. Confere a assinatura e a instalação, mas
+    não a validade. Sem licença legível: None (pasta padrão)."""
+    try:
+        inst = instalacao(pasta)
+        publicacao = publicacao or Publicacao(pasta_cache=Path(pasta or pasta_instalacao()) / "licencas",
+                                              online=False)
+        lic, _ = abrir(de_chave(arquivo_licenca(pasta).read_text(encoding="utf-8")), publicacao.administradores())
+    except (OSError, ErroLicenca, ValueError, KeyError):
+        return None
+    if lic.get("tipo") != "licenca" or lic.get("instalacao") != inst["id"]:
+        return None
+    return organizacao(lic)
 
 
 class ErroLicenca(Exception):
@@ -281,6 +307,39 @@ class Publicacao:
                                                "Conecte à internet para baixar a atual; se continuar, avise o "
                                                "administrador (a lista precisa ser republicada).")
         return doc
+
+
+def situacao_listas(publicacao, hoje=None):
+    """[(nome, válida_até ou '', dias restantes ou None)] das listas conferidas. Dias negativos =
+    vencida. Serve para avisar ANTES de vencer: com a lista de revogações vencida, nenhuma
+    instalação consegue conferir a licença até o administrador republicar."""
+    hoje = hoje or _hoje()
+    out = []
+    for nome in LISTAS:
+        try:
+            doc = publicacao.documento(nome)
+        except ErroLicenca:
+            doc = None
+        ate = (doc or {}).get("valida_ate", "")
+        try:
+            dias = (date.fromisoformat(ate) - hoje).days if ate else None
+        except ValueError:
+            dias = None
+        out.append((nome, ate, dias))
+    return out
+
+
+def aviso_listas(publicacao, hoje=None, limite=AVISO_LISTA_DIAS):
+    """Texto de aviso quando alguma lista vence em até `limite` dias (ou já venceu), ou ''."""
+    perto = [(n, a, d) for n, a, d in situacao_listas(publicacao, hoje) if d is not None and d <= limite]
+    if not perto:
+        return ""
+    dias = min(d for _, _, d in perto)
+    quando = (f"venceu há {-dias} dia(s)" if dias < 0 else "vence HOJE" if dias == 0 else
+              f"vence em {dias} dia(s)")
+    return (f"A lista de licenças {quando} ({', '.join(f'{n} até {a}' for n, a, _ in perto)}). Avise o "
+            "administrador para republicar (admin_licencas.py publicar); depois do vencimento, as instalações "
+            "deixam de conferir a licença.")
 
 
 # ------------------------------------------------------------------ licença

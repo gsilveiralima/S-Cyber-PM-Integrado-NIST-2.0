@@ -614,8 +614,12 @@ class SplashScreen(tk.Toplevel):
     def _validar_em_segundo_plano(self):
         """1) ativação da instalação; 2) certificado do policial; 3) dados cifrados."""
         try:
+            import modCaminhos
             import modLicenca
             publicacao = modLicenca.Publicacao()
+            # Business: os dados da empresa ficam numa pasta só dela. Definido ANTES de abrir qualquer
+            # dado e mesmo com a licença vencida, para a recuperação achar a pasta certa.
+            modCaminhos.definir_organizacao(modLicenca.organizacao_da_instalacao(publicacao=publicacao))
             ativa, licenca, erro = modLicenca.estado(publicacao=publicacao)
             if not ativa:
                 resultado = ResultadoValidacao(False, str(erro))

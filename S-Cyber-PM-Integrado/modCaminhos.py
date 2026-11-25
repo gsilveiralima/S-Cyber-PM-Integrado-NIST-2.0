@@ -28,23 +28,33 @@ Fora do Windows (desenvolvimento e testes), sem APPDATA/LOCALAPPDATA, usa
 Organização: com definir_organizacao("nome"), os DADOS passam a ficar em
 %APPDATA%\\SCyberPM\\perfis\\<nome>, isolados das outras organizações. A
 licença e a identidade da instalação continuam na pasta da instalação, porque
-pertencem ao computador. Ainda ninguém chama definir_organizacao: a Fase 7 vai
-ligá-la à modalidade definida na licença. Sem ela, nada muda.
+pertencem ao computador. Quem define a organização é a licença ASSINADA da
+modalidade Business (modLicenca.organizacao_da_instalacao, chamada na abertura e
+no diagnóstico). Na modalidade PM não há organização: a pasta é a padrão, como
+sempre foi.
 """
 from __future__ import annotations
 
 import os
 import re
+import unicodedata
 from pathlib import Path
 
 NOME = "SCyberPM"
 _organizacao = None
 
 
+_RESERVADOS = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}
+
+
 def definir_organizacao(nome):
-    """Isola os dados por organização (None volta ao padrão). Devolve o nome aceito."""
+    """Isola os dados por organização (None volta ao padrão). Devolve o nome aceito, seguro como
+    nome de pasta no Windows: sem acentos, sem barras e sem nomes reservados (CON, NUL...)."""
     global _organizacao
-    limpo = re.sub(r"[^A-Za-z0-9_.-]+", "_", (nome or "").strip()).strip("._")[:40]
+    texto = unicodedata.normalize("NFKD", (nome or "").strip()).encode("ascii", "ignore").decode("ascii")
+    limpo = re.sub(r"[^A-Za-z0-9_.-]+", "_", texto).strip("._")[:40]
+    if limpo and limpo.split(".")[0].upper() in _RESERVADOS:
+        limpo = f"_{limpo}"
     _organizacao = limpo or None
     return _organizacao
 

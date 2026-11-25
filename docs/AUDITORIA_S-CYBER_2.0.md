@@ -484,10 +484,37 @@ O regulamento foi lido pelo navegador do usuário, já que a leitura automática
   - nenhum banco `.db` e nenhum token no conteúdo enviado.
 - **Limitação:** o instalador não tem assinatura de código, então o Windows SmartScreen mostra "Editor desconhecido". A integridade é conferida pelo hash SHA-256 publicado.
 
-## 17. Próximo passo proposto
-1. Testar no Windows a demonstração de nuvem (Diagnóstico → "Verificar nuvem (Azure)…" → Não) e, quando houver, a assinatura real.
-2. Fase 5, parte 2 (só trabalho local):
-   - OSV.dev (dependências) e Google DNS no `fontes.py`;
-   - cache e limite de consultas;
-   - retentativa para falhas passageiras (5xx e rede);
-   - monitoramento durante o uso.
+## 17. Fases 5 (parte 2) e 7 (parte 2): inteligência e clientes reais (executadas localmente em 25/11/2026)
+
+Feitas sem mexer na interface, porque o pitch do INOVA ainda vai ser gravado.
+
+| Item | O que mudou | Prova automatizada | Situação |
+|---|---|---|---|
+| Retentativa nas fontes | `fontes.http_get` e o novo `http_post_json` repetem só as falhas passageiras (5xx e rede), com espera de 1 s e 2 s. Acesso recusado e limite de consultas não são repetidos. A conexão do `HTTPError` é fechada, o que elimina o `ResourceWarning` visto em 24/11 | `test_achados.FontesTests` (contagem de tentativas e esperas; recuperação depois de um 502), suíte rodada com `-W error::ResourceWarning` | Implementado e testado |
+| E-mail do domínio | Novo `nist_intelligence/dominio.py`. Lê o DNS público (Google Public DNS, DNS sobre HTTPS) pelo `fontes.http_get` e avalia SPF, DMARC e DNSSEC. O resultado entra no **mesmo fluxo** do diagnóstico (`registrar(..., dominio=True)`): ativo "Domínio/Serviço web", evidência, achados, prioridade (SPF e DMARC contam como expostos), NIST (PR.AA-03, PR.PS-01, DE.CM-01, PR.DS-02), recomendação, nova verificação e auditoria. Falha de rede e domínio inexistente aparecem como Indisponível, nunca aprovados | `test_fase5b.py`: 9 testes, incluindo a melhoria comprovada "3 melhorou" e a consulta real no CI | Implementado e testado. **Na tela só depois do pitch**; por enquanto roda por `python -m nist_intelligence.dominio empresa.com.br` |
+| OSV.dev | `fontes.osv_pacotes` (consulta em lote; só nome, ecossistema e versão saem do computador) e `nist_intelligence/dependencias.py`. O CI confere o `requirements-lock.txt` a cada execução e mostra o resultado no resumo, de forma **informativa** por enquanto | `test_fase5b.OsvTests` + consulta real no CI | Implementado e testado |
+| Vencimento das listas de licença | `modLicenca.situacao_listas` e `aviso_listas`. O diagnóstico do aplicativo mostra a validade e avisa a partir de 10 dias; `admin_licencas verificar` mostra `AVISO`; o novo workflow diário *Validade das listas de licença* falha a partir de 10 dias, e o GitHub avisa por e-mail. O texto "Publique" agora diz se é obrigatório (listas) ou opcional (registro) e avisa quando a pasta veio de um ZIP, a confusão vista em 25/11 | `test_ativacao.VencimentoDasListasTests` | Implementado e testado |
+| Dados separados por empresa | A licença Business leva `organizacao` (`emitir --organizacao`; renovar e transferir mantêm). Na abertura, **antes de abrir qualquer dado**, o aplicativo define a pasta da empresa (`%APPDATA%\SCyberPM\perfis\<empresa>`), mesmo com a licença vencida, para a recuperação achar a pasta certa. O banco NIST (`core.DB`) passou a ser resolvido a cada uso. A licença PM não tem organização: a pasta continua a de sempre. Nomes de pasta seguros no Windows (sem acentos e sem CON, NUL…) | `test_ativacao.OrganizacaoTests`: 5 testes, incluindo licença adulterada ou de outro computador, que não escolhe pasta | Implementado e testado; **não homologado no Windows** |
+
+**Testes:** 180 executados, todos OK, 10 pulados (Windows, tkinter ou consulta real). O lint do CI ficou limpo, e a tela simulada repete as Fases 4 e 5.
+
+**Pendências registradas:**
+- Na modalidade Business, os certificados fixos da PMGO ainda são aceitos na abertura. Restringir a autenticação muda o login e fica para a Fase 7, junto com a autoridade certificadora privada que vai emitir os certificados das empresas.
+- Os módulos de treinamento (rádio, ponta a ponta, memória, disco e processador) continuam visíveis na Business. Ficam para a Fase 6 (área "Treinamento").
+- A verificação do domínio ganha botão na aba Diagnóstico na Fase 6.
+
+## 18. Próximo passo proposto
+1. **Validar no Windows** (script de sempre, `validar_no_windows.ps1`):
+   - testes, instalador e abertura da versão nova;
+   - uma licença Business com `--organizacao`: os dados vão para `perfis\<empresa>`, e a instalação PM continua com os dados de sempre;
+   - `python -m nist_intelligence.dominio <domínio da empresa>`.
+2. **Fechar o produto mínimo (§27), testes do usuário:**
+   - registrar a correção pela tela;
+   - demonstrar "1 melhorou";
+   - fazer backup e restauração pela tela;
+   - instalar numa máquina limpa.
+3. **Depois do pitch:**
+   - Fase 6 (5 áreas, assistente de primeiro acesso, indicadores históricos, botão do domínio);
+   - Fase 7 (autoridade certificadora privada, autenticação da Business, duas assinaturas para remover administrador, pontos de verificação assinados);
+   - Fase 8 (assinatura de código e atualização segura);
+   - Fase 9 (homologação final).
