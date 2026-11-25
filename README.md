@@ -21,7 +21,7 @@ O núcleo é um só, com duas modalidades definidas pela licença assinada:
 2. Confira a integridade no PowerShell com `Get-FileHash .\SCyberPM-Setup-2.0.0.exe -Algorithm SHA256`. O resultado precisa ser igual ao do `SHA256SUMS.txt`.
 3. Dê dois cliques no instalador. Ele **não pede administrador**: o programa vai para `%LOCALAPPDATA%\Programs\S-Cyber PM` e cria os atalhos no menu Iniciar.
    - O instalador ainda não é assinado. Se o Windows mostrar "O Windows protegeu o computador", clique em **Mais informações** e depois em **Executar assim mesmo**.
-4. **Ative a instalação.** Na primeira abertura, clique em **Copiar pedido de ativação** e envie o texto a um administrador. Depois cole ou abra o arquivo `.sclic` recebido e clique em **Ativar**.
+4. **Ative a instalação.** Na primeira abertura, clique em **Enviar pedido por e-mail**: o pedido vai pronto para o suporte (`scybersuporte@gmail.com`). Quando a resposta chegar, cole a chave de ativação e clique em **Ativar**.
 5. **Certificado e senhas.** Escolha o seu certificado credenciado. Num perfil novo, crie as senhas: não existe senha de fábrica.
 6. **Primeiro diagnóstico.** Vá em **NIST Intelligence → Diagnóstico inteligente**. Se abrir o programa como administrador, ele verifica mais itens, como BitLocker, SMBv1 e Secure Boot.
 
@@ -31,7 +31,7 @@ O guia completo, com telas e solução de problemas, está em **[docs/GUIA_WINDO
 
 Os administradores emitem, renovam, transferem e revogam licenças com o próprio certificado administrativo. A chave privada desse certificado nunca sai do Windows de quem o tem.
 
-- **Tela do administrador (sem PowerShell):** dois cliques em `S-Cyber-PM-Integrado/Administrar licencas.bat`. Cole o pedido que a pessoa mandou e clique em **Emitir licença**: a chave já fica copiada para mandar de volta pelo WhatsApp ou por e-mail. A pessoa cola a chave na tela de ativação, sem precisar de arquivo. A mesma tela credencia certificados e renova as listas.
+- **Tela do administrador (sem PowerShell):** dois cliques em `S-Cyber-PM-Integrado/Administrar licencas.bat`. Cole o pedido que chegou por e-mail e clique em **Emitir licença**: a resposta pronta (instruções + chave) já fica copiada para responder ao e-mail. A pessoa cola a chave na tela de ativação, sem precisar de arquivo. A mesma tela credencia certificados e renova as listas.
 - **Linha de comando** (renovar, transferir, revogar):
   ```powershell
   .\.venv\Scripts\python.exe admin_licencas.py emitir --pedido "SCPM-PEDIDO-ATIVACAO...." --unidade "Empresa X" --modalidade business --organizacao "Empresa X Ltda" --dias 365 --saida licenca.sclic

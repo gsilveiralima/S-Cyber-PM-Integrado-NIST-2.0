@@ -19,9 +19,11 @@ Você não precisa instalar Python, editar código nem cadastrar impressões dig
 ## 2. Ativar a instalação (primeira abertura)
 1. Abra o programa pelo atalho **S-Cyber PM**. Aparece a tela **Ativação do S-Cyber PM**, com o número
    da instalação (`INST-…`).
-2. Clique em **Copiar pedido de ativação** e envie o texto copiado ao administrador.
-3. O administrador responde com uma **chave de ativação** (um texto que começa com `SCPM1.`) ou com um
-   arquivo `.sclic`. Cole a chave, ou use **Abrir arquivo .sclic…**.
+2. Clique em **Enviar pedido por e-mail**. O e-mail para o suporte (`scybersuporte@gmail.com`) abre
+   pronto. Complete nome, unidade ou empresa e telefone, e envie. Se você usa o e-mail só no navegador
+   (Gmail, Outlook na web) e nada abriu, o e-mail inteiro já está copiado: escreva para o suporte e cole.
+3. O suporte responde com uma **chave de ativação** (um texto que começa com `SCPM1.`). Cole a chave
+   na tela ou, se recebeu um arquivo `.sclic`, use **Abrir arquivo .sclic…**.
 4. Clique em **Ativar**. A licença fica vinculada a esta instalação e a este computador.
 
 Para verificar se a licença foi revogada, o programa consulta a internet a cada abertura. Sem internet,

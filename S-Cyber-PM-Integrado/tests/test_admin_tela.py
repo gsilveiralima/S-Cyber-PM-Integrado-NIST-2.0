@@ -6,6 +6,7 @@ import sys
 import tempfile
 import time
 import unittest
+import urllib.parse
 from pathlib import Path
 from unittest import mock
 
@@ -44,6 +45,45 @@ class ResumoPedidoTests(Base):
 
     def test_nome_do_arquivo(self):
         self.assertEqual(AL.nome_arquivo({"instalacao": "INST-ABC"}), "licenca_INST-ABC.sclic")
+
+
+class EmailTests(Base):
+    """Pedido por e-mail com um clique (no lugar do WhatsApp) e resposta pronta do administrador."""
+
+    def test_email_do_pedido_de_ativacao(self):
+        pedido = self.pedido()
+        assunto, corpo, link = L.email_pedido(pedido)
+        inst = L.ler_pedido(pedido)["instalacao"]
+        self.assertIn(inst, assunto)
+        self.assertIn(pedido, corpo)
+        self.assertTrue(link.startswith("mailto:scybersuporte@gmail.com?subject="))
+        self.assertLess(len(link), 2000)              # limite prático do mailto: no Windows
+        q = urllib.parse.parse_qs(urllib.parse.urlsplit(link).query)
+        recebido = q["body"][0]
+        self.assertIn("\r\n", recebido)              # quebras de linha de e-mail
+        # O administrador cola o corpo inteiro ou só o pedido: ambos são reconhecidos.
+        linha = next(x for x in recebido.splitlines() if x.startswith("SCPM-PEDIDO-ATIVACAO."))
+        self.assertEqual(AL.resumo_pedido(linha)["dados"]["instalacao"], inst)
+
+    def test_email_do_pedido_de_certificado(self):
+        pedido = L.pedido_credenciamento("AB" * 20, "SD Fulano", L.instalacao(self.inst_dir))
+        assunto, corpo, _ = L.email_pedido(pedido)
+        self.assertIn("SD Fulano", assunto)
+        self.assertIn("CREDENCIAMENTO", corpo)
+
+    def test_resposta_pronta_ativa(self):
+        adm = self.admin()
+        adm.iniciar()
+        lic, chave = adm.emitir(self.pedido(), "Loja", modalidade="business")
+        resposta = AL.resposta_licenca(lic, chave)
+        self.assertIn("S-Cyber Business", resposta)
+        linha = next(x for x in resposta.splitlines() if x.startswith("SCPM1."))
+        self.assertEqual(L.ativar(linha, self.inst_dir, self.pub())["licenca_id"], lic["licenca_id"])
+
+    def test_endereco_num_lugar_so(self):
+        for arq in [*APP_DIR.glob("*.py"), *APP_DIR.glob("nist_intelligence/*.py")]:
+            if arq.name != "modLicenca.py":
+                self.assertNotIn("scybersuporte@", arq.read_text(encoding="utf-8"), arq.name)
 
 
 class GithubTests(unittest.TestCase):
@@ -139,7 +179,9 @@ class TelaRealTests(Base):
         with mock.patch.object(self.T.messagebox, "askyesno", return_value=True):
             self.tela.emitir()
         self.esperar(lambda: bool(self.tela.chave))
-        self.assertEqual(self.tela.clipboard_get(), self.tela.chave)   # a chave já fica copiada
+        copiado = self.tela.clipboard_get()                            # a resposta pronta já fica copiada
+        self.assertIn("Como ativar", copiado)
+        self.assertIn("\n" + self.tela.chave + "\n", copiado)
         lic = L.ativar(self.tela.chave, self.inst_dir, self.pub())
         self.assertEqual((lic["modalidade"], lic["organizacao"]), ("business", "Empresa Fictícia Ltda"))
 

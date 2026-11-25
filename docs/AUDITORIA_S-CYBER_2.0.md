@@ -524,7 +524,34 @@ Feitas sem mexer na interface, porque o pitch do INOVA ainda vai ser gravado.
 - **Testes:** `tests/test_admin_tela.py` (resumo do pedido, envio ao GitHub com Git simulado, exclusão do executável e atalho). A tela real é testada no Windows do CI: colar, emitir como Business, a chave copiada ativar a instalação, credenciar como revisor. Também foi exercitada no simulador de interface.
 - **Situação:** implementado e testado. A homologação pelo autor no Windows dele está pendente.
 
-## 19. Próximo passo proposto
+## 19. Pedido por e-mail com um clique (25/11/2026, escolha do autor)
+
+**Motivo:** mandar o pedido e a chave pelo WhatsApp não deixa registro formal, mistura com conversas pessoais e não escala para clientes.
+
+**O autor avaliou três caminhos** e escolheu o primeiro para agora:
+1. e-mail com um clique (escolhido);
+2. formulário online;
+3. portal de ativação automática, que fica para a versão comercial, depois do INOVA.
+
+**Como ficou o e-mail:**
+- **Endereço:** `scybersuporte@gmail.com`, num lugar só (`modLicenca.EMAIL_SUPORTE`). Um teste impede o endereço de se repetir no código.
+- **Na tela de ativação e na do certificado**, o botão **Enviar pedido por e-mail**:
+  - abre o e-mail pronto (`mailto:`), com assunto padrão, campos de nome, unidade ou empresa e telefone, e o pedido;
+  - **também copia o e-mail inteiro**, para quem usa e-mail só no navegador, onde o `mailto:` não abre nada.
+  - "Copiar pedido" continua disponível.
+- **Na tela do administrador:** depois de emitir, fica copiada uma **resposta pronta** (instruções + chave) para responder ao e-mail.
+- **Dados:** o pedido não é segredo. Identifica a instalação ou o certificado, o computador e a conta do Windows; nome e telefone, quem preenche é a pessoa.
+
+**Testes:** `test_admin_tela.EmailTests`:
+- assunto e corpo;
+- `mailto:` com menos de 2.000 caracteres;
+- o pedido recuperado do corpo é reconhecido;
+- a chave da resposta pronta ativa a instalação;
+- o endereço aparece num lugar só.
+
+A tela real no Windows do CI confere a resposta copiada.
+
+## 20. Próximo passo proposto
 1. **Validar no Windows** (script de sempre, `validar_no_windows.ps1`):
    - testes, instalador e abertura da versão nova;
    - uma licença Business com `--organizacao`: os dados vão para `perfis\<empresa>`, e a instalação PM continua com os dados de sempre;

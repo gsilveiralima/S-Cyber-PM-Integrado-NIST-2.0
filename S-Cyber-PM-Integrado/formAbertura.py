@@ -19,6 +19,27 @@ from modRecursos import pedir_senha
 FUNDO = "#f4f6f8"
 
 
+def _enviar_por_email(janela, pedido, depois=""):
+    """Abre o e-mail pronto para o suporte. Também copia o e-mail inteiro: quem usa e-mail só no
+    navegador (Gmail, Outlook na web) não tem programa de e-mail para o link abrir."""
+    assunto, corpo, link = modLicenca.email_pedido(pedido)
+    janela.clipboard_clear()
+    janela.clipboard_append(f"Para: {modLicenca.EMAIL_SUPORTE}\nAssunto: {assunto}\n\n{corpo}")
+    try:
+        if hasattr(os, "startfile"):
+            os.startfile(link)  # noqa: S606 — link mailto: montado aqui, sem dado externo
+        else:
+            import webbrowser
+            webbrowser.open(link)
+    except OSError:
+        pass                     # sem programa de e-mail: fica o texto copiado
+    messagebox.showinfo("Enviar pedido por e-mail", (
+        f"O e-mail para {modLicenca.EMAIL_SUPORTE} deve abrir pronto: complete nome, unidade ou empresa e "
+        "telefone, e envie.\n\nSe nada abriu (por exemplo, se você usa o Gmail ou o Outlook no navegador), o "
+        f"e-mail inteiro já está COPIADO: abra o seu e-mail, escreva para {modLicenca.EMAIL_SUPORTE} e cole."
+        + (f"\n\n{depois}" if depois else "")), parent=janela)
+
+
 def _copiar(janela, texto, aviso="Copiado para a área de transferência."):
     janela.clipboard_clear()
     janela.clipboard_append(texto)
@@ -75,15 +96,18 @@ class FormAbertura(tk.Toplevel):
         self.pedido = modLicenca.pedido_ativacao(inst, self.versao)
         ttk.Label(self.corpo, text=f"Instalação: {inst['id']}", font=("Segoe UI", 11, "bold")).pack(anchor="w")
         ttk.Label(self.corpo, wraplength=720, text=(
-            "1. Clique em 'Copiar pedido de ativação' e envie o texto ao administrador (SGT Gabriel ou MAJ Leonídio).\n"
-            "2. Cole abaixo a CHAVE DE ATIVAÇÃO recebida (começa com SCPM1.) ou abra o arquivo .sclic.\n"
+            f"1. Clique em 'Enviar pedido por e-mail': o pedido vai para o suporte ({modLicenca.EMAIL_SUPORTE}).\n"
+            "2. Quando a resposta chegar, cole abaixo a CHAVE DE ATIVAÇÃO (começa com SCPM1.) ou abra o arquivo "
+            ".sclic.\n"
             "3. Clique em 'Ativar'. A licença fica vinculada a esta instalação e a este computador.")).pack(anchor="w",
                                                                                                         pady=6)
         barra = ttk.Frame(self.corpo)
         barra.pack(anchor="w")
-        ttk.Button(barra, text="Copiar pedido de ativação",
-                   command=lambda: _copiar(self, self.pedido, "Pedido copiado. Envie ao administrador.")
-                   ).pack(side="left")
+        ttk.Button(barra, text="Enviar pedido por e-mail",
+                   command=lambda: _enviar_por_email(self, self.pedido)).pack(side="left")
+        ttk.Button(barra, text="Copiar pedido",
+                   command=lambda: _copiar(self, self.pedido, "Pedido copiado. Envie ao suporte.")
+                   ).pack(side="left", padx=6)
         ttk.Button(barra, text="Abrir arquivo .sclic…", command=self.abrir_licenca).pack(side="left", padx=6)
         self.chave = tk.Text(self.corpo, height=8, wrap="char")
         self.chave.pack(fill="both", expand=True, pady=6)
@@ -167,8 +191,10 @@ class FormAbertura(tk.Toplevel):
         barra = ttk.Frame(self.corpo)
         barra.pack(anchor="w")
         ttk.Button(barra, text="Criar meu certificado…", command=self.criar_certificado).pack(side="left")
-        ttk.Button(barra, text="Copiar pedido de credenciamento do selecionado",
+        ttk.Button(barra, text="Enviar pedido de credenciamento por e-mail",
                    command=self.copiar_pedido_cert).pack(side="left", padx=6)
+        ttk.Button(barra, text="Copiar pedido",
+                   command=lambda: self.copiar_pedido_cert(so_copiar=True)).pack(side="left")
 
         def trabalho():
             pub = modLicenca.Publicacao()
@@ -201,15 +227,18 @@ class FormAbertura(tk.Toplevel):
             self.copiar_pedido_cert(titular=nome)
         _em_segundo_plano(self, lambda: modDiagnostico.criar_certificado(nome), pronto)
 
-    def copiar_pedido_cert(self, titular=None):
+    def copiar_pedido_cert(self, titular=None, so_copiar=False):
         sel = self.lista.selection()
         if not sel:
             messagebox.showinfo("Certificado", "Selecione um certificado na lista.", parent=self)
             return
         titular = titular or self.lista.item(sel[0], "values")[2]
         pedido = modLicenca.pedido_credenciamento(sel[0], titular, modLicenca.instalacao())
-        _copiar(self, pedido, "Pedido de credenciamento copiado. Envie ao administrador; depois do aviso dele, "
-                              "clique em 'Verificar novamente'.")
+        depois = "Depois da resposta do suporte, clique em 'Verificar novamente'."
+        if so_copiar:
+            _copiar(self, pedido, f"Pedido de credenciamento copiado. Envie ao suporte. {depois}")
+        else:
+            _enviar_por_email(self, pedido, depois)
 
     # -------------------------------------------------- perfil
     def _montar_opcoes(self):
