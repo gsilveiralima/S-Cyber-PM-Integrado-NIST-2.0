@@ -551,6 +551,14 @@ Feitas sem mexer na interface, porque o pitch do INOVA ainda vai ser gravado.
 
 A tela real no Windows do CI confere a resposta copiada.
 
+**Conta de suporte:** criada pelo autor em 25/11/2026, com acesso confirmado. As orientações de proteção (verificação em duas etapas, recuperação, delegação em vez de senha compartilhada, filtro dos pedidos, alerta de golpe) e o teste de ponta a ponta estão em `docs/ADMINISTRACAO_LICENCAS.md`. O teste de ponta a ponta pelo autor está **pendente**.
+
+**Roadmap:** o README ganhou a seção "Roadmap (planejado, ainda não disponível)", que separa o que está pronto do que ainda vai ser feito:
+- ativação online automática, para a versão comercial da Business;
+- IA aberta e local, opcional;
+- dois instaladores, ainda em avaliação;
+- Fases 6 a 8.
+
 ## 20. Próximo passo proposto
 1. **Validar no Windows** (script de sempre, `validar_no_windows.ps1`):
    - testes, instalador e abertura da versão nova;
