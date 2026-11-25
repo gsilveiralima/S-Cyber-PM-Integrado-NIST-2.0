@@ -13,3 +13,4 @@ build_exe/
 dist/
 *.db
 .ruff_cache/
+admin_tela_erro.log

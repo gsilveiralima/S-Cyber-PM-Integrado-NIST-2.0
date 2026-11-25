@@ -15,7 +15,10 @@ from __future__ import annotations
 
 import os
 import tkinter as tk
+import traceback
 import webbrowser
+from datetime import datetime
+from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 import admin_licencas as AL
@@ -373,8 +376,33 @@ class TelaAdministrador(tk.Tk):
         em_segundo_plano(self, lambda: AL.publicar_no_github(self.pasta, "Licenças: atualização pela tela"), fim)
 
 
+ARQUIVO_ERRO = Path(__file__).resolve().parent / "admin_tela_erro.log"
+
+
+def _registrar_erro(titulo, detalhe, janela=None):
+    """Sem console (pythonw), um erro sumiria em silêncio: grava ao lado do programa e mostra."""
+    try:
+        with open(ARQUIVO_ERRO, "a", encoding="utf-8") as f:
+            f.write(f"\n=== {datetime.now():%d/%m/%Y %H:%M:%S} {titulo}\n{detalhe}\n")
+    except OSError:
+        pass
+    try:
+        messagebox.showerror(TITULO, f"{titulo}\n\n{detalhe[-1500:]}\n\nDetalhes em: {ARQUIVO_ERRO}",
+                             parent=janela)
+    except tk.TclError:
+        pass
+
+
 def main():
-    TelaAdministrador().mainloop()
+    try:
+        tela = TelaAdministrador()
+    except Exception:  # noqa: BLE001 — mostrar qualquer falha na abertura
+        _registrar_erro("A tela do administrador não conseguiu abrir.", traceback.format_exc())
+        raise SystemExit(1) from None
+    # Erros dentro dos botões também viram mensagem (o Tk só os escreveria no console, que não existe).
+    tela.report_callback_exception = lambda *exc: _registrar_erro(
+        "Erro ao executar a ação.", "".join(traceback.format_exception(*exc)), tela)
+    tela.mainloop()
 
 
 if __name__ == "__main__":

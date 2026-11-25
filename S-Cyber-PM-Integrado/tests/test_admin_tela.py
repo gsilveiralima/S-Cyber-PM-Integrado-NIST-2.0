@@ -198,6 +198,10 @@ class ForaDoInstaladorTests(unittest.TestCase):
         # Pasta nova (clone): cria o ambiente sozinho, com as versões travadas.
         self.assertIn(b"py -3 -m venv .venv", bat)
         self.assertIn(b"-r requirements-lock.txt", bat)
+        # Visto pelo autor: com pythonw, um erro na abertura sumia em silêncio. O atalho confere
+        # antes, com o python.exe (com console), e mostra o motivo.
+        self.assertIn(b'python.exe" -c "import admin_licencas_tela"', bat)
+        self.assertLess(bat.index(b"import admin_licencas_tela"), bat.index(b"pythonw.exe"))
 
 
 @unittest.skipUnless(TEM_TK and sys.platform == "win32", "tela real só no Windows (CI)")
@@ -234,6 +238,15 @@ class TelaRealTests(Base):
         self.assertIn("\n" + self.tela.chave + "\n", copiado)
         lic = L.ativar(self.tela.chave, self.inst_dir, self.pub())
         self.assertEqual((lic["modalidade"], lic["organizacao"]), ("business", "Empresa Fictícia Ltda"))
+
+    def test_erro_nao_some_em_silencio(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            arq = Path(tmp) / "erro.log"
+            with mock.patch.object(self.T, "ARQUIVO_ERRO", arq), \
+                    mock.patch.object(self.T.messagebox, "showerror") as mostrou:
+                self.T._registrar_erro("Falhou.", "Traceback: detalhe do erro")
+            mostrou.assert_called_once()
+            self.assertIn("detalhe do erro", arq.read_text(encoding="utf-8"))
 
     def test_credenciar_pela_tela(self):
         inst = L.instalacao(self.inst_dir)

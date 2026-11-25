@@ -13,6 +13,8 @@ O núcleo é um só, com duas modalidades definidas pela licença assinada:
 
 ## Instalação
 
+> **Versão estável x desenvolvimento:** instale sempre pela página **[Releases](https://github.com/gsilveiralima/S-Cyber-PM-Integrado-NIST-2.0/releases)**. A `main` é a versão em desenvolvimento e muda com frequência.
+
 ### Usuário final (sem Python e sem comandos)
 
 1. Abra a página **[Releases](https://github.com/gsilveiralima/S-Cyber-PM-Integrado-NIST-2.0/releases)** e baixe, da versão mais recente:

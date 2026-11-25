@@ -2,10 +2,10 @@
 rem Tela dos ADMINISTRADORES do S-Cyber (licencas e certificados), sem PowerShell.
 rem Fica so na pasta do administrador: nao vai no instalador.
 cd /d "%~dp0"
-set "PYW="
-if exist ".venv\Scripts\pythonw.exe" set "PYW=.venv\Scripts\pythonw.exe"
-if not defined PYW if exist ".venv-build\Scripts\pythonw.exe" set "PYW=.venv-build\Scripts\pythonw.exe"
-if not defined PYW (
+set "PYD="
+if exist ".venv\Scripts\python.exe" set "PYD=.venv"
+if not defined PYD if exist ".venv-build\Scripts\python.exe" set "PYD=.venv-build"
+if not defined PYD (
   echo Primeira vez nesta pasta: preparando o ambiente Python ^(uns 2 minutos^)...
   where py >nul 2>nul || (
     echo Nao encontrei o Python. Instale o Python 3 em https://www.python.org/downloads/ e abra este atalho de novo.
@@ -19,6 +19,17 @@ if not defined PYW (
     pause
     exit /b 1
   )
-  set "PYW=.venv\Scripts\pythonw.exe"
+  set "PYD=.venv"
 )
-start "" "%PYW%" admin_licencas_tela.py
+rem Confere antes se tudo carrega: um erro aqui fica na tela em vez de sumir em silencio.
+"%PYD%\Scripts\python.exe" -c "import admin_licencas_tela" > "%TEMP%\scyber_admin_verificacao.txt" 2>&1
+if errorlevel 1 (
+  echo A tela do administrador nao conseguiu carregar. Motivo:
+  echo.
+  type "%TEMP%\scyber_admin_verificacao.txt"
+  echo.
+  echo Se o motivo for uma biblioteca faltando, apague a pasta %PYD% e abra este atalho de novo.
+  pause
+  exit /b 1
+)
+start "" "%PYD%\Scripts\pythonw.exe" admin_licencas_tela.py
