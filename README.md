@@ -173,7 +173,7 @@ docs/                            instalação, validação, segurança e changel
   SGT Gabriel Silveira Lima.
 - **Equipe do Projeto Integrador / INOVA 2026** (Técnico em Defesa Cibernética, Senac Goiás):
   Leonídio Alves De Moraes Junior, Daniel Otavio De Lima Medrado, Juliano Porto De Souza,
-  Juliano Santos Borges e Gabriel Silveira Lima. Detalhes em [docs/INOVA_2026.md](docs/INOVA_2026.md).
+  Juliano Santos Borges e Gabriel Silveira Lima, com a docente Fabiana Fernandes Harami. Detalhes em [docs/INOVA_2026.md](docs/INOVA_2026.md).
 
 Todo o conteúdo deste repositório, inclusive os arquivos da aplicação original S-Cyber PM, é
 distribuído sob a **licença Apache 2.0** (arquivo `LICENSE`), com a concordância do MAJ Leonidio Alves

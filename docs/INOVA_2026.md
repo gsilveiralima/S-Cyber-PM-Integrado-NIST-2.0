@@ -16,9 +16,9 @@ Projeto Integrador do curso **Técnico em Defesa Cibernética** do Senac Goiás,
 | Aluno | Juliano Porto De Souza |
 | Aluno | Juliano Santos Borges |
 | Aluno | Gabriel Silveira Lima |
-| Docente responsável pela UC Projeto Integrador | a confirmar |
+| Docente responsável pela UC Projeto Integrador | Fabiana Fernandes Harami |
 
-A equipe tem **5 alunos**, o máximo permitido pelo regulamento.
+A equipe tem **5 alunos**, o máximo permitido pelo regulamento, e **1 docente**.
 
 ## Prazos
 
@@ -101,7 +101,7 @@ Situação em 25/11/2026.
 | Título do Projeto Integrador | Proposto | "S-Cyber Business: diagnóstico de segurança cibernética em um clique para pequenas e médias empresas". Confirmar com o docente |
 | Unidade educacional e curso | Falta a unidade | Curso: Técnico em Defesa Cibernética. Falta a unidade Senac e a turma |
 | Alunos participantes | Pronto | Tabela "Equipe" |
-| Docente responsável | **Falta** | Nome do docente da UC Projeto Integrador |
+| Docente responsável | Pronto | Fabiana Fernandes Harami |
 | Comprovação da matrícula | **Falta** | Declaração da secretaria de matrícula ativa no período |
 | Período de desenvolvimento | Falta confirmar | Datas da turma e do PI, dentro de 01/12/2025 a 30/11/2026 |
 | **2. Descrição da proposta** | | |
