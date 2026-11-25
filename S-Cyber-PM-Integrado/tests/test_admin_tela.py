@@ -97,6 +97,21 @@ class EmailTests(Base):
                 self.assertNotIn("scybersuporte@", arq.read_text(encoding="utf-8"), arq.name)
 
 
+class RepetidoESiteTests(Base):
+    def test_ja_credenciado_evita_assinar_de_novo(self):
+        adm = self.admin()
+        adm.iniciar()
+        pedido = L.pedido_credenciamento("EF" * 20, "SD Fulano", L.instalacao(self.inst_dir))
+        self.assertFalse(AL.ja_credenciado(adm, pedido, "usuario"))
+        adm.credenciar_pedido(pedido, "usuario")
+        self.assertTrue(AL.ja_credenciado(adm, "e-mail inteiro\n\n" + pedido + "\n\nComputador: x", "usuario"))
+        self.assertFalse(AL.ja_credenciado(adm, pedido, "revisor"))        # outro papel: assina de novo
+
+    def test_pagina_de_envio_do_site(self):
+        self.assertEqual(AL.pagina_de_envio(), "https://github.com/gsilveiralima/S-Cyber-PM-Integrado-NIST-2.0"
+                                               "/upload/main/S-Cyber-PM-Integrado/licencas")
+
+
 class GithubTests(unittest.TestCase):
     def test_pasta_de_zip_nao_tenta_enviar(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -157,8 +172,13 @@ class ForaDoInstaladorTests(unittest.TestCase):
     def test_atalho_sem_powershell(self):
         bat = (APP_DIR / "Administrar licencas.bat").read_bytes()
         self.assertIn(b"\r\n", bat)                             # cmd.exe precisa de CRLF
+        self.assertNotIn(b"\n", bat.replace(b"\r\n", b""))
+        bat.decode("ascii")                                     # sem acentos: o cmd.exe lê em outra codificação
         self.assertIn(b"admin_licencas_tela.py", bat)
         self.assertIn(b"pythonw.exe", bat)                      # sem janela de console
+        # Pasta nova (clone): cria o ambiente sozinho, com as versões travadas.
+        self.assertIn(b"py -3 -m venv .venv", bat)
+        self.assertIn(b"-r requirements-lock.txt", bat)
 
 
 @unittest.skipUnless(TEM_TK and sys.platform == "win32", "tela real só no Windows (CI)")
@@ -205,6 +225,13 @@ class TelaRealTests(Base):
             self.tela.credenciar()
         self.esperar(lambda: not self.tela._ocupado)
         self.assertEqual(L.credenciados(self.pub()).get("CD" * 20, {}).get("papel"), "revisor")
+        # De novo, com o mesmo papel: não assina outra vez; oferece o envio (pelo site, pasta sem Git).
+        antes = (self.pub_dir / "credenciamentos.scsig").read_bytes()
+        with mock.patch.object(self.T.messagebox, "askyesno", return_value=True), \
+                mock.patch.object(self.tela, "enviar_pelo_site") as site:
+            self.tela.credenciar()
+        site.assert_called_once()
+        self.assertEqual((self.pub_dir / "credenciamentos.scsig").read_bytes(), antes)
 
 
 if __name__ == "__main__":

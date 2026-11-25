@@ -13,7 +13,9 @@ Fluxo:
 """
 from __future__ import annotations
 
+import os
 import tkinter as tk
+import webbrowser
 from tkinter import filedialog, messagebox, ttk
 
 import admin_licencas as AL
@@ -259,6 +261,17 @@ class TelaAdministrador(tk.Tk):
         if not self._pode() or not self.pedido or self.pedido["tipo"] != "certificado":
             return
         dados, papel = self.pedido["dados"], self.papel.get()
+        try:
+            repetido = AL.ja_credenciado(self.adm, self.pedido["pedido"], papel)
+        except (ValueError, L.ErroLicenca):
+            repetido = False
+        if repetido:
+            # Já assinado nesta pasta: assinar de novo não muda nada. O que falta é publicar.
+            if messagebox.askyesno(TITULO, f"Este certificado já está credenciado como {papel} nesta pasta. "
+                                   "Falta só enviar ao GitHub para valer no outro computador.\n\nEnviar agora?",
+                                   parent=self):
+                self.enviar_github(confirmar=False)
+            return
         if not messagebox.askyesno(TITULO, f"Credenciar o certificado de {dados.get('titular') or '?'} como "
                                    f"{'REVISOR' if papel == 'revisor' else 'usuário'}?", parent=self):
             return
@@ -268,7 +281,7 @@ class TelaAdministrador(tk.Tk):
             self._mostrar_resultado(
                 f"Certificado {dados['thumbprint'][:8]}… credenciado como {papel}.\n\nPara valer no outro "
                 "computador, clique em 'Enviar ao GitHub' (a lista de credenciamentos precisa ser publicada). "
-                "Depois, a pessoa clica em 'Tentar de novo' na tela do certificado.", chave=False)
+                "Depois, a pessoa clica em 'Verificar novamente' na tela do certificado.", chave=False)
             self.status.set("Certificado credenciado. Falta enviar ao GitHub.")
         self._rodar(lambda: self.adm.credenciar_pedido(pedido, papel), pronto,
                     "Assinando a lista de credenciamentos…")
@@ -323,11 +336,31 @@ class TelaAdministrador(tk.Tk):
                 f.write(self.chave)
             self.status.set(f"Arquivo salvo: {arq}")
 
-    def enviar_github(self):
+    def enviar_pelo_site(self):
+        """Pasta de ZIP (sem Git): abre a pasta das listas e a página de envio do GitHub."""
+        if not messagebox.askyesno(TITULO, (
+                "Esta pasta veio de um ZIP (não é um clone do Git), então o envio automático não funciona aqui.\n\n"
+                "Dá para enviar pelo site do GitHub:\n"
+                "1. Vou abrir a pasta das listas e a página de envio no navegador (entre na sua conta do GitHub).\n"
+                "2. Arraste para a página os arquivos .scsig e o registro.jsonl.\n"
+                "3. Clique em 'Commit changes'.\n\n"
+                "Abrir agora?"), parent=self):
+            return
+        try:
+            os.startfile(self.pasta)  # noqa: S606 — a própria pasta das listas
+        except (AttributeError, OSError):
+            pass
+        webbrowser.open(AL.pagina_de_envio())
+        self.status.set("Envie os arquivos pela página do GitHub e clique em 'Commit changes'.")
+
+    def enviar_github(self, confirmar=True):
         if self._ocupado:
             return
-        if not messagebox.askyesno(TITULO, "Enviar as listas e o registro ao GitHub agora? (git push na pasta "
-                                   "das licenças)", parent=self):
+        if AL.raiz_git(self.pasta) is None:
+            self.enviar_pelo_site()
+            return
+        if confirmar and not messagebox.askyesno(TITULO, "Enviar as listas e o registro ao GitHub agora? (git push "
+                                                 "na pasta das licenças)", parent=self):
             return
         self._ocupado = True
         self.status.set("Enviando ao GitHub…")

@@ -292,6 +292,21 @@ def raiz_git(pasta=PASTA):
     return None
 
 
+def pagina_de_envio():
+    """Página do GitHub para enviar as listas pelo navegador, sem Git (pasta de ZIP)."""
+    return f"https://github.com/{L.REPOSITORIO}/upload/main/S-Cyber-PM-Integrado/licencas"
+
+
+def ja_credenciado(adm, pedido, papel):
+    """True se o certificado do pedido já está credenciado com esse papel nas listas desta pasta."""
+    dados = L.ler_pedido(extrair_pedido(pedido))
+    thumb = "".join(c for c in dados.get("thumbprint", "") if c.isalnum()).upper()
+    for c in (adm._lista("credenciamentos").get("certificados") or []):
+        if c.get("thumbprint") == thumb and c.get("papel") == papel:
+            return True
+    return False
+
+
 def publicar_no_github(pasta=PASTA, mensagem="Licenças: atualização", executar=None):
     """git add/commit/push só da pasta das listas. Devolve (ok, texto para mostrar)."""
     import subprocess
