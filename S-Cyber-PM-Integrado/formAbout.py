@@ -74,7 +74,7 @@ from modRecursos import botao_fechar_cabecalho
 # ==========================================================
 
 APP_NOME = "S-Cyber PM"
-APP_VERSAO = "2.0.0"            # S-Cyber 2.0 (pré-lançamento, não homologado)
+APP_VERSAO = "2.0.1"            # S-Cyber 2.0 (pré-lançamento): pedido por e-mail e tela do administrador
 APP_SUBTITULO = "Cryptography and Digital Certificate Framework"
 APP_DESCRICAO = (
     "Atividade para fins didáticos e de pesquisa, sem fins lucrativos. " \
