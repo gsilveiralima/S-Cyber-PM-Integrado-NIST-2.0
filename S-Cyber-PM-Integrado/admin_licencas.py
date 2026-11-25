@@ -316,9 +316,19 @@ def publicar_no_github(pasta=PASTA, mensagem="Licenças: atualização", executa
         return False, ("Esta pasta veio de um ZIP (não é um clone do Git), então não dá para enviar daqui. "
                        "Copie a pasta 'licencas' para um clone do repositório e envie de lá.")
     rel = str(Path(pasta).resolve().relative_to(raiz))
-    passos = (["git", "-C", str(raiz), "add", "--", rel],
-              ["git", "-C", str(raiz), "commit", "-m", mensagem, "--", rel],
-              ["git", "-C", str(raiz), "push"])
+    try:
+        situacao = executar(["git", "-C", str(raiz), "status", "--porcelain", "--", rel],
+                            capture_output=True, text=True, timeout=60)
+    except FileNotFoundError:
+        return False, "O Git não está instalado neste computador (https://git-scm.com)."
+    except subprocess.TimeoutExpired:
+        return False, "O Git demorou demais para responder. Tente de novo."
+    nada_novo = situacao.returncode == 0 and not (situacao.stdout or "").strip()
+    # Só a pasta das listas: outros arquivos alterados no clone não entram no envio.
+    passos = ((["git", "-C", str(raiz), "push"],) if nada_novo else
+              (["git", "-C", str(raiz), "add", "--", rel],
+               ["git", "-C", str(raiz), "commit", "-m", mensagem, "--", rel],
+               ["git", "-C", str(raiz), "push"]))
     saida = []
     for cmd in passos:
         try:
@@ -329,12 +339,14 @@ def publicar_no_github(pasta=PASTA, mensagem="Licenças: atualização", executa
             return False, "O Git demorou demais para responder. Confira a internet e tente de novo."
         saida.append(((r.stdout or "") + (r.stderr or "")).strip())
         if r.returncode != 0:
-            if cmd[3] == "commit" and "nothing" in saida[-1].lower():
+            if cmd[3] == "commit" and ("nothing" in saida[-1].lower() or "no changes" in saida[-1].lower()):
                 saida[-1] = "Nada novo para enviar."
                 continue
             dica = (" O GitHub tem alterações mais novas: rode 'git pull' na pasta do repositório e tente de novo."
                     if cmd[3] == "push" and ("rejected" in saida[-1] or "fetch first" in saida[-1]) else "")
             return False, f"Falhou em 'git {cmd[3]}'.{dica}\n" + "\n".join(x for x in saida if x)
+    if nada_novo:
+        return True, "Nada novo para enviar: as listas desta pasta já estão no GitHub."
     return True, "Enviado ao GitHub. Em alguns minutos vale em todos os computadores.\n" + \
         "\n".join(x for x in saida if x)
 
