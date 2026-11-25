@@ -171,7 +171,7 @@ docs/                            instalação, validação, segurança e changel
   [Leonidiojr/S-Cyber-prj](https://github.com/Leonidiojr/S-Cyber-prj).
 - **S-Cyber NIST Intelligence** (módulo NIST, `nist_intelligence/` e arquivos relacionados):
   SGT Gabriel Silveira Lima.
-- **Equipe do Projeto Integrador / INOVA 2026** (Técnico em Defesa Cibernética, Senac Goiás):
+- **Equipe do Projeto Integrador / INOVA 2026** (Técnico em Defesa Cibernética, Senac Cora Coralina, Goiânia – GO):
   Leonídio Alves De Moraes Junior, Daniel Otavio De Lima Medrado, Juliano Porto De Souza,
   Juliano Santos Borges e Gabriel Silveira Lima, com a docente Fabiana Fernandes Harami. Detalhes em [docs/INOVA_2026.md](docs/INOVA_2026.md).
 
