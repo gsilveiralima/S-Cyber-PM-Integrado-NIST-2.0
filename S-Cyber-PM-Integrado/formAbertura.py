@@ -206,6 +206,7 @@ class FormAbertura(tk.Toplevel):
                 self.acao.configure(text=f"Não foi possível listar os certificados: {erro}")
                 return
             certs, cred = res
+            self._certs = {c["thumb"]: c for c in certs}
             geral, itens = modDiagnostico.resumo_certificados(certs, self.autorizados, cred)
             for c, est in itens:
                 self.lista.insert("", "end", iid=c["thumb"], values=(c["thumb"], modDiagnostico.SITUACAO[est],
@@ -233,7 +234,20 @@ class FormAbertura(tk.Toplevel):
             messagebox.showinfo("Certificado", "Selecione um certificado na lista.", parent=self)
             return
         titular = titular or self.lista.item(sel[0], "values")[2]
-        pedido = modLicenca.pedido_credenciamento(sel[0], titular, modLicenca.instalacao())
+        cert = getattr(self, "_certs", {}).get(sel[0], {})
+        if not modDiagnostico.serve_ao_scyber(cert):
+            messagebox.showwarning("Certificado", (
+                "Este certificado NÃO serve ao S-Cyber: a chave não é RSA. Ele costuma ser do Windows ou da "
+                "organização.\n\nClique em 'Criar meu certificado' e peça o credenciamento do certificado novo."),
+                parent=self)
+            return
+        if modDiagnostico.parece_da_organizacao(titular) and not messagebox.askyesno("Certificado", (
+                f"O titular deste certificado é '{titular}', um código, não o nome de uma pessoa. Ele parece ser "
+                "do Windows ou da organização, e não o seu certificado do S-Cyber.\n\nO certo é clicar em "
+                "'Criar meu certificado'. Enviar o pedido deste mesmo assim?"), parent=self):
+            return
+        pedido = modLicenca.pedido_credenciamento(sel[0], titular, modLicenca.instalacao(),
+                                                  algoritmo=cert.get("algoritmo") or "RSA")
         depois = ("Depois da resposta do suporte, clique em 'Verificar novamente'. A liberação pode "
                   "levar até 5 minutos para chegar a este computador.")
         if so_copiar:

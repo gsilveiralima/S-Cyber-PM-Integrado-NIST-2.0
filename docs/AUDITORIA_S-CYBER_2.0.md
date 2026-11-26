@@ -630,7 +630,20 @@ Achados de uma revisão externa do código, conferidos um a um no código da 2.0
 
 A 2.0.4 também leva aos clientes as correções da seção 22 (validade e anti-retorno das listas, validade do certificado do administrador).
 
-## 24. Próximo passo proposto
+## 24. Versão 2.0.5: certificado da organização credenciado por engano (26/11/2026)
+
+**Relato do autor (teste real, 13:59, mesmo computador corporativo, já com a 2.0.4):** o PowerShell passou a funcionar e a lista de certificados apareceu. O único certificado da conta era `CN=4e18402a-61b9-…` (00507D3A…), um certificado do Windows ou da organização com chave **não RSA**. Ele foi enviado no pedido e credenciado às 13:52; o diagnóstico mostrava "autorizado, mas a chave não é RSA" e mandava "Use um certificado RSA", sem dizer como.
+
+| Problema | Correção | Prova |
+|---|---|---|
+| O cliente podia pedir credenciamento de um certificado que não serve | A tela recusa pedido de certificado não RSA e pergunta antes de enviar um cujo titular é um código (CN=&lt;GUID&gt;). O pedido passa a levar o algoritmo da chave | Revisão do código; CI do Windows |
+| O administrador não tinha como perceber | A Tela de Administração mostra ATENÇÃO para chave não RSA e para titular CN=&lt;GUID&gt;; a ferramenta recusa credenciar chave não RSA | `test_certificado_que_nao_serve.AdministradorTests` |
+| "Autorizado, mas não RSA" e "Use um certificado RSA" | Certificado não RSA é classificado antes da autorização como "NÃO SERVE ao S-Cyber"; a próxima ação manda clicar em "Criar meu certificado" | `test_certificado_que_nao_serve.ClassificacaoTests` |
+| "Cópias recusadas" aparecia mesmo com a lista atual aceita | A nota só aparece quando nenhuma cópia atual foi aceita | Testes da seção 22 |
+
+**Ação do administrador:** descredenciar o 00507D3A… (não é de uma pessoa e não funciona no S-Cyber).
+
+## 25. Próximo passo proposto
 1. **Validar no Windows** (script de sempre, `validar_no_windows.ps1`):
    - testes, instalador e abertura da versão nova;
    - uma licença Business com `--organizacao`: os dados vão para `perfis\<empresa>`, e a instalação PM continua com os dados de sempre;
