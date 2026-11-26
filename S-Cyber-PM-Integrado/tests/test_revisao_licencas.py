@@ -142,3 +142,19 @@ class ValidadeDoCertificadoTests(Base):
             pub = L.Publicacao(pasta_cache=self.dir / "c", pasta_pacote=pasta, online=False)
             for nome in L.LISTAS:
                 self.assertIsNotNone(pub.documento(nome), nome)
+
+
+class NovoAdministradorPeloPedidoTests(Base):
+    def test_adicionar_administrador_a_partir_do_pedido_do_certificado(self):
+        """Sem digitar os 40 caracteres: o pedido de credenciamento (ou o e-mail inteiro) basta."""
+        adm = self.admin()
+        adm.iniciar()
+        pedido = L.pedido_credenciamento(COMUM[0], "CAP Novo Administrador", L.instalacao(self.inst_dir))
+        email = f"Olá, equipe.\n\nPedido (gerado pelo programa, não altere):\n{pedido[:50]}\n{pedido[50:]}\n\nComputador: X"
+        thumb, nome = admin_licencas.thumb_do_pedido(email)
+        self.assertEqual((thumb, nome), (COMUM[0], "CAP Novo Administrador"))
+        self.assertEqual(admin_licencas.thumb_do_pedido(pedido, "MAJ Fulano")[1], "MAJ Fulano")
+        adm.administradores(thumb, nome)
+        self.assertEqual(self.pub().administradores()[COMUM[0]], "CAP Novo Administrador")
+        with self.assertRaises(L.ErroLicenca):          # pedido de ATIVAÇÃO não serve
+            admin_licencas.thumb_do_pedido(self.pedido())

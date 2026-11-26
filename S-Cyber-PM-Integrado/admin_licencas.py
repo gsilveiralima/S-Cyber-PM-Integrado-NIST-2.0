@@ -14,6 +14,7 @@ Uso (PowerShell, na pasta S-Cyber-PM-Integrado do repositório):
     .venv\\Scripts\\python.exe admin_licencas.py credenciar --pedido SCPM-PEDIDO-CERTIFICADO.zzz --papel revisor
     .venv\\Scripts\\python.exe admin_licencas.py descredenciar --thumbprint ABCD...
     .venv\\Scripts\\python.exe admin_licencas.py administradores --adicionar <IMPRESSAO DIGITAL DE 40 CARACTERES> --nome "..."
+    .venv\\Scripts\\python.exe admin_licencas.py administradores --pedido pedido_do_novo_admin.txt --nome "CAP Fulano de Tal"
     .venv\\Scripts\\python.exe admin_licencas.py publicar        (renova a validade das listas: faça a cada 3 semanas)
     .venv\\Scripts\\python.exe admin_licencas.py verificar
 
@@ -247,6 +248,20 @@ def extrair_pedido(texto):
         return "".join(texto.split())
     trecho = re.split(r"\n\s*\n|Computador:", texto[inicio:].replace("\r\n", "\n"), maxsplit=1)[0]
     return "".join(trecho.split())
+
+
+def thumb_do_pedido(texto, nome=""):
+    """(impressão digital, nome) de um pedido de CREDENCIAMENTO de certificado (pode ser o e-mail inteiro).
+    Para adicionar um administrador sem digitar os 40 caracteres da impressão digital."""
+    try:
+        dados = L.ler_pedido(extrair_pedido(texto))
+    except (ValueError, TypeError) as exc:
+        raise L.ErroLicenca("invalida", "Não reconheci o pedido de credenciamento do certificado.") from exc
+    thumb = "".join(c for c in str(dados.get("thumbprint", "")) if c.isalnum()).upper()
+    if not thumb:
+        raise L.ErroLicenca("invalida", "Esse é um pedido de ATIVAÇÃO; para administrador, use o pedido de "
+                                        "credenciamento do CERTIFICADO.")
+    return thumb, (nome or dados.get("titular", "")).strip()
 
 
 def resumo_pedido(texto):
@@ -528,8 +543,11 @@ def main(argv=None):
     d.add_argument("--thumbprint", required=True)
     d.add_argument("--motivo", default="")
     a = sub.add_parser("administradores")
-    a.add_argument("--adicionar")
-    a.add_argument("--nome", default="")
+    a.add_argument("--adicionar", help="impressão digital (40 caracteres) do certificado do novo administrador")
+    a.add_argument("--pedido", default="",
+                   help="OU o pedido de credenciamento do certificado do novo administrador (texto, arquivo ou "
+                        "o e-mail inteiro): a impressão digital sai dele, sem digitar")
+    a.add_argument("--nome", default="", help='nome que aparece na tela, ex.: "MAJ Leonídio Alves de Moraes Junior"')
     a.add_argument("--remover")
     sub.add_parser("publicar")
     vf = sub.add_parser("verificar", help="confere assinaturas e validade (não precisa de certificado)")
@@ -568,8 +586,14 @@ def main(argv=None):
             adm.descredenciar(args.thumbprint, args.motivo)
             print("Certificado descredenciado.")
         elif args.cmd == "administradores":
-            adm.administradores(args.adicionar, args.nome, args.remover)
-            print("Lista de administradores atualizada.")
+            adicionar, nome = args.adicionar, args.nome
+            if args.pedido:
+                adicionar, nome = thumb_do_pedido(_texto(args.pedido), nome)
+            adm.administradores(adicionar, nome, args.remover)
+            print("Lista de administradores atualizada:")
+            for thumb, quem in sorted(adm.pub.administradores().items(), key=lambda x: x[1]):
+                print(f"  {quem}  ({thumb[:8]}…)")
+            print("Agora ENVIE AO GITHUB (botão 'Enviar ao GitHub' na tela, ou git add/commit/push da pasta licencas).")
         elif args.cmd == "publicar":
             adm.publicar()
             print(f"Listas republicadas, válidas por {L.VALIDADE_LISTA_DIAS} dias.")
