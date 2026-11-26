@@ -175,6 +175,10 @@ class Admin:
 
     def credenciar_pedido(self, pedido, papel="usuario"):
         p = L.ler_pedido(pedido)
+        if p.get("algoritmo") and str(p["algoritmo"]).upper() != "RSA":
+            raise L.ErroLicenca("invalida", f"O certificado {p['thumbprint'][:8]}… usa chave {p['algoritmo']}, não "
+                                            "RSA: ele não funciona no S-Cyber. Peça à pessoa para usar 'Criar meu "
+                                            "certificado' e mandar o pedido do certificado novo.")
         return self.credenciar(p["thumbprint"], p.get("titular", ""), papel, p.get("instalacao", ""))
 
     def descredenciar(self, thumbprint, motivo=""):
@@ -284,9 +288,21 @@ def resumo_pedido(texto):
                          f"{dados.get('versao') or '?'})."}
     if not dados.get("thumbprint"):
         raise ValueError("Pedido de certificado incompleto: peça para copiar de novo.")
-    return {"tipo": "certificado", "pedido": limpo, "dados": dados,
-            "texto": f"Pedido de CREDENCIAMENTO do certificado {dados['thumbprint'][:8]}… de "
-                     f"{dados.get('titular') or '?'} ({origem}, instalação {dados.get('instalacao') or '?'})."}
+    texto = (f"Pedido de CREDENCIAMENTO do certificado {dados['thumbprint'][:8]}… de "
+             f"{dados.get('titular') or '?'} ({origem}, instalação {dados.get('instalacao') or '?'}).")
+    alg = str(dados.get("algoritmo") or "")
+    if alg and alg.upper() != "RSA":
+        texto += f" ATENÇÃO: chave {alg}, não RSA — NÃO serve ao S-Cyber; peça um certificado criado pelo programa."
+    elif _parece_da_organizacao(dados.get("titular")):
+        texto += (" ATENÇÃO: o titular é um código (CN=<GUID>), não o nome de uma pessoa — parece um certificado "
+                  "do Windows ou da organização. Confirme com a pessoa antes de credenciar.")
+    return {"tipo": "certificado", "pedido": limpo, "dados": dados, "texto": texto}
+
+
+
+def _parece_da_organizacao(titular):
+    from modDiagnostico import parece_da_organizacao
+    return parece_da_organizacao(str(titular or ""))
 
 
 def resposta_licenca(lic, chave):

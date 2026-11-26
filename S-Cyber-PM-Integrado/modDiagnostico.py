@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import socket
 import sys
 from datetime import datetime
@@ -64,8 +65,14 @@ def listar_certificados():
 
 
 def classificar(cert, autorizados, agora=None, credenciados=None):
-    """'pronto' | 'sem_chave' | 'vencido' | 'nao_autorizado' | 'nao_rsa'."""
+    """'pronto' | 'sem_chave' | 'vencido' | 'nao_autorizado' | 'nao_rsa'.
+
+    'nao_rsa' vem ANTES da autorização: um certificado que não é RSA nunca serve ao S-Cyber, nem
+    credenciado. Visto em 26/11/2026: num computador corporativo, o único certificado da conta era um
+    da organização (CN=<GUID>, chave não RSA); ele foi enviado no pedido e credenciado por engano."""
     agora = agora or datetime.now()
+    if not serve_ao_scyber(cert):
+        return "nao_rsa"
     autorizado = cert["thumb"] in set(autorizados) | set(credenciados or ())
     if not autorizado:
         return "nao_autorizado"
@@ -76,9 +83,21 @@ def classificar(cert, autorizados, agora=None, credenciados=None):
             return "vencido"
     except (KeyError, ValueError):
         return "vencido"
-    if cert.get("algoritmo") and cert["algoritmo"].upper() != "RSA":
-        return "nao_rsa"
     return "pronto"
+
+
+def serve_ao_scyber(cert):
+    """Chave RSA (o S-Cyber assina com RSA/SHA-256). Algoritmo desconhecido: não bloqueia."""
+    return not cert.get("algoritmo") or cert["algoritmo"].upper() == "RSA"
+
+
+GUID_CN = re.compile(r"^(CN=)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
+
+
+def parece_da_organizacao(titular):
+    """Titular 'CN=<GUID>': certificado do Windows/da organização (ex.: gerenciamento de dispositivos),
+    não o certificado pessoal criado pelo S-Cyber."""
+    return bool(GUID_CN.match((titular or "").strip()))
 
 
 SITUACAO = {
@@ -86,7 +105,7 @@ SITUACAO = {
     "sem_chave": "autorizado, mas SEM a chave privada (só a parte pública foi importada)",
     "vencido": "autorizado, mas fora da validade",
     "nao_autorizado": "não está na lista de autorizados nem credenciado",
-    "nao_rsa": "autorizado, mas a chave não é RSA",
+    "nao_rsa": "NÃO SERVE ao S-Cyber: a chave não é RSA (certificado do Windows ou da organização)",
 }
 
 
@@ -95,10 +114,10 @@ def resumo_certificados(certs, autorizados, credenciados=None, agora=None):
     'vencido' ou 'nao_autorizado'."""
     itens = [(c, classificar(c, autorizados, agora, credenciados)) for c in certs]
     estados = {e for _, e in itens}
-    for geral in ("pronto", "sem_chave", "vencido", "nao_rsa"):
+    for geral in ("pronto", "sem_chave", "vencido", "nao_autorizado"):
         if geral in estados:
             return geral, itens
-    return ("nao_autorizado" if certs else "ausente"), itens
+    return ("nao_rsa" if certs else "ausente"), itens
 
 
 PROXIMA_ACAO = {
@@ -115,7 +134,9 @@ PROXIMA_ACAO = {
                  "computador onde foi criada: crie um certificado nesta conta e peça o credenciamento.",
     "vencido": "O certificado autorizado venceu. Crie um novo e peça o credenciamento; seus dados são migrados "
                "pelo assistente de perfil enquanto o certificado antigo continuar instalado.",
-    "nao_rsa": "Use um certificado RSA (o S-Cyber assina com RSA/SHA-256).",
+    "nao_rsa": "Os certificados desta conta NÃO servem ao S-Cyber (a chave não é RSA; costumam ser do Windows ou "
+               "da organização). Clique em 'Criar meu certificado', envie o pedido de credenciamento do certificado "
+               "NOVO e, depois da liberação, clique em 'Verificar novamente'.",
 }
 
 

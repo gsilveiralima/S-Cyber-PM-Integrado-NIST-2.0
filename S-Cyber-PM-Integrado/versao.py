@@ -4,4 +4,4 @@
 #  executável. Sem dependências: o núcleo NIST importa daqui sem carregar a interface.
 # ==========================================================
 
-APP_VERSAO = "2.0.4"   # PowerShell pelo caminho completo; listas com validade e anti-retorno
+APP_VERSAO = "2.0.5"   # certificado que não serve (não RSA / da organização) bloqueado no pedido

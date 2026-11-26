@@ -223,9 +223,11 @@ def pedido_ativacao(inst, versao=""):
     return "SCPM-PEDIDO-ATIVACAO." + base64.urlsafe_b64encode(json.dumps(dados).encode()).decode().rstrip("=")
 
 
-def pedido_credenciamento(thumb, titular, inst):
+def pedido_credenciamento(thumb, titular, inst, algoritmo=""):
     dados = {"thumbprint": thumb, "titular": titular, "instalacao": inst["id"],
              "computador": socket.gethostname(), "conta": os.environ.get("USERNAME") or ""}
+    if algoritmo:                       # desde a 2.0.5: o administrador recusa chave que não é RSA
+        dados["algoritmo"] = algoritmo
     return "SCPM-PEDIDO-CERTIFICADO." + base64.urlsafe_b64encode(json.dumps(dados).encode()).decode().rstrip("=")
 
 
@@ -364,6 +366,7 @@ class Publicacao:
                 melhor = (conteudo, info, origem, bruto)
         if melhor:
             self.origem[nome] = melhor[2]
+            self.recusadas.pop(nome, None)     # havia uma cópia atual: as antigas não são problema
             self._lembrar_sequencia(nome, int(melhor[0].get("sequencia", 0)))
             if melhor[2] == "online" and self.lembrar:
                 try:
