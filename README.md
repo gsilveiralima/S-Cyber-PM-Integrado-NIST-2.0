@@ -9,7 +9,7 @@ O núcleo é um só, com duas modalidades definidas pela licença assinada:
 | **S-Cyber Business** | Pequenas e médias empresas do comércio, serviços e turismo; INOVA Senac | Sem as integrações institucionais (SEI) |
 | **S-Cyber PM** | Polícia Militar do Estado de Goiás, mediante autorização | Inclui as integrações institucionais |
 
-> **Situação (26/11/2026):** **pré-lançamento** do S-Cyber 2.0, versão 2.0.3. **Homologado apenas no Windows 10/11 (64 bits).** O que foi testado, e como, está no [relatório de auditoria e homologação](docs/AUDITORIA_S-CYBER_2.0.md). As versões para Linux e macOS não fazem parte desta entrega.
+> **Situação (26/11/2026):** **pré-lançamento** do S-Cyber 2.0, versão 2.0.4. **Homologado apenas no Windows 10/11 (64 bits).** O que foi testado, e como, está no [relatório de auditoria e homologação](docs/AUDITORIA_S-CYBER_2.0.md). As versões para Linux e macOS não fazem parte desta entrega.
 
 ## Instalação
 
@@ -20,7 +20,7 @@ O núcleo é um só, com duas modalidades definidas pela licença assinada:
 1. Abra a página **[Releases](https://github.com/gsilveiralima/S-Cyber-PM-Integrado-NIST-2.0/releases)** e baixe, da versão mais recente:
    - o `SCyberPM-Setup-<versão>.exe`;
    - o `SHA256SUMS.txt`.
-2. Confira a integridade no PowerShell com `Get-FileHash .\SCyberPM-Setup-2.0.3.exe -Algorithm SHA256`. O resultado precisa ser igual ao do `SHA256SUMS.txt`.
+2. Confira a integridade no PowerShell com `Get-FileHash .\SCyberPM-Setup-2.0.4.exe -Algorithm SHA256`. O resultado precisa ser igual ao do `SHA256SUMS.txt`.
 3. Dê dois cliques no instalador. Ele **não pede administrador**: o programa vai para `%LOCALAPPDATA%\Programs\S-Cyber PM` e cria os atalhos no menu Iniciar.
    - O instalador ainda não é assinado. Se o Windows mostrar "O Windows protegeu o computador", clique em **Mais informações** e depois em **Executar assim mesmo**.
 4. **Ative a instalação.** Na primeira abertura, clique em **Enviar pedido por e-mail**: o pedido vai pronto para o suporte (`scybersuporte@gmail.com`). Quando a resposta chegar, cole a chave de ativação e clique em **Ativar**.

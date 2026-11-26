@@ -618,7 +618,19 @@ Achados de uma revisão externa do código, conferidos um a um no código da 2.0
 
 **Testes:** 233 no Linux, todos OK (17 pulados).
 
-## 23. Próximo passo proposto
+## 23. Versão 2.0.4: PowerShell não encontrado num computador corporativo (26/11/2026)
+
+**Relato do autor (teste real, 13:26):** num computador corporativo, conta `defesa.cibernetica`, licença Business ativa e listas online, a tela do certificado mostrava "Certificados: não foi possível listar (PowerShell não encontrado.)". A próxima ação dizia, errado, "Nenhum certificado nesta conta".
+
+| Causa | Correção | Prova |
+|---|---|---|
+| O S-Cyber chamava `powershell` pelo nome e dependia da PATH; nesse computador a PATH não tinha `WindowsPowerShell\v1.0` | `modPowerShell.executavel()`: caminho completo em `%SystemRoot%\System32\WindowsPowerShell\v1.0`, depois `Sysnative` (programa de 32 bits), só então a PATH. Vale para todo o programa e para a Corujinha | `test_powershell_caminho.CaminhoCompletoTests`; no CI do Windows, os testes reais de assinatura e do coletor usam o caminho novo |
+| Mensagens genéricas | Mensagens com causa e solução: PowerShell ausente, bloqueado pela política (AppLocker/GPO, erros 5 e 1260) e modo restrito (ConstrainedLanguage) | `test_powershell_caminho.MensagensTests` |
+| Diagnóstico confundia "não consegui listar" com "não há certificado" | Situação nova `indisponivel`, com próxima ação própria | `test_powershell_caminho.DiagnosticoTests` |
+
+A 2.0.4 também leva aos clientes as correções da seção 22 (validade e anti-retorno das listas, validade do certificado do administrador).
+
+## 24. Próximo passo proposto
 1. **Validar no Windows** (script de sempre, `validar_no_windows.ps1`):
    - testes, instalador e abertura da versão nova;
    - uma licença Business com `--organizacao`: os dados vão para `perfis\<empresa>`, e a instalação PM continua com os dados de sempre;
