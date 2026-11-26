@@ -175,6 +175,8 @@ def relatorio(versao, programa, autorizados, etapa=None, erro=None, thumb_atual=
         linhas.append("Listas publicadas  : " + (", ".join(f"{k}={v}" for k, v in publicacao.origem.items())
                                                  or "nenhuma encontrada")
                       + (f" (rede: {publicacao.falha_rede})" if publicacao.falha_rede else ""))
+        if publicacao.recusadas:
+            linhas.append("Cópias recusadas   : " + "; ".join(f"{k}: {v}" for k, v in publicacao.recusadas.items()))
         validades = [f"{n} até {a} ({d} dia(s))" if d is not None else f"{n}: ausente"
                      for n, a, d in L.situacao_listas(publicacao)]
         linhas.append("Validade das listas: " + "; ".join(validades))

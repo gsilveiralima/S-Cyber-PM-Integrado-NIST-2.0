@@ -221,6 +221,23 @@ próprio certificado. Se os dois certificados forem perdidos, só
 uma versão nova do aplicativo, com as impressões digitais novas em `ADMINISTRADORES_FIXOS`
 (`modLicenca.py`), restabelece a emissão.
 
+## Regras de segurança das listas e das assinaturas (desde 26/11/2026)
+- **A lista de administradores só vale enquanto não vence.** Uma cópia vencida não autoriza ninguém:
+  o programa volta a confiar só nos administradores fixos do programa (MAJ Leonídio e SGT Gabriel).
+  Por isso, **renove as listas antes de vencer** (botão "Renovar listas (+30 dias)").
+- **Nada de "voltar" para uma lista antiga.** Cada computador guarda a maior sequência que já aceitou
+  de cada lista (`sequencias_vistas.json`, na pasta da instalação) e recusa cópias com sequência
+  menor, mesmo assinadas. **Nunca recrie as listas do zero** (a sequência voltaria a 1 e todos os
+  computadores recusariam). Use sempre a tela ou o `admin_licencas.py`, que continuam a sequência.
+- **Certificado do administrador vencido não assina mais.** A data da assinatura precisa estar dentro
+  da validade do certificado do administrador. O que já foi assinado continua valendo depois. Antes
+  de o seu certificado vencer, crie um novo e peça a outro administrador para incluí-lo na lista.
+- **Prazos máximos, contados da data da assinatura:** listas, 30 dias; licenças, 1.100 dias
+  (cerca de 3 anos). Um documento com validade maior é recusado.
+- **Enviar ao GitHub só funciona num clone deste repositório**, com a pasta das listas em
+  `S-Cyber-PM-Integrado/licencas` e o `origin` apontando para `gsilveiralima/S-Cyber-PM-Integrado-NIST-2.0`.
+  Uma pasta de ZIP dentro de outro repositório Git não é tratada como clone.
+
 ## Limites desta solução
 - Não há servidor próprio: o GitHub publica as listas assinadas. A integridade vem da assinatura,
   não do servidor.

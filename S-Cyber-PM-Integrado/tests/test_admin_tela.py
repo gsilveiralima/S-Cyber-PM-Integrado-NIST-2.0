@@ -136,20 +136,30 @@ class AdministradoresTests(Base):
         self.assertNotIn("NOVA_IMPRESSAO", admins)
 
 
+def clone_falso(raiz, url=f"https://github.com/{L.REPOSITORIO}.git"):
+    """Imita um clone do repositório do S-Cyber: .git com o 'origin' e a pasta das listas."""
+    (raiz / ".git").mkdir()
+    (raiz / ".git" / "config").write_text(f'[core]\n\tbare = false\n[remote "origin"]\n\turl = {url}\n'
+                                          '\tfetch = +refs/heads/*:refs/remotes/origin/*\n', encoding="utf-8")
+    pasta = raiz / "S-Cyber-PM-Integrado" / "licencas"
+    pasta.mkdir(parents=True)
+    return pasta
+
+
 class GithubTests(unittest.TestCase):
     def test_sincronizar_antes_de_operar(self):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertEqual(AL.sincronizar(Path(tmp) / "licencas"), (True, ""))          # ZIP: nada a fazer
-            (Path(tmp) / ".git").mkdir()
+            pasta = clone_falso(Path(tmp))
             feitos = []
 
             def executar(cmd, **kw):
                 feitos.append(cmd[3:])
                 return subprocess.CompletedProcess([], 0, "Fast-forward", "")
-            ok, texto = AL.sincronizar(Path(tmp) / "licencas", executar)
+            ok, texto = AL.sincronizar(pasta, executar)
             self.assertTrue(ok)
             self.assertEqual(feitos, [["pull", "--ff-only", "--autostash"]])
-            ok, texto = AL.sincronizar(Path(tmp) / "licencas",
+            ok, texto = AL.sincronizar(pasta,
                                        lambda c, **k: subprocess.CompletedProcess([], 1, "", "fatal: diverging"))
             self.assertFalse(ok)
             self.assertIn("git pull", texto)
@@ -168,9 +178,7 @@ class GithubTests(unittest.TestCase):
     def test_envia_so_a_pasta_das_listas(self):
         with tempfile.TemporaryDirectory() as tmp:
             raiz = Path(tmp)
-            (raiz / ".git").mkdir()
-            pasta = raiz / "S-Cyber-PM-Integrado" / "licencas"
-            pasta.mkdir(parents=True)
+            pasta = clone_falso(raiz)
             feitos = []
 
             def executar(cmd, **kw):
@@ -187,10 +195,8 @@ class GithubTests(unittest.TestCase):
         """Visto pelo autor: 'cannot do a partial commit during a merge'."""
         with tempfile.TemporaryDirectory() as tmp:
             raiz = Path(tmp)
-            (raiz / ".git").mkdir()
+            pasta = clone_falso(raiz)
             (raiz / ".git" / "MERGE_HEAD").write_text("abc", encoding="utf-8")
-            pasta = raiz / "licencas"
-            pasta.mkdir()
             chamadas = []
             ok, texto = AL.publicar_no_github(pasta, executar=lambda *a, **k: chamadas.append(a))
             self.assertFalse(ok)
@@ -208,9 +214,7 @@ class GithubTests(unittest.TestCase):
         """Visto pelo autor: o clone tinha outro arquivo alterado e as listas já estavam no GitHub."""
         with tempfile.TemporaryDirectory() as tmp:
             raiz = Path(tmp)
-            (raiz / ".git").mkdir()
-            pasta = raiz / "licencas"
-            pasta.mkdir()
+            pasta = clone_falso(raiz)
             feitos = []
 
             def executar(cmd, **kw):
@@ -224,9 +228,7 @@ class GithubTests(unittest.TestCase):
     def test_nada_novo_e_push_recusado(self):
         with tempfile.TemporaryDirectory() as tmp:
             raiz = Path(tmp)
-            (raiz / ".git").mkdir()
-            pasta = raiz / "licencas"
-            pasta.mkdir()
+            pasta = clone_falso(raiz)
             # Visto pelo autor: outra pasta de administração enviou antes. Junta e reenvia sozinho.
             respostas = iter([self.resultado(0, " M licencas/x"), self.resultado(),
                               self.resultado(1, "no changes added to commit"),
@@ -255,6 +257,52 @@ class GithubTests(unittest.TestCase):
             def sem_git(cmd, **kw):
                 raise FileNotFoundError
             self.assertIn("não está instalado", AL.publicar_no_github(pasta, executar=sem_git)[1])
+
+
+class RepositorioCertoTests(unittest.TestCase):
+    """Revisão de 26/11/2026: achar um .git subindo as pastas não basta."""
+
+    def test_aceita_o_clone_do_s_cyber_em_qualquer_forma_de_url(self):
+        for url in (f"https://github.com/{L.REPOSITORIO}.git", f"https://github.com/{L.REPOSITORIO}",
+                    f"git@github.com:{L.REPOSITORIO}.git", f"https://GitHub.com/{L.REPOSITORIO.upper()}/"):
+            with tempfile.TemporaryDirectory() as tmp:
+                pasta = clone_falso(Path(tmp), url)
+                self.assertEqual(AL.raiz_git(pasta), Path(tmp).resolve(), url)
+
+    def test_pasta_de_zip_dentro_de_outro_repositorio(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            outro = Path(tmp)
+            clone_falso(outro, "https://github.com/alguem/outro-projeto.git")
+            pasta = outro / "Downloads" / "S-Cyber-main" / "S-Cyber-PM-Integrado" / "licencas"
+            pasta.mkdir(parents=True)
+            raiz, motivo = AL.situacao_git(pasta)
+            self.assertIsNone(raiz)
+            self.assertIn("outro repositório", motivo)
+            chamadas = []
+            ok, texto = AL.publicar_no_github(pasta, executar=lambda *a, **k: chamadas.append(a))
+            self.assertFalse(ok)
+            self.assertEqual(chamadas, [])                       # nenhum git no repositório errado
+            self.assertEqual(AL.sincronizar(pasta, executar=lambda *a, **k: chamadas.append(a)), (True, ""))
+            self.assertEqual(chamadas, [])
+
+    def test_clone_de_outro_repositorio_no_mesmo_caminho(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pasta = clone_falso(Path(tmp), "https://github.com/alguem/S-Cyber-copia.git")
+            raiz, motivo = AL.situacao_git(pasta)
+            self.assertIsNone(raiz)
+            self.assertIn(L.REPOSITORIO, motivo)
+
+    def test_worktree_com_arquivo_git(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            principal = Path(tmp) / "principal"
+            principal.mkdir()
+            clone_falso(principal)
+            (principal / ".git" / "worktrees" / "wt").mkdir(parents=True)
+            (principal / ".git" / "worktrees" / "wt" / "commondir").write_text("../..", encoding="utf-8")
+            wt = Path(tmp) / "wt"
+            (wt / "S-Cyber-PM-Integrado" / "licencas").mkdir(parents=True)
+            (wt / ".git").write_text(f"gitdir: {principal / '.git' / 'worktrees' / 'wt'}", encoding="utf-8")
+            self.assertEqual(AL.raiz_git(wt / "S-Cyber-PM-Integrado" / "licencas"), wt.resolve())
 
 
 class ForaDoInstaladorTests(unittest.TestCase):

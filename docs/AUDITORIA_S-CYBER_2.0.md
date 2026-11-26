@@ -601,7 +601,24 @@ O autor reinstalou tudo do zero. O computador dele ficou como administrador e ce
 
 **Ainda não feito:** a identidade visual da Business (nome na abertura, no Tour e nos textos da janela principal) continua com "S-Cyber PM" em vários pontos. Isso fica para a Fase 6, junto com as 5 áreas.
 
-## 22. Próximo passo proposto
+## 22. Revisão de segurança das licenças (26/11/2026)
+
+Achados de uma revisão externa do código, conferidos um a um no código da 2.0.3 antes de corrigir.
+
+| Gravidade | Achado | Confirmado? | Correção | Prova |
+|---|---|---|---|---|
+| Alta | A lista de administradores era aceita sem conferir a validade; uma cópia antiga, ainda assinada, continuava autorizando um administrador removido | Sim (`Publicacao.administradores`) | Só vale a lista **vigente**; sem ela, só os administradores fixos do programa. **Anti-retorno** para as três listas: cada computador guarda a maior sequência aceita (`sequencias_vistas.json`) e recusa cópias com sequência menor. O diagnóstico mostra as cópias recusadas | `test_revisao_licencas.ListaDeAdministradoresTests` (lista vencida, cópia antiga reposta, revogação que não pode ser desfeita) |
+| Média | A data de validade do certificado do administrador era devolvida, mas não usada | Sim (`modLicenca.abrir`) | A data da assinatura (signingTime) precisa estar dentro da validade do certificado; a validade do documento não pode passar de 31 dias (listas) ou 1.100 dias (licenças) contados da assinatura. Isso limita o estrago de uma chave antiga vazada que "volte a data" da assinatura. A ferramenta do administrador recusa licenças acima de 1.100 dias | `test_revisao_licencas.ValidadeDoCertificadoTests`, incluindo as listas reais publicadas |
+| Média | A busca da raiz do Git subia até qualquer pasta acima; uma pasta de ZIP dentro de outro repositório era tratada como clone | Sim (`admin_licencas.raiz_git`) | Vale o repositório mais próximo, e só se a pasta das listas estiver em `S-Cyber-PM-Integrado/licencas` e o `origin` for `gsilveiralima/S-Cyber-PM-Integrado-NIST-2.0` (https, ssh e worktree). A mensagem diz o motivo | `test_admin_tela.RepositorioCertoTests` |
+| Baixa | O Explorer era aberto com o caminho montado dentro de um texto | Sim (`formHash.abrir_pasta`) | Argumentos em lista, como já fazia a Pesquisa de arquivos | Revisão do código (só Windows) |
+
+**Efeito colateral aceito:** um computador que só tenha uma cópia recusada (antiga ou vencida) de uma lista para de validar licenças até baixar a atual, em vez de aceitar a cópia antiga. A mensagem explica o motivo.
+
+**Cuidado operacional novo:** nunca recriar as listas do zero, porque a sequência voltaria a 1 e seria recusada.
+
+**Testes:** 233 no Linux, todos OK (17 pulados).
+
+## 23. Próximo passo proposto
 1. **Validar no Windows** (script de sempre, `validar_no_windows.ps1`):
    - testes, instalador e abertura da versão nova;
    - uma licença Business com `--organizacao`: os dados vão para `perfis\<empresa>`, e a instalação PM continua com os dados de sempre;

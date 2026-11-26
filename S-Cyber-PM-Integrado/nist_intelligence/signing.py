@@ -102,7 +102,7 @@ def _subject(cert):
 def verify_detached(content: bytes, cms_der: bytes):
     """Confere a assinatura destacada `cms_der` sobre `content`.
 
-    Devolve {thumb, subject, not_after, signing_time}; levanta SignatureError se a
+    Devolve {thumb, subject, not_before, not_after, signing_time}; levanta SignatureError se a
     assinatura não confere ou a estrutura não é a esperada."""
     try:
         return _verify(bytes(content), bytes(cms_der))
@@ -193,6 +193,7 @@ def _verify(content, data):
     except InvalidSignature as exc:
         raise SignatureError('A assinatura não confere com o certificado.') from exc
     return {'thumb': thumbprint(cert), 'subject': _subject(cert),
+            'not_before': cert.not_valid_before_utc.date().isoformat(),
             'not_after': cert.not_valid_after_utc.date().isoformat(),
             'signing_time': signing_time.isoformat() if signing_time else ''}
 
