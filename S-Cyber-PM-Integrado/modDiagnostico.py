@@ -102,6 +102,9 @@ def resumo_certificados(certs, autorizados, credenciados=None, agora=None):
 
 
 PROXIMA_ACAO = {
+    "indisponivel": "O S-Cyber não conseguiu consultar os certificados do Windows (motivo na linha 'Certificados' "
+                    "acima); isso NÃO quer dizer que falte certificado. Resolva o motivo indicado (em computadores "
+                    "corporativos, normalmente com o setor de TI) e clique em 'Verificar novamente'.",
     "ausente": "Nenhum certificado nesta conta do Windows. Use 'Criar meu certificado' na tela de abertura e "
                "envie o pedido de credenciamento ao administrador (SGT Gabriel ou MAJ Leonídio).",
     "nao_autorizado": "Há certificados nesta conta, mas nenhum autorizado. Envie o pedido de credenciamento do seu "
@@ -202,6 +205,7 @@ def relatorio(versao, programa, autorizados, etapa=None, erro=None, thumb_atual=
                           f"  |  {c.get('inicio', '')[:10]} a {c.get('fim', '')[:10]}")
     except Exception as e:  # noqa: BLE001
         certs = []
+        geral = "indisponivel"                     # não quer dizer que falte certificado
         linhas.append(f"Certificados: não foi possível listar ({e})")
     if thumb_atual:
         linhas.append(f"Certificado aceito nesta abertura: {thumb_atual}")

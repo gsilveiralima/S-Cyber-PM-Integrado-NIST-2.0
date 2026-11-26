@@ -61,7 +61,7 @@ class PowerShellTests(unittest.TestCase):
 
     def test_falhas_viram_erro_em_portugues(self):
         with mock.patch.object(subprocess, "run", side_effect=FileNotFoundError()):
-            with self.assertRaisesRegex(modPowerShell.ErroPowerShell, "não encontrado"):
+            with self.assertRaisesRegex(modPowerShell.ErroPowerShell, "não foi encontrado"):
                 modPowerShell.executar("x")
         with mock.patch.object(subprocess, "run", side_effect=subprocess.TimeoutExpired("powershell", 3)):
             with self.assertRaisesRegex(modPowerShell.ErroPowerShell, "Tempo esgotado"):

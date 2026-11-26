@@ -4,4 +4,4 @@
 #  executável. Sem dependências: o núcleo NIST importa daqui sem carregar a interface.
 # ==========================================================
 
-APP_VERSAO = "2.0.3"   # Business sem SEI, versão única na tela, abas do NIST em telas pequenas
+APP_VERSAO = "2.0.4"   # PowerShell pelo caminho completo; listas com validade e anti-retorno

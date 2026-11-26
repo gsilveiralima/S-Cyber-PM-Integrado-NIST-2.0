@@ -39,6 +39,8 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
+import shutil
 import subprocess
 import sys
 
@@ -49,7 +51,41 @@ _SEM_JANELA = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 # era mostrado como erro ("Não foi possível listar os certificados: #< CLIXML ...").
 _PREFIXO_UTF8 = ("[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false; "
                  "$ProgressPreference = 'SilentlyContinue'; ")
-_ARGS = ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass"]
+_OPCOES = ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass"]
+_ARGS = ["powershell"] + _OPCOES        # forma antiga, mantida para quem compara a linha de comando
+
+
+def executavel():
+    """Caminho COMPLETO do Windows PowerShell 5.1, sem depender do PATH.
+
+    Visto em 26/11/2026 num computador corporativo (conta defesa.cibernetica): a PATH não tinha a pasta
+    do PowerShell e o S-Cyber mostrava "PowerShell não encontrado" — sem listar nem criar certificado.
+    Ordem: System32 do Windows; Sysnative (programa de 32 bits num Windows de 64); PATH."""
+    if sys.platform != "win32":
+        return "powershell"
+    raiz = os.environ.get("SystemRoot") or os.environ.get("windir") or r"C:\Windows"
+    for pasta in ("System32", "Sysnative"):
+        caminho = os.path.join(raiz, pasta, "WindowsPowerShell", "v1.0", "powershell.exe")
+        if os.path.isfile(caminho):
+            return caminho
+    return shutil.which("powershell.exe") or shutil.which("powershell") or "powershell"
+
+
+def _erro_ao_iniciar(exc):
+    """Mensagem em português, com a causa provável, para quando o Windows não deixa iniciar o PowerShell."""
+    if isinstance(exc, FileNotFoundError):
+        return ErroPowerShell(
+            "O Windows PowerShell não foi encontrado neste computador (procurado em "
+            "Windows\\System32\\WindowsPowerShell\\v1.0 e na PATH). O S-Cyber precisa dele para ver e criar o "
+            "certificado. Peça ao setor de TI para reativar o 'Windows PowerShell 5.1'.")
+    if isinstance(exc, PermissionError) or getattr(exc, "winerror", None) in (5, 1260):
+        return ErroPowerShell(
+            "O Windows bloqueou o PowerShell para este programa (política de segurança da organização, "
+            "por exemplo AppLocker ou GPO). Peça ao setor de TI para permitir o Windows PowerShell ao S-Cyber.")
+    return ErroPowerShell(f"Não foi possível iniciar o PowerShell: {exc}")
+
+
+_LINGUAGEM_RESTRITA = re.compile(r"language mode|modo de linguagem|ConstrainedLanguage", re.I)
 
 
 class ErroPowerShell(RuntimeError):
@@ -89,9 +125,10 @@ def argumentos(script, codificado=False):
     """Linha de comando. codificado=True usa -EncodedCommand (aspas e quebras de linha
     não passam pelo analisador da linha de comando)."""
     script = _PREFIXO_UTF8 + script
+    base = [executavel()] + _OPCOES
     if codificado:
-        return _ARGS + ["-EncodedCommand", base64.b64encode(script.encode("utf-16-le")).decode("ascii")]
-    return _ARGS + ["-Command", script]
+        return base + ["-EncodedCommand", base64.b64encode(script.encode("utf-16-le")).decode("ascii")]
+    return base + ["-Command", script]
 
 
 def _texto(dados):
@@ -123,11 +160,16 @@ def executar(script, variaveis=None, entrada=None, timeout=TIMEOUT_PADRAO, codif
                            input=entrada.encode("utf-8") if isinstance(entrada, str) else entrada,
                            capture_output=True, timeout=timeout, env=ambiente(variaveis),
                            creationflags=_SEM_JANELA)
-    except FileNotFoundError as exc:
-        raise ErroPowerShell("PowerShell não encontrado.") from exc
+    except OSError as exc:
+        raise _erro_ao_iniciar(exc) from exc
     except subprocess.TimeoutExpired as exc:
         raise ErroPowerShell(f"Tempo esgotado ({timeout} s) aguardando o Windows.") from exc
-    return Resultado(r.returncode, _texto(r.stdout), limpar_erro(_texto(r.stderr)))
+    erro = limpar_erro(_texto(r.stderr))
+    if r.returncode != 0 and _LINGUAGEM_RESTRITA.search(erro):
+        raise ErroPowerShell("O PowerShell deste computador está em modo restrito (ConstrainedLanguage, imposto "
+                             "pela política da organização) e não executa os comandos do S-Cyber. Peça ao setor "
+                             "de TI para liberar o S-Cyber na política (AppLocker/WDAC).")
+    return Resultado(r.returncode, _texto(r.stdout), erro)
 
 
 def iniciar(script, variaveis=None):
@@ -136,5 +178,5 @@ def iniciar(script, variaveis=None):
         return subprocess.Popen(argumentos(script, codificado=True), env=ambiente(variaveis),
                                 creationflags=_SEM_JANELA,
                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except FileNotFoundError as exc:
-        raise ErroPowerShell("PowerShell não encontrado.") from exc
+    except OSError as exc:
+        raise _erro_ao_iniciar(exc) from exc
