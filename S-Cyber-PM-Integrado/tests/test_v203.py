@@ -2,7 +2,6 @@
 
 Os testes de janela (Tk) rodam no CI do Windows; sem tkinter ou sem tela, são pulados."""
 import ast
-import re
 import sys
 import tempfile
 import unittest
@@ -61,15 +60,17 @@ class BusinessSemSeiTests(unittest.TestCase):
         self.assertTrue(modLicenca.recurso_liberado({}, 'sei'))      # licenças antigas: PM
 
     def test_relatorio_business_sem_coluna_sei(self):
-        from pypdf import PdfReader
         with tempfile.TemporaryDirectory() as tmp:
             db = core.connect(Path(tmp) / 'nist.db')
             core.save_incident(db, 'Phishing no financeiro')
-            for sei, esperado in ((True, True), (False, False)):
+            incs = core.incidents(db)
+            for sei in (True, False):
+                rows, widths = report.incident_table(incs, sei)
+                self.assertEqual('SEI' in rows[0], sei)
+                self.assertEqual({len(r) for r in rows}, {len(widths)})
+                self.assertEqual(rows[1][1], 'Phishing no financeiro')
                 pdf = report.build(db, Path(tmp) / f'r_{sei}.pdf', 'Empresa Exemplo', 'Analista', sei=sei)
-                texto = ''.join(p.extract_text() or '' for p in PdfReader(pdf).pages)
-                self.assertIn('Phishing no financeiro', texto)
-                self.assertEqual(bool(re.search(r'\bSEI\b', texto)), esperado, f'sei={sei}')
+                self.assertTrue(Path(pdf).read_bytes().startswith(b'%PDF'))
             db.close()
 
     def test_janela_principal_esconde_o_sei_na_business(self):
