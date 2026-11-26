@@ -249,7 +249,8 @@ def _hoje():
 def _baixar(nome, timeout=6):
     req = urllib.request.Request(URL_PUBLICACAO + nome + ".scsig",
                                  headers={"User-Agent": "S-Cyber-PM", "Cache-Control": "no-cache"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:      # noqa: S310 — URL fixa (https)
+    import modRede                     # raízes do Windows + certifi (Windows recém-instalado)
+    with modRede.abrir(req, timeout) as resp:
         return resp.read(512 * 1024)
 
 

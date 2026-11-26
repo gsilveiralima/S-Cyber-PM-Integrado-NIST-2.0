@@ -8,6 +8,7 @@ matplotlib>=3.10.3    # Gráficos do gerenciador de usuários
 reportlab>=5.1.0    # PDF do gerenciador de usuários e da pesquisa de arquivos
 pywin32>=312    # Impressão pelo Windows (impressao.py)
 pywebview>=6.2.1    # Aba WebView2 do navegador (instala também o pythonnet)
+certifi>=2024.2.2   # Raízes TLS públicas somadas às do Windows (Windows recém-instalado)
 requests>=2.34.2    # Consulta ao SEI e pesquisa na web da Corujinha
 
 # Opcionais (por função/modalidade): requirements-opcionais.txt

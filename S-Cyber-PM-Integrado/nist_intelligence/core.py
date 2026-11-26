@@ -950,7 +950,14 @@ def last_collection_age_days(db, today=None):
     if not row:
         return None
     today = today or date.today()
-    return (today - date.fromisoformat(row[0][:10])).days
+    # run_at é gravado em UTC: a data é convertida para a hora LOCAL antes de comparar com 'today'
+    # (no Brasil, entre 21h e meia-noite, o UTC já está no dia seguinte e a idade saía um dia a menos).
+    try:
+        quando = datetime.fromisoformat(row[0])
+        dia = (quando.astimezone() if quando.tzinfo else quando).date()
+    except ValueError:
+        dia = date.fromisoformat(row[0][:10])
+    return (today - dia).days
 
 
 def collection_needed(db, today=None):
