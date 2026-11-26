@@ -30,7 +30,12 @@ from .crypto import InvalidTag
 from .catalog import (CATEGORIES, FUNCTIONS, MATURITY, SUB_BY_CATEGORY,  # noqa: F401
                       SUBCATEGORIES, TIERS, category_of, function_of)
 
-VERSION = '1.3.0'
+# Versão exibida = versão do produto S-Cyber (versao.py). Até a 2.0.2 o painel mostrava a
+# versão interna do módulo (1.3.0), o que confundia quem comparava com o instalador.
+try:
+    from versao import APP_VERSAO as VERSION
+except ImportError:          # módulo usado fora do S-Cyber (ex.: testes isolados)
+    VERSION = 'dev'
 
 # Mesma pasta de dados do S-Cyber PM (%APPDATA%\SCyberPM), numa subpasta própria.
 import modCaminhos  # noqa: E402 — fonte única das pastas (S-Cyber 2.0, M5)
@@ -210,7 +215,7 @@ def connect(path=None, key=None):
     # pode receber nem as tabelas/colunas novas da atualização (somente leitura aqui).
     if path.is_file() and key_status(path, key) == 'outra_chave':
         raise PermissionError(
-            'O banco do NIST Intelligence está cifrado. Abra o painel pelo S-Cyber PM, depois da validação do '
+            'O banco do NIST Intelligence está cifrado. Abra o painel pelo S-Cyber, depois da validação do '
             'certificado.' if key is None else
             'O banco do NIST Intelligence foi cifrado com OUTRO certificado e não pode ser lido com o '
             'certificado atual.')
@@ -330,7 +335,7 @@ def _setup_encryption(db, key):
     row = db.execute("SELECT v FROM meta WHERE k='key_check'").fetchone()
     if key is None:
         if row:
-            raise PermissionError('O banco do NIST Intelligence está cifrado. Abra o painel pelo S-Cyber PM, '
+            raise PermissionError('O banco do NIST Intelligence está cifrado. Abra o painel pelo S-Cyber, '
                                   'depois da validação do certificado.')
         return
     cipher = crypto.FieldCipher(key)

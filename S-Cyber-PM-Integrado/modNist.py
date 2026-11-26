@@ -50,7 +50,7 @@ class PainelNist:
         if self.painel is not None and self.painel.winfo_exists():
             self.painel.pack_forget()
         self.fundo.pack(fill="both", expand=True)
-        self.status.mensagem("Tela principal do S-Cyber PM")
+        self.status.mensagem(f"Tela principal do {self.root.title() or 'S-Cyber'}")
 
     def selecionar_aba(self, nome):
         """Abre o painel (se preciso) e mostra a aba pelo texto dela."""

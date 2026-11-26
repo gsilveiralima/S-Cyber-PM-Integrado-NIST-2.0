@@ -300,7 +300,8 @@ class TelaAdministrador(tk.Tk):
             self._mostrar_resultado(
                 f"Certificado {dados['thumbprint'][:8]}… credenciado como {papel}.\n\nPara valer no outro "
                 "computador, clique em 'Enviar ao GitHub' (a lista de credenciamentos precisa ser publicada). "
-                "Depois, a pessoa clica em 'Verificar novamente' na tela do certificado.", chave=False)
+                "Depois, a pessoa clica em 'Verificar novamente' na tela do certificado (pode levar até "
+                "5 minutos para a publicação chegar ao computador dela).", chave=False)
             self.status.set("Certificado credenciado. Falta enviar ao GitHub.")
         self._rodar(lambda: self.adm.credenciar_pedido(pedido, papel), pronto,
                     "Assinando a lista de credenciamentos…")

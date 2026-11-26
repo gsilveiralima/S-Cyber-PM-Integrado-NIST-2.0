@@ -66,4 +66,4 @@ $arquivo = Join-Path $pasta ('coleta_{0}_{1}.json' -f $env:COMPUTERNAME, (Get-Da
 [IO.File]::WriteAllText($arquivo, $saida, [Text.UTF8Encoding]::new($false))
 Write-Host ''
 Write-Host "Coleta gravada em: $arquivo"
-Write-Host 'Leve este arquivo ao computador com o S-Cyber PM (Coleta tecnica > Importar).'
+Write-Host 'Leve este arquivo ao computador com o S-Cyber (Coleta tecnica > Importar).'

@@ -105,12 +105,14 @@ PROXIMA_ACAO = {
     "ausente": "Nenhum certificado nesta conta do Windows. Use 'Criar meu certificado' na tela de abertura e "
                "envie o pedido de credenciamento ao administrador (SGT Gabriel ou MAJ Leonídio).",
     "nao_autorizado": "Há certificados nesta conta, mas nenhum autorizado. Envie o pedido de credenciamento do seu "
-                      "certificado ao administrador e, depois do aviso, clique em 'Verificar novamente'.",
+                      "certificado ao administrador e, depois do aviso, clique em 'Verificar novamente'. A liberação "
+                      "pode levar até 5 minutos para chegar a este computador: se ainda não valer, "
+                      "espere um pouco e verifique de novo.",
     "sem_chave": "O certificado autorizado está sem a chave privada (foi importado só o .cer). A chave não sai do "
                  "computador onde foi criada: crie um certificado nesta conta e peça o credenciamento.",
     "vencido": "O certificado autorizado venceu. Crie um novo e peça o credenciamento; seus dados são migrados "
                "pelo assistente de perfil enquanto o certificado antigo continuar instalado.",
-    "nao_rsa": "Use um certificado RSA (o S-Cyber PM assina com RSA/SHA-256).",
+    "nao_rsa": "Use um certificado RSA (o S-Cyber assina com RSA/SHA-256).",
 }
 
 

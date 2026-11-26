@@ -486,6 +486,17 @@ ROTEIRO = [
 ]
 
 
+def _institucional(passo):
+    """Passo de integração exclusiva da modalidade S-Cyber PM (SEI)."""
+    acao = passo.acao or ""
+    return passo.destaque == "sei" or acao == "sei" or acao.endswith("Consultas SEI")
+
+
+def roteiro(institucional=True):
+    """Passos do Tour para a modalidade em uso."""
+    return list(ROTEIRO) if institucional else [p for p in ROTEIRO if not _institucional(p)]
+
+
 # ==========================================================
 # JANELA DO TOUR
 # ==========================================================
@@ -495,8 +506,10 @@ class FormTour(tk.Toplevel):
 
     LARGURA, ALTURA = 470, 428
 
-    def __init__(self, parent, ribbon=None, status=None, acoes=None):
+    def __init__(self, parent, ribbon=None, status=None, acoes=None, institucional=True):
         super().__init__(parent)
+        # S-Cyber Business (institucional=False): sem os passos das integrações da PM (SEI).
+        self.roteiro = roteiro(institucional)
         self.title("S-Cyber PM - Tour")
         self.resizable(False, False)
         self.attributes("-topmost", True)            # os formulários abrem por baixo dela
@@ -559,7 +572,7 @@ class FormTour(tk.Toplevel):
                                      justify="left", font=("Segoe UI", 9))
         self.tecnologias.pack(anchor="w", pady=(2, 6))
 
-        self.progresso = ttk.Progressbar(corpo, maximum=len(ROTEIRO), mode="determinate")
+        self.progresso = ttk.Progressbar(corpo, maximum=len(self.roteiro), mode="determinate")
         self.progresso.pack(fill="x")
 
         botoes = ttk.Frame(corpo)
@@ -604,13 +617,13 @@ class FormTour(tk.Toplevel):
     # ------------------------------------------------------
 
     def ir_para(self, indice):
-        if not self.winfo_exists() or not 0 <= indice < len(ROTEIRO):
+        if not self.winfo_exists() or not 0 <= indice < len(self.roteiro):
             return
         self._cancelar_agendado()
         self.narradora.calar()
         self._fechar_abertas()
         self.indice = indice
-        passo = ROTEIRO[indice]
+        passo = self.roteiro[indice]
         if not (passo.acao or "").startswith("nist"):
             voltar = self.acoes.get("nist_voltar")   # sai do painel NIST ao mudar de assunto
             if voltar is not None:
@@ -624,9 +637,9 @@ class FormTour(tk.Toplevel):
         self.tecnologias.configure(text=f"Tecnologias: {passo.tecnologias}"
                                    if passo.tecnologias else "")
         self.progresso["value"] = indice + 1
-        self._topo.itemconfigure(self._contador, text=f"Passo {indice + 1} de {len(ROTEIRO)}")
+        self._topo.itemconfigure(self._contador, text=f"Passo {indice + 1} de {len(self.roteiro)}")
         self.bt_anterior.state(["disabled" if indice == 0 else "!disabled"])
-        self.bt_proximo.state(["disabled" if indice == len(ROTEIRO) - 1 else "!disabled"])
+        self.bt_proximo.state(["disabled" if indice == len(self.roteiro) - 1 else "!disabled"])
         if self.status is not None:
             self.status.mensagem(f"Tour: {passo.titulo}")
 
@@ -711,8 +724,8 @@ class FormTour(tk.Toplevel):
             self.holofote.esconder()
         elif self.abertas:
             self.holofote.destacar_janela(self.abertas[0])
-        elif 0 <= self.indice < len(ROTEIRO):
-            self._acender(ROTEIRO[self.indice])
+        elif 0 <= self.indice < len(self.roteiro):
+            self._acender(self.roteiro[self.indice])
 
     def _janelas(self):
         # A película do holofote também é uma Toplevel da raiz: não conta como formulário
@@ -754,7 +767,7 @@ class FormTour(tk.Toplevel):
         else:
             terminou = time.monotonic() >= self._fim_estimado
         if terminou:
-            if self.auto.get() and self.indice < len(ROTEIRO) - 1:
+            if self.auto.get() and self.indice < len(self.roteiro) - 1:
                 self._agendado = self.after(PAUSA_ENTRE_PASSOS_MS, self._avancar_agendado)
             return                                   # parou de vigiar até o próximo passo
         self._vigiar()
@@ -773,7 +786,7 @@ class FormTour(tk.Toplevel):
     # ------------------------------------------------------
 
     def proximo(self):
-        if self.indice < len(ROTEIRO) - 1:
+        if self.indice < len(self.roteiro) - 1:
             self.ir_para(self.indice + 1)
 
     def anterior(self):

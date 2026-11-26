@@ -298,6 +298,12 @@ PAPEL_EM_USO = {"papel": "usuario"}
 LICENCA_EM_USO = {}
 
 
+def _sei_liberado():
+    """Integração SEI só na modalidade S-Cyber PM (licença assinada). Business: não."""
+    import modLicenca
+    return modLicenca.recurso_liberado(LICENCA_EM_USO, "sei")
+
+
 def _validar_para_recuperacao():
     """Recuperação sem licença: o certificado continua obrigatório (mesmas listas)."""
     import modLicenca
@@ -789,7 +795,8 @@ def main():
             "nist_voltar": nist.voltar_se_aberto,
             "sobre": lambda: FormAbout(root),
         }
-        janelas["tour"] = FormTour(root, ribbon=ribbon, status=status, acoes=acoes)
+        janelas["tour"] = FormTour(root, ribbon=ribbon, status=status, acoes=acoes,
+                                   institucional=_sei_liberado())
 
     def testar_voz():
         from formTour import Narradora
@@ -1031,8 +1038,8 @@ def main():
             "Comunicação ponta a ponta - simulação (Ctrl+E)")
     g.botao("Rádio\ndigital", "radio", abrir_radio,
             "Radiocomunicação digital: DMR, P25 e TETRA - simulação (Ctrl+T)")
-    g.botao("SEI", "sei", abrir_sei,
-            "SEI - consulta pelo navegador (Ctrl+I)")
+    botao_sei = g.botao("SEI", "sei", abrir_sei,
+                        "SEI - consulta pelo navegador (Ctrl+I)")
     g = aba.grupo("Didático")
     g.botao("Memória\n(recursão)", "memoria", abrir_memoria,
             "Alocação de memória por recursão (Ctrl+M)")
@@ -1186,6 +1193,21 @@ def main():
 
     fundo.bind("<Configure>", centralizar, add="+")
 
+    def ocultar_integracoes_institucionais():
+        """S-Cyber Business: o SEI (integração institucional da PM) some do menu, da Ribbon, do
+        atalho Ctrl+I e do assistente, em vez de aparecer e depois recusar."""
+        if _sei_liberado():
+            return
+        for menu, rotulo in ((menu_ferramentas, "SEI - consulta pelo navegador..."),
+                             (menu_nist, "Consultas SEI")):
+            try:
+                menu.delete(menu.index(rotulo))
+            except tk.TclError:
+                pass
+        root.unbind("<Control-i>")
+        botao_sei.pack_forget()
+        assistente.comandos[:] = [c for c in assistente.comandos if c.acao is not abrir_sei]
+
     def mostrar_principal():
         # Modalidade da licença assinada: muda o nome do produto na janela (S-Cyber Business / PM)
         try:
@@ -1195,6 +1217,11 @@ def main():
             fundo.itemconfigure(titulo, text=f"{produto} - aplicação principal")
         except Exception:
             pass
+        try:
+            ocultar_integracoes_institucionais()
+        except Exception:
+            __import__("logging").getLogger(__name__).warning("Falha ao ajustar os menus da modalidade",
+                                                              exc_info=True)
         root.deiconify()
         root.lift()
         root.focus_force()
