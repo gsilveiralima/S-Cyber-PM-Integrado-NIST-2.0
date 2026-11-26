@@ -1,0 +1,225 @@
+[
+ {
+  "id": "s00",
+  "ini": 0.0,
+  "fim": 22.1,
+  "vel": 1,
+  "papel": "Apresentação",
+  "partes": [
+   {
+    "t": 0.0,
+    "legenda": "Esta é uma demonstração do S-Cyber Business, a plataforma de defesa cibernética do projeto INOVA Senac. Vamos mostrar o caminho completo: a instalação no computador do cliente, o credenciamento feito pelo administrador e o primeiro diagnóstico de segurança.",
+    "fala": "Esta é uma demonstração do Ésse Sáiber Bíznes, a plataforma de defesa cibernética do projeto Inova Senác. Vamos mostrar o caminho completo: a instalação no computador do cliente, o credenciamento feito pelo administrador, e o primeiro diagnóstico de segurança."
+   }
+  ]
+ },
+ {
+  "id": "s01",
+  "ini": 22.1,
+  "fim": 78.6,
+  "vel": 4,
+  "papel": "Cliente (máquina virtual)",
+  "partes": [
+   {
+    "t": 22.1,
+    "legenda": "Para simular um cliente real, usamos uma máquina virtual com Windows 10 recém-instalado, no VirtualBox. A inicialização está acelerada.",
+    "fala": "Para simular um cliente real, usamos uma máquina virtual com Uíndous dez recém-instalado, no Virtual Bóks. A inicialização está acelerada."
+   }
+  ]
+ },
+ {
+  "id": "s02",
+  "ini": 78.6,
+  "fim": 124.2,
+  "vel": 1,
+  "papel": "Cliente (máquina virtual)",
+  "partes": [
+   {
+    "t": 78.6,
+    "legenda": "No navegador do cliente, abrimos a página de versões do projeto no GitHub. Ali fica sempre a versão estável; nesta gravação, a 2.0.2.",
+    "fala": "No navegador do cliente, abrimos a página de versões do projeto no Guít Râb. Ali fica sempre a versão estável; nesta gravação, a dois ponto zero ponto dois."
+   },
+   {
+    "t": 96,
+    "legenda": "Junto com o instalador vem o código SHA-256, que permite conferir se o arquivo baixado é exatamente o original.",
+    "fala": "Junto com o instalador, vem o código ésse agá á dois cinco seis, que permite conferir se o arquivo baixado é exatamente o original."
+   },
+   {
+    "t": 110,
+    "legenda": "O cliente baixa o instalador para a pasta Downloads.",
+    "fala": "O cliente baixa o instalador para a pasta Dáunlouds."
+   }
+  ]
+ },
+ {
+  "id": "s03",
+  "ini": 124.2,
+  "fim": 169.8,
+  "vel": 1,
+  "papel": "Cliente (máquina virtual)",
+  "partes": [
+   {
+    "t": 124.2,
+    "legenda": "Como o instalador ainda não tem assinatura de código comercial, o Windows mostra o aviso do SmartScreen: basta clicar em Mais informações e em Executar assim mesmo. A instalação não pede senha de administrador, não exige Python nem outro programa, e termina em poucos segundos. O atalho da coruja aparece na área de trabalho.",
+    "fala": "Como o instalador ainda não tem assinatura de código comercial, o Uíndous mostra o aviso do Ismárt Iscrín: basta clicar em Mais informações, e em Executar assim mesmo. A instalação não pede senha de administrador, não exige Páiton nem outro programa, e termina em poucos segundos. O atalho da coruja aparece na área de trabalho."
+   }
+  ]
+ },
+ {
+  "id": "s04",
+  "ini": 169.8,
+  "fim": 252.3,
+  "vel": 1,
+  "papel": "Cliente (máquina virtual)",
+  "partes": [
+   {
+    "t": 169.8,
+    "legenda": "Ao abrir, o S-Cyber verifica o certificado digital do usuário. Como o computador é novo, não há certificado autorizado, e a tela explica a próxima ação.",
+    "fala": "Ao abrir, o Ésse Sáiber verifica o certificado digital do usuário. Como o computador é novo, não há certificado autorizado, e a tela explica a próxima ação."
+   },
+   {
+    "t": 196,
+    "legenda": "O usuário clica em Criar meu certificado e informa o nome. O certificado é criado no próprio Windows, e a chave privada nunca sai deste computador. Ele aparece na lista como aguardando credenciamento, identificado pela impressão digital.",
+    "fala": "O usuário clica em Criar meu certificado, e informa o nome. O certificado é criado no próprio Uíndous, e a chave privada nunca sai deste computador. Ele aparece na lista como aguardando credenciamento, identificado pela impressão digital."
+   },
+   {
+    "t": 229,
+    "legenda": "Em seguida, o usuário clica em Enviar pedido de credenciamento por e-mail: o programa monta o pedido sozinho e também deixa o e-mail copiado, para quem usa e-mail no navegador.",
+    "fala": "Em seguida, o usuário clica em Enviar pedido de credenciamento por imêiu: o programa monta o pedido sozinho, e também deixa o imêiu copiado, para quem usa imêiu no navegador."
+   }
+  ]
+ },
+ {
+  "id": "s05",
+  "ini": 252.3,
+  "fim": 277.9,
+  "vel": 1,
+  "papel": "Cliente (máquina virtual)",
+  "partes": [
+   {
+    "t": 252.3,
+    "legenda": "O e-mail já abre pronto, endereçado ao suporte do S-Cyber, com o assunto padrão e o código do pedido. O pedido identifica só o certificado, o computador e a conta do Windows. Nenhuma senha e nenhuma chave privada são enviadas.",
+    "fala": "O imêiu já abre pronto, endereçado ao suporte do Ésse Sáiber, com o assunto padrão e o código do pedido. O pedido identifica só o certificado, o computador e a conta do Uíndous. Nenhuma senha, e nenhuma chave privada, são enviadas."
+   }
+  ]
+ },
+ {
+  "id": "s06",
+  "ini": 277.9,
+  "fim": 344.3,
+  "vel": 1,
+  "papel": "Administrador",
+  "partes": [
+   {
+    "t": 277.9,
+    "legenda": "Agora, o lado do administrador. O pedido chega à caixa de entrada do suporte.",
+    "fala": "Agora, o lado do administrador. O pedido chega à caixa de entrada do suporte."
+   },
+   {
+    "t": 290,
+    "legenda": "O administrador abre a Tela de Administração de Licenças com dois cliques; essa ferramenta não vai no instalador e só funciona com o certificado de administrador.",
+    "fala": "O administrador abre a Tela de Administração de Licenças com dois cliques; essa ferramenta não vai no instalador, e só funciona com o certificado de administrador."
+   },
+   {
+    "t": 303,
+    "legenda": "Ele cola o pedido, e a tela reconhece que é um credenciamento e mostra de qual computador veio.",
+    "fala": "Ele cola o pedido, e a tela reconhece que é um credenciamento, e mostra de qual computador veio."
+   },
+   {
+    "t": 315,
+    "legenda": "Ele escolhe o papel de usuário e clica em Credenciar certificado: a lista é assinada digitalmente.",
+    "fala": "Ele escolhe o papel de usuário, e clica em Credenciar certificado: a lista é assinada digitalmente."
+   },
+   {
+    "t": 327,
+    "legenda": "Por fim, Enviar ao GitHub publica a lista assinada.",
+    "fala": "Por fim, Enviar ao Guít Râb publica a lista assinada."
+   }
+  ]
+ },
+ {
+  "id": "s07",
+  "ini": 344.3,
+  "fim": 502.9,
+  "vel": 4,
+  "papel": "Cliente e administrador",
+  "partes": [
+   {
+    "t": 344.3,
+    "legenda": "De volta ao cliente, num trecho acelerado. A lista publicada pode levar alguns minutos para chegar, por causa do cache do GitHub. Enquanto isso, o S-Cyber continua recusando o certificado: ele só aceita o que foi assinado por um administrador. Na nova verificação, a lista atualizada é baixada pela internet, e o certificado é aceito.",
+    "fala": "De volta ao cliente, num trecho acelerado. A lista publicada pode levar alguns minutos para chegar, por causa do quéch do Guít Râb. Enquanto isso, o Ésse Sáiber continua recusando o certificado: ele só aceita o que foi assinado por um administrador. Na nova verificação, a lista atualizada é baixada pela internet, e o certificado é aceito."
+   }
+  ]
+ },
+ {
+  "id": "s08",
+  "ini": 502.9,
+  "fim": 655.1,
+  "vel": 2.5,
+  "papel": "Cliente (máquina virtual)",
+  "partes": [
+   {
+    "t": 502.9,
+    "legenda": "Certificado validado, o programa carrega e pede o primeiro acesso. Não existe senha de fábrica: o próprio usuário cria uma senha para entrar e outra para proteger os PDFs. Cada senha precisa de pelo menos 12 caracteres e de três tipos diferentes entre maiúsculas, minúsculas, números e símbolos; quando a regra não é cumprida, o programa avisa e não deixa seguir. As senhas foram ocultadas neste vídeo. Os dados do usuário ficam cifrados com uma chave derivada do certificado.",
+    "fala": "Certificado validado, o programa carrega, e pede o primeiro acesso. Não existe senha de fábrica: o próprio usuário cria uma senha para entrar, e outra para proteger os pê dê éfes. Cada senha precisa de pelo menos doze caracteres, e de três tipos diferentes, entre maiúsculas, minúsculas, números e símbolos; quando a regra não é cumprida, o programa avisa, e não deixa seguir. As senhas foram ocultadas neste vídeo. Os dados do usuário ficam cifrados, com uma chave derivada do certificado."
+   }
+  ]
+ },
+ {
+  "id": "s09",
+  "ini": 655.1,
+  "fim": 701.7,
+  "vel": 1,
+  "papel": "Cliente (máquina virtual)",
+  "partes": [
+   {
+    "t": 655.1,
+    "legenda": "Esta é a tela principal do S-Cyber Business. A modalidade vem da licença assinada, que define se a instalação é empresarial ou institucional.",
+    "fala": "Esta é a tela principal do Ésse Sáiber Bíznes. A modalidade vem da licença assinada, que define se a instalação é empresarial ou institucional."
+   },
+   {
+    "t": 667,
+    "legenda": "Em Certificados, o usuário vê os certificados do Windows com as propriedades e um gráfico.",
+    "fala": "Em Certificados, o usuário vê os certificados do Uíndous, com as propriedades e um gráfico."
+   },
+   {
+    "t": 688,
+    "legenda": "Depois abrimos o painel NIST Intelligence, organizado pelas seis funções do NIST Cybersecurity Framework 2.0: Governar, Identificar, Proteger, Detectar, Responder e Recuperar.",
+    "fala": "Depois, abrimos o painel Nísti Intélijens, organizado pelas seis funções do Nísti Sáiber Sequiúriti Frêimuork, dois ponto zero: Governar, Identificar, Proteger, Detectar, Responder e Recuperar."
+   }
+  ]
+ },
+ {
+  "id": "s10",
+  "ini": 701.7,
+  "fim": 747.3,
+  "vel": 1,
+  "papel": "Cliente (máquina virtual)",
+  "partes": [
+   {
+    "t": 701.7,
+    "legenda": "Agora, o Diagnóstico Inteligente em um clique. Depois de confirmar o escopo, o S-Cyber faz 17 verificações somente de leitura, como antivírus, firewall, atualizações, contas, bloqueio de tela, portas e backup; nada é alterado.",
+    "fala": "Agora, o Diagnóstico Inteligente em um clique. Depois de confirmar o escopo, o Ésse Sáiber faz dezessete verificações somente de leitura, como antivírus, fáier uól, atualizações, contas, bloqueio de tela, portas e békap; nada é alterado."
+   },
+   {
+    "t": 727,
+    "legenda": "Aqui, 14 foram feitas: 9 aprovadas, 4 em atenção e 1 falha. As 3 que exigem administrador aparecem como indisponíveis e nunca contam como aprovadas. Cada problema vira um achado ligado ao NIST, com prioridade, evidência e recomendação.",
+    "fala": "Aqui, quatorze foram feitas: nove aprovadas, quatro em atenção, e uma falha. As três que exigem administrador aparecem como indisponíveis, e nunca contam como aprovadas. Cada problema vira um achado ligado ao Nísti, com prioridade, evidência e recomendação."
+   }
+  ]
+ },
+ {
+  "id": "s11",
+  "ini": 747.3,
+  "fim": 747.3,
+  "vel": 1,
+  "papel": "",
+  "partes": [
+   {
+    "t": 747.3,
+    "legenda": "S-Cyber: identificar os problemas, orientar a correção e comprovar a melhoria da segurança. Obrigado.",
+    "fala": "Ésse Sáiber: identificar os problemas, orientar a correção, e comprovar a melhoria da segurança. Obrigado."
+   }
+  ]
+ }
+]

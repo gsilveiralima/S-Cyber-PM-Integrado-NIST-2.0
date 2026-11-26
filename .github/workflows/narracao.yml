@@ -1,0 +1,32 @@
+name: Narração do vídeo de demonstração (temporário)
+
+on: push
+
+permissions:
+  contents: write
+
+jobs:
+  voz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Piper (voz neural aberta, roda localmente no runner)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          pip install -q "piper-tts==1.2.0" || pip install -q piper-tts
+          mkdir -p voz
+          base=https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium
+          curl -sSfL -o voz/pt_BR-faber-medium.onnx "$base/pt_BR-faber-medium.onnx"
+          curl -sSfL -o voz/pt_BR-faber-medium.onnx.json "$base/pt_BR-faber-medium.onnx.json"
+      - name: Gerar narração
+        run: python gerar.py
+      - name: Devolver os áudios para este ramo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add saida
+          git commit -m "Narração gerada"
+          git push
