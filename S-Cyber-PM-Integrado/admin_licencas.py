@@ -23,6 +23,7 @@ Depois de cada operação, publique no GitHub (o aplicativo baixa de lá):
 from __future__ import annotations
 
 import argparse
+import re
 import secrets
 import sys
 from datetime import datetime, timedelta
@@ -43,7 +44,8 @@ class Admin:
     def __init__(self, pasta=PASTA, assinador=None, thumb=None, hoje=None):
         self.pasta = Path(pasta)
         self.hoje = hoje or L.hoje_data()
-        self.pub = L.Publicacao(pasta_cache=self.pasta / "_nao_usado", pasta_pacote=self.pasta, online=False)
+        self.pub = L.Publicacao(pasta_cache=self.pasta / "_nao_usado", pasta_pacote=self.pasta, online=False,
+                                lembrar=False)
         admins = self.pub.administradores()
         if thumb is None:
             thumb = _certificado_admin(admins)
@@ -107,6 +109,8 @@ class Admin:
             raise L.ErroLicenca("invalida", "Pedido sem instalação ou máquina.")
         if modalidade not in L.MODALIDADES:
             raise L.ErroLicenca("invalida", f"Modalidade inválida: use {', '.join(L.MODALIDADES)}.")
+        if not 1 <= int(dias) <= L.PRAZO_MAX_LICENCA_DIAS:
+            raise L.ErroLicenca("invalida", f"Prazo da licença deve ficar entre 1 e {L.PRAZO_MAX_LICENCA_DIAS} dias.")
         lic = {"tipo": "licenca", "versao": 1, "licenca_id": "LIC-" + secrets.token_hex(6).upper(),
                "instalacao": instalacao, "maquina": maquina, "unidade": unidade, "titular": titular,
                "emitida_em": _agora(), "valida_ate": (self.hoje + timedelta(days=int(dias))).isoformat(),
@@ -205,7 +209,7 @@ class Admin:
 def verificar(pasta=PASTA, hoje=None, alerta_dias=L.AVISO_LISTA_DIAS):
     """Confere assinaturas e validade de tudo o que está publicado. Devolve linhas de texto:
     'ERRO' (assinatura ou lista vencida/ausente) e 'AVISO' (vence em até `alerta_dias` dias)."""
-    pub = L.Publicacao(pasta_cache=Path(pasta) / "_nao_usado", pasta_pacote=pasta, online=False)
+    pub = L.Publicacao(pasta_cache=Path(pasta) / "_nao_usado", pasta_pacote=pasta, online=False, lembrar=False)
     out = [f"Administradores: {', '.join(sorted(set(pub.administradores().values())))}"]
     dias = {n: d for n, _, d in L.situacao_listas(pub, hoje)}
     for nome in L.LISTAS:
@@ -285,12 +289,51 @@ def nome_arquivo(lic):
     return f"licenca_{lic['instalacao']}.sclic"
 
 
-def raiz_git(pasta=PASTA):
-    """Raiz do clone do repositório que contém a pasta das listas, ou None (pasta de um ZIP)."""
-    for p in [Path(pasta).resolve(), *Path(pasta).resolve().parents]:
+CAMINHO_LISTAS = Path("S-Cyber-PM-Integrado") / "licencas"     # onde as listas ficam dentro do clone
+
+
+def _url_origem(raiz):
+    """URL do remoto 'origin' lida do .git/config (sem rodar o Git). '' se não der para ler."""
+    git = raiz / ".git"
+    try:
+        if git.is_file():                    # worktree ou submódulo: o .git é um arquivo "gitdir: ..."
+            git = (raiz / git.read_text(encoding="utf-8").split(":", 1)[1].strip()).resolve()
+            if (git / "commondir").exists():
+                git = (git / (git / "commondir").read_text(encoding="utf-8").strip()).resolve()
+        texto = (git / "config").read_text(encoding="utf-8", errors="replace")
+    except (OSError, IndexError):
+        return ""
+    m = re.search(r'\[remote "origin"\][^\[]*?^\s*url\s*=\s*(\S+)', texto, re.M)
+    return m.group(1) if m else ""
+
+
+def _e_o_repositorio(url):
+    u = url.strip().lower().replace(":", "/").rstrip("/")
+    u = u[:-4] if u.endswith(".git") else u
+    return u.endswith("/" + L.REPOSITORIO.lower())
+
+
+def situacao_git(pasta=PASTA):
+    """(raiz do clone do S-Cyber, '') ou (None, motivo). O repositório que vale é o MAIS PRÓXIMO
+    acima da pasta (o mesmo que o Git usaria). Não basta achar um .git: uma pasta de ZIP extraída
+    dentro de outro repositório seria tratada como clone e o Git operaria no repositório errado.
+    Exige a pasta das listas no caminho esperado e o 'origin' apontando para o repositório do S-Cyber."""
+    pasta = Path(pasta).resolve()
+    for p in [pasta, *pasta.parents]:
         if (p / ".git").exists():
-            return p
-    return None
+            if pasta != (p / CAMINHO_LISTAS).resolve():
+                return None, (f"esta pasta está dentro de outro repositório Git ({p}), não no lugar das listas "
+                              f"de um clone do S-Cyber ({CAMINHO_LISTAS.as_posix()})")
+            if not _e_o_repositorio(_url_origem(p)):
+                return None, (f"o clone em {p} não é do repositório {L.REPOSITORIO} (confira o 'origin' com "
+                              "'git remote -v')")
+            return p, ""
+    return None, "esta pasta não é um clone do Git (veio de um ZIP)"
+
+
+def raiz_git(pasta=PASTA):
+    """Raiz do clone do repositório do S-Cyber que contém a pasta das listas, ou None."""
+    return situacao_git(pasta)[0]
 
 
 def pagina_de_envio():
@@ -344,10 +387,10 @@ def publicar_no_github(pasta=PASTA, mensagem="Licenças: atualização", executa
     """git add/commit/push só da pasta das listas. Devolve (ok, texto para mostrar)."""
     import subprocess
     executar = executar or subprocess.run
-    raiz = raiz_git(pasta)
+    raiz, motivo = situacao_git(pasta)
     if raiz is None:
-        return False, ("Esta pasta veio de um ZIP (não é um clone do Git), então não dá para enviar daqui. "
-                       "Copie a pasta 'licencas' para um clone do repositório e envie de lá.")
+        return False, (f"Não dá para enviar daqui: {motivo}. Copie a pasta 'licencas' para um clone do "
+                       "repositório do S-Cyber e envie de lá.")
     rel = str(Path(pasta).resolve().relative_to(raiz))
     pendente = operacao_pendente(raiz)
     if pendente:
@@ -551,17 +594,17 @@ def _como_publicar(cmd, raiz=None):
     """O que fazer depois da operação. Só as listas precisam chegar ao GitHub para valer nas outras
     instalações; a emissão, a renovação e a transferência acrescentam só uma linha ao registro."""
     raiz = Path(raiz) if raiz else PASTA.parent.parent
-    git = (raiz / ".git").exists()
+    clone, motivo = situacao_git(raiz / CAMINHO_LISTAS)
     comando = f'git add licencas ; git commit -m "Licenças: {cmd}" ; git push'
     if cmd in MUDAM_LISTAS:
         inicio = "PUBLIQUE para valer nas outras instalações"
     else:
         inicio = ("A licença já pode ser enviada ao usuário. Para guardar o registro desta operação no GitHub "
                   "(recomendado)")
-    if git:
+    if clone:
         return f"{inicio}: {comando}"
-    return (f"{inicio}: esta pasta não é um clone do Git (veio de um ZIP). Copie a pasta licencas para um clone "
-            f"do repositório e rode lá: {comando}")
+    return (f"{inicio}: {motivo}. Copie a pasta licencas para um clone do repositório do S-Cyber e rode lá: "
+            f"{comando}")
 
 
 def _texto(valor):

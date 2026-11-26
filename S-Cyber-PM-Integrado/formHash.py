@@ -1291,7 +1291,7 @@ class FormHash(tk.Toplevel):
             return
         try:
             if sys.platform == "win32":
-                subprocess.Popen(f'explorer /select,"{e["caminho"]}"')
+                subprocess.Popen(["explorer", "/select,", e["caminho"]])   # argumentos em lista: sem montar texto
             else:
                 subprocess.Popen(["xdg-open", str(Path(e["caminho"]).parent)])
         except OSError as erro:

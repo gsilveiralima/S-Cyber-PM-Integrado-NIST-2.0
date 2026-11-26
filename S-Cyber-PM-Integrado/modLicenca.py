@@ -48,6 +48,8 @@ EMAIL_SUPORTE = "scybersuporte@gmail.com"
 URL_PUBLICACAO = f"https://raw.githubusercontent.com/{REPOSITORIO}/main/S-Cyber-PM-Integrado/licencas/"
 LISTAS = ("administradores", "revogacoes", "credenciamentos")
 VALIDADE_LISTA_DIAS = 30          # prazo máximo até uma revogação valer sem internet
+PRAZO_MAX_LICENCA_DIAS = 1100     # licença: no máximo ~3 anos a partir da data da assinatura
+SEQUENCIAS_VISTAS = "sequencias_vistas.json"   # maior sequência já aceita de cada lista (anti-retorno)
 AVISO_LISTA_DIAS = 10             # a partir daqui, avisar que as listas precisam ser republicadas
 FORMATO = "scyber-assinado"
 PREFIXO_CHAVE = "SCPM1."
@@ -132,7 +134,41 @@ def abrir(bruto: bytes, administradores: dict):
         raise ErroLicenca("nao_admin", f"Assinado por {info['subject']} ({info['thumb'][:8]}…), que não é "
                                        "administrador do S-Cyber PM.")
     info["administrador"] = administradores[info["thumb"]]
-    return json.loads(dados), info
+    conteudo = json.loads(dados)
+    _conferir_data_da_assinatura(info, conteudo)
+    return conteudo, info
+
+
+def _conferir_data_da_assinatura(info, conteudo):
+    """Política de validade do certificado do administrador (revisão de 26/11/2026).
+
+    1. O documento precisa dizer quando foi assinado (signingTime do CMS), e essa data precisa
+       estar dentro da validade do certificado que assinou: certificado vencido não assina mais.
+    2. A validade do documento não pode passar do prazo máximo contado da data da assinatura
+       (listas: VALIDADE_LISTA_DIAS; licenças: PRAZO_MAX_LICENCA_DIAS). Assim, mesmo quem tiver a
+       chave de um certificado já vencido e "voltar a data" da assinatura só consegue documentos
+       que vencem logo depois do fim da validade do certificado.
+    Licenças já emitidas continuam valendo depois que o certificado do administrador vence:
+    o que conta é a validade na data em que foram assinadas."""
+    quando = info.get("signing_time") or ""
+    if not quando:
+        raise ErroLicenca("invalida", "A assinatura não informa a data em que foi feita; peça um documento novo "
+                                      "ao administrador.")
+    try:
+        dia = datetime.fromisoformat(quando).astimezone(timezone.utc).date()
+    except ValueError as exc:
+        raise ErroLicenca("invalida", "Data da assinatura ilegível.") from exc
+    inicio, fim = info.get("not_before", ""), info.get("not_after", "")
+    if not (inicio <= dia.isoformat() <= fim):
+        raise ErroLicenca("certificado_vencido",
+                          f"Assinado em {dia:%d/%m/%Y}, fora da validade do certificado do administrador "
+                          f"({inicio} a {fim}). Peça um documento novo, assinado com um certificado válido.")
+    ate = conteudo.get("valida_ate")
+    if ate:
+        prazo = VALIDADE_LISTA_DIAS + 1 if conteudo.get("tipo") in LISTAS else PRAZO_MAX_LICENCA_DIAS
+        if ate > (dia + timedelta(days=prazo)).isoformat():
+            raise ErroLicenca("invalida", f"A validade do documento ({ate}) passa do prazo permitido para a data "
+                                          f"em que foi assinado ({dia:%d/%m/%Y}).")
 
 
 # ------------------------------------------------------------------ instalação
@@ -258,12 +294,15 @@ class Publicacao:
     """Listas assinadas (administradores, revogações, credenciamentos) com cache local
     e cópia que acompanha o instalador. Vale a de MAIOR sequência que confere."""
 
-    def __init__(self, pasta_cache=None, pasta_pacote=None, baixar=_baixar, online=True):
+    def __init__(self, pasta_cache=None, pasta_pacote=None, baixar=_baixar, online=True, lembrar=True):
+        # lembrar=False: só leitura (ferramenta do administrador): não grava cache nem sequências.
+        self.lembrar = lembrar
         self.cache = Path(pasta_cache or pasta_instalacao() / "licencas")
         self.pacote = Path(pasta_pacote) if pasta_pacote else Path(__file__).resolve().parent / "licencas"
         self.baixar = baixar
         self.online = online
         self.origem = {}           # nome -> 'online' | 'cache' | 'pacote'
+        self.recusadas = {}        # nome -> motivo de uma cópia recusada (vencida ou antiga)
         self.falha_rede = None
         self._admins = None
         self._docs = {}
@@ -284,20 +323,49 @@ class Publicacao:
                 pass
         return out
 
-    def _melhor(self, nome, admins, tipo):
+    def _sequencias_vistas(self):
+        try:
+            return {k: int(v) for k, v in json.loads((self.cache / SEQUENCIAS_VISTAS).read_text("utf-8")).items()}
+        except (OSError, ValueError, AttributeError, TypeError):
+            return {}
+
+    def _lembrar_sequencia(self, nome, sequencia):
+        vistas = self._sequencias_vistas()
+        if not self.lembrar or sequencia <= vistas.get(nome, 0):
+            return
+        vistas[nome] = sequencia
+        try:
+            self.cache.mkdir(parents=True, exist_ok=True)
+            (self.cache / SEQUENCIAS_VISTAS).write_text(json.dumps(vistas, sort_keys=True), encoding="utf-8")
+        except OSError:
+            pass
+
+    def _melhor(self, nome, admins, tipo, so_vigente=False):
+        """A lista de MAIOR sequência que confere. Anti-retorno: uma lista com sequência MENOR que a
+        maior já aceita neste computador é recusada, mesmo assinada (cópia antiga que ainda tinha um
+        administrador removido ou um certificado depois revogado). so_vigente: ignora listas vencidas."""
+        minima = self._sequencias_vistas().get(nome, 0)
+        hoje = _hoje().isoformat()
         melhor = None
         for origem, bruto in self._candidatos(nome):
             try:
                 conteudo, info = abrir(bruto, admins)
             except ErroLicenca:
                 continue
-            if conteudo.get("tipo") != tipo:
+            seq = int(conteudo.get("sequencia", 0))
+            if conteudo.get("tipo") != tipo or seq < minima:
+                if conteudo.get("tipo") == tipo:
+                    self.recusadas[nome] = f"cópia antiga recusada (sequência {seq} < {minima})"
                 continue
-            if melhor is None or int(conteudo.get("sequencia", 0)) > int(melhor[0].get("sequencia", 0)):
+            if so_vigente and hoje > conteudo.get("valida_ate", ""):
+                self.recusadas[nome] = f"lista vencida em {conteudo.get('valida_ate')} recusada"
+                continue
+            if melhor is None or seq > int(melhor[0].get("sequencia", 0)):
                 melhor = (conteudo, info, origem, bruto)
         if melhor:
             self.origem[nome] = melhor[2]
-            if melhor[2] == "online":
+            self._lembrar_sequencia(nome, int(melhor[0].get("sequencia", 0)))
+            if melhor[2] == "online" and self.lembrar:
                 try:
                     self.cache.mkdir(parents=True, exist_ok=True)
                     (self.cache / f"{nome}.scsig").write_bytes(melhor[3])
@@ -306,9 +374,12 @@ class Publicacao:
         return melhor
 
     def administradores(self):
+        """Administradores em vigor. Só vale a lista VIGENTE (não vencida): uma cópia antiga, ainda
+        assinada, não pode continuar autorizando um administrador removido. Sem lista vigente, valem
+        só os administradores fixos do programa (remover um destes exige uma versão nova)."""
         if self._admins is None:
             admins = dict(ADMINISTRADORES_FIXOS)
-            m = self._melhor("administradores", admins, "administradores")
+            m = self._melhor("administradores", admins, "administradores", so_vigente=True)
             if m and m[0].get("administradores"):
                 admins = {k.upper(): v for k, v in m[0]["administradores"].items()}
             self._admins = admins
@@ -323,6 +394,10 @@ class Publicacao:
 
     def vigente(self, nome, hoje=None):
         doc = self.documento(nome)
+        if doc is None and nome in self.recusadas:
+            raise ErroLicenca("sem_lista", f"Só há uma cópia não aceita da lista de {nome} neste computador "
+                                           f"({self.recusadas[nome]}). Conecte o computador à internet para "
+                                           "baixar a atual; se continuar, avise o administrador.")
         if doc is None:
             raise ErroLicenca("sem_lista", f"A lista de {nome} não foi encontrada (sem internet e sem cópia "
                                            "local). Conecte o computador à internet e tente de novo.")

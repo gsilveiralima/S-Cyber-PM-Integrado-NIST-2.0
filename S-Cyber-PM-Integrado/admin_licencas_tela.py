@@ -356,10 +356,10 @@ class TelaAdministrador(tk.Tk):
                 f.write(self.chave)
             self.status.set(f"Arquivo salvo: {arq}")
 
-    def enviar_pelo_site(self):
-        """Pasta de ZIP (sem Git): abre a pasta das listas e a página de envio do GitHub."""
+    def enviar_pelo_site(self, motivo="esta pasta não é um clone do Git (veio de um ZIP)"):
+        """Pasta fora de um clone do S-Cyber: abre a pasta das listas e a página de envio do GitHub."""
         if not messagebox.askyesno(TITULO, (
-                "Esta pasta veio de um ZIP (não é um clone do Git), então o envio automático não funciona aqui.\n\n"
+                f"O envio automático não funciona aqui: {motivo}.\n\n"
                 "Dá para enviar pelo site do GitHub:\n"
                 "1. Vou abrir a pasta das listas e a página de envio no navegador (entre na sua conta do GitHub).\n"
                 "2. Arraste para a página os arquivos .scsig e o registro.jsonl.\n"
@@ -376,8 +376,9 @@ class TelaAdministrador(tk.Tk):
     def enviar_github(self, confirmar=True):
         if self._ocupado:
             return
-        if AL.raiz_git(self.pasta) is None:
-            self.enviar_pelo_site()
+        raiz, motivo = AL.situacao_git(self.pasta)
+        if raiz is None:
+            self.enviar_pelo_site(motivo)
             return
         if confirmar and not messagebox.askyesno(TITULO, "Enviar as listas e o registro ao GitHub agora? (git push "
                                                  "na pasta das licenças)", parent=self):

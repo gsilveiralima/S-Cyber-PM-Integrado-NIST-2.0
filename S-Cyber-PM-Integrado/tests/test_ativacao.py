@@ -227,9 +227,13 @@ class VencimentoDasListasTests(Base):
         with tempfile.TemporaryDirectory() as tmp:
             self.assertIn("não é um clone do Git", admin_licencas._como_publicar("publicar", tmp))
             self.assertIn("já pode ser enviada", admin_licencas._como_publicar("emitir", tmp))
-            (Path(tmp) / ".git").mkdir()
+            (Path(tmp) / ".git").mkdir()                      # .git de outro repositório: não serve
+            self.assertIn("não é do repositório", admin_licencas._como_publicar("revogar", tmp))
+            (Path(tmp) / ".git" / "config").write_text(
+                f'[remote "origin"]\n\turl = https://github.com/{L.REPOSITORIO}.git\n', encoding="utf-8")
             self.assertIn("PUBLIQUE", admin_licencas._como_publicar("revogar", tmp))
             self.assertNotIn("ZIP", admin_licencas._como_publicar("revogar", tmp))
+            self.assertTrue(admin_licencas._como_publicar("revogar", tmp).endswith("git push"))
 
 
 class OrganizacaoTests(Base):
