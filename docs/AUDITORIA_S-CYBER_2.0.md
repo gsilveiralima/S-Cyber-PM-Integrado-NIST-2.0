@@ -559,7 +559,33 @@ A tela real no Windows do CI confere a resposta copiada.
 - dois instaladores, ainda em avaliação;
 - Fases 6 a 8.
 
-## 20. Próximo passo proposto
+## 20. Testes em máquina limpa: Windows Sandbox e VirtualBox (25/11/2026, pelo autor)
+
+O autor reinstalou tudo do zero. O computador dele ficou como administrador e certificador. O usuário final foi testado primeiro na Windows Sandbox e depois numa máquina virtual Windows 10 (VirtualBox), com gravações de tela.
+
+**Funcionou de ponta a ponta:**
+- instalação pela Release, com conferência do SHA-256;
+- pedido de ativação por e-mail;
+- emissão da licença Business pela tela do administrador e resposta pronta;
+- ativação;
+- certificado criado e pedido de credenciamento;
+- credenciamento e publicação automática no GitHub (23:37);
+- renovação das listas (23:43).
+
+**Problemas que só um Windows novo revelou, todos corrigidos:**
+
+| Visto | Causa | Correção |
+|---|---|---|
+| "Não foi possível listar os certificados: #< CLIXML … Preparing modules for first use" (Sandbox) | A primeira execução do PowerShell escreve uma barra de progresso no stderr, em CLIXML | `$ProgressPreference = 'SilentlyContinue'` em todo script; o stderr em CLIXML vira só o texto dos erros reais (`modPowerShell.limpar_erro`) |
+| Certificado credenciado, mas a máquina virtual não via o credenciamento. O diagnóstico mostrou `[SSL: CERTIFICATE_VERIFY_FAILED] unable to get local issuer certificate`, e as listas vinham do pacote | O Windows novo só baixa as raízes TLS quando um programa dele precisa; o Python não pede | Novo `modRede`: as raízes do Windows **somadas** às do `certifi`, com a verificação completa mantida. Vale para as listas de licença e para todas as fontes de inteligência |
+| A tela do administrador não abria, sem mensagem | O `pythonw` não tem console | O atalho confere antes com o `python.exe`; erros viram mensagem e ficam em `admin_tela_erro.log` |
+| Envio recusado e depois "cannot do a partial commit during a merge" | Duas pastas de administração e um `git pull` com conflito que parou no meio | A tela sincroniza ao abrir, junta e reenvia sozinha (`registro.jsonl` com `merge=union`) e reconhece junção ou rebase pela metade |
+| `NOVA_IMPRESSAO` na lista de administradores | Um texto de exemplo de uma resposta foi executado como comando; a ferramenta aceitava qualquer texto | Só aceita 40 caracteres hexadecimais; a entrada foi removida pelo autor (publicação de 20:03); inofensiva enquanto existiu |
+| Teste das coletas falhando depois das 21h | `run_at` em UTC comparado com a data local | A data é convertida para a hora local antes de comparar |
+
+**Versão:** 2.0.2, que junta as correções do lado do usuário final (PowerShell e TLS).
+
+## 21. Próximo passo proposto
 1. **Validar no Windows** (script de sempre, `validar_no_windows.ps1`):
    - testes, instalador e abertura da versão nova;
    - uma licença Business com `--organizacao`: os dados vão para `perfis\<empresa>`, e a instalação PM continua com os dados de sempre;

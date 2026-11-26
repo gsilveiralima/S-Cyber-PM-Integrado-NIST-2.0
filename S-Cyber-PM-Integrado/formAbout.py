@@ -74,7 +74,7 @@ from modRecursos import botao_fechar_cabecalho
 # ==========================================================
 
 APP_NOME = "S-Cyber PM"
-APP_VERSAO = "2.0.2"            # S-Cyber 2.0 (pré-lançamento): certificados num Windows novo (Sandbox)
+APP_VERSAO = "2.0.2"            # S-Cyber 2.0 (pré-lançamento): Windows recém-instalado (certificados e TLS)
 APP_SUBTITULO = "Cryptography and Digital Certificate Framework"
 APP_DESCRICAO = (
     "Atividade para fins didáticos e de pesquisa, sem fins lucrativos. " \

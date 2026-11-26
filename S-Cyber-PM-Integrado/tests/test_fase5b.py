@@ -249,3 +249,36 @@ class FontesReaisFase5bTests(unittest.TestCase):
             self.assertIn('v=spf1', r['dom_spf']['detail'])
         if r['dom_dmarc']['status'] != 'Indisponível':
             self.assertEqual(r['dom_dmarc']['status'], 'OK')     # google.com publica p=reject
+
+
+class TlsWindowsNovoTests(unittest.TestCase):
+    """Visto no VirtualBox: '[SSL: CERTIFICATE_VERIFY_FAILED] unable to get local issuer certificate'."""
+
+    def test_contexto_soma_as_raizes_do_certifi_e_verifica_tudo(self):
+        import ssl
+
+        import certifi
+
+        import modRede
+        modRede._CONTEXTO = None
+        ctx = modRede.contexto_tls()
+        self.assertEqual(ctx.verify_mode, ssl.CERT_REQUIRED)          # nunca desliga a verificação
+        self.assertTrue(ctx.check_hostname)
+        so_certifi = ssl.create_default_context(cafile=certifi.where())
+        self.assertGreaterEqual(ctx.cert_store_stats()["x509_ca"], so_certifi.cert_store_stats()["x509_ca"])
+        self.assertIs(modRede.contexto_tls(), ctx)                     # criado uma vez só
+
+    def test_listas_e_fontes_usam_o_contexto(self):
+        import urllib.request
+        from unittest import mock
+
+        import modLicenca
+        import modRede
+        resposta = mock.MagicMock()
+        resposta.__enter__.return_value.read.return_value = b"x"
+        resposta.__enter__.return_value.status = 200
+        with mock.patch.object(urllib.request, "urlopen", return_value=resposta) as abrir:
+            modLicenca._baixar("revogacoes")
+            fontes.http_get("https://exemplo")
+        for chamada in abrir.call_args_list:
+            self.assertIs(chamada.kwargs["context"], modRede.contexto_tls())

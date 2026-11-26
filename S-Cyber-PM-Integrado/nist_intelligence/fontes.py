@@ -32,6 +32,8 @@ from pathlib import Path
 
 from . import achados, core
 
+import modRede  # noqa: E402 — conexão HTTPS única (raízes do Windows + certifi)
+
 USER_AGENT = f'S-Cyber-PM-NIST/{core.VERSION} (PMGO)'
 KEV_URLS = ('https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json',
             'https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json')
@@ -76,7 +78,7 @@ def _requisitar(req, timeout, limit):
     """Uma tentativa. Devolve (status, corpo); 404 volta como (404, b''). Falha → FalhaFonte, com
     o atributo `transitoria` dizendo se vale tentar de novo."""
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:      # noqa: S310 — URLs fixas https
+        with modRede.abrir(req, timeout) as resp:      # raízes do Windows + certifi (Windows novo)
             return resp.status, resp.read(limit)
     except urllib.error.HTTPError as exc:
         codigo = exc.code
