@@ -157,13 +157,13 @@ RECOMENDACOES = {
         'Microsoft Learn: Windows Update; CISA: Known Exploited Vulnerabilities Catalog'),
     'admins': _rec(
         'Cada conta administradora a mais é uma conta cujo comprometimento dá controle total do computador.',
-        'Deixe no grupo Administradores só as contas necessárias (S-Cyber PM > Usuários > Alterar '
+        'Deixe no grupo Administradores só as contas necessárias (S-Cyber > Usuários > Alterar '
         'permissões). Use uma conta comum no dia a dia e a administradora só quando precisar.',
         _ADMIN, 'Novo diagnóstico: "Administradores locais" em OK (até 2 membros).',
         'NIST CSF 2.0 PR.AA-05 (privilégio mínimo); CIS Controls v8, controle 5'),
     'accounts': _rec(
         'A conta Convidado ativa, ou uma conta sem senha, permite entrar no computador sem credencial.',
-        'Desative a conta Convidado e defina senha nas contas sem senha, ou desative essas contas (S-Cyber PM > '
+        'Desative a conta Convidado e defina senha nas contas sem senha, ou desative essas contas (S-Cyber > '
         'Usuários > Bloquear / Alterar senha).',
         _ADMIN, 'Novo diagnóstico: "Contas locais" em OK.', 'NIST CSF 2.0 PR.AA-01; CIS Controls v8, controle 5'),
     'pwpolicy': _rec(
@@ -213,11 +213,11 @@ RECOMENDACOES = {
         _ADMIN, 'Novo diagnóstico: "Portas abertas na rede" sem serviços sensíveis, ou exceção justificada.',
         'NIST CSF 2.0 PR.IR-01; CIS Controls v8, controle 4'),
     'appcert': _rec(
-        'Com o certificado vencido ou sem a chave privada, o S-Cyber PM não autentica o usuário nem assina '
+        'Com o certificado vencido ou sem a chave privada, o S-Cyber não autentica o usuário nem assina '
         'documentos e relatórios.',
-        'Peça ao administrador do S-Cyber PM a renovação ou um novo credenciamento (tela de abertura > '
+        'Peça ao administrador do S-Cyber a renovação ou um novo credenciamento (tela de abertura > '
         '"Criar certificado" e "pedido de credenciamento"). Não exporte nem copie a chave privada.',
-        'Usuário e administrador do S-Cyber PM', 'Novo diagnóstico: "Certificado do S-Cyber PM" em OK.',
+        'Usuário e administrador do S-Cyber', 'Novo diagnóstico: "Certificado do S-Cyber" em OK.',
         'NIST CSF 2.0 PR.AA-01 e PR.AA-03'),
 }
 _AZ_LEITOR = 'Proprietário ou Colaborador da assinatura no Azure (o S-Cyber só lê, com o papel Leitor)'
@@ -389,7 +389,7 @@ def resumo(lista, comparacao=()):
 # ------------------------------------------------------------------ o "um clique"
 ESCOPO = ('Este computador, somente leitura: antivírus, firewall, UAC, Área de Trabalho Remota, SMBv1, '
           'BitLocker, Secure Boot, atualizações, administradores e contas locais, política de senha, bloqueio '
-          'de tela, logs, SmartScreen, backup, portas em escuta e o certificado do S-Cyber PM. Nada é alterado '
+          'de tela, logs, SmartScreen, backup, portas em escuta e o certificado do S-Cyber. Nada é alterado '
           'e nada é enviado para a internet. Como administrador, mais itens podem ser verificados.')
 ETAPAS = ('Preparando', 'Coletando no Windows (somente leitura)', 'Avaliando', 'Registrando a evidência',
           'Atualizando os achados', 'Montando as recomendações', 'Comparando com o diagnóstico anterior')

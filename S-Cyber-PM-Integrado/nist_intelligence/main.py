@@ -49,6 +49,67 @@ nist_Combobox = _WidgetFactory(ttk.Combobox, 'NIST.TCombobox')
 nist_Checkbutton = _WidgetFactory(ttk.Checkbutton, 'NIST.TCheckbutton')
 
 
+class _BarraDeAbas(tk.Frame):
+    """Abas do painel em várias linhas. Com 13–14 abas, o ttk.Notebook espremia os nomes
+    ('Pain', 'Diagnósti') em telas menores. As abas nativas ficam ocultas (estilo NIST.TNotebook);
+    o Notebook continua sendo a fonte da verdade (select, tab, tabs), então quem já chamava
+    self.tabs.select(...) — Tour, menus, diagnóstico — continua funcionando igual."""
+
+    FUNDO, NORMAL, ATIVA, BORDA = BG, PANEL, '#225b82', '#3c5a78'
+    ESPACO = 4
+
+    def __init__(self, master, notebook):
+        super().__init__(master, bg=self.FUNDO, height=1)
+        self.nb = notebook
+        self.botoes = {}
+        self._largura = 0
+        notebook.bind('<<NotebookTabChanged>>', lambda _e: self._marcar(), add='+')
+        self.bind('<Configure>', self._ao_redimensionar)
+
+    def sincronizar(self):
+        """Recria os botões a partir das abas do Notebook (chamar depois de adicioná-las)."""
+        for botao in self.botoes.values():
+            botao.destroy()
+        self.botoes = {}
+        for aba in self.nb.tabs():
+            botao = tk.Label(self, text=self.nb.tab(aba, 'text'), bg=self.NORMAL, fg=TEXT,
+                             font=('Segoe UI', 10), padx=10, pady=4, bd=0, cursor='hand2',
+                             highlightthickness=1, highlightbackground=self.BORDA)
+            botao.bind('<Button-1>', lambda _e, a=aba: self.nb.select(a))
+            self.botoes[aba] = botao
+        self._organizar()
+        self._marcar()
+
+    def _ao_redimensionar(self, evento):
+        if evento.width != self._largura:          # a mudança de altura não reorganiza
+            self._largura = evento.width
+            self._organizar()
+
+    def _organizar(self):
+        largura = self.winfo_width()
+        if largura <= 1:                           # ainda não desenhado: tudo numa linha por ora
+            largura = 10 ** 6
+        x = y = altura_linha = 0
+        for botao in self.botoes.values():
+            w, h = botao.winfo_reqwidth(), botao.winfo_reqheight()
+            if x and x + w > largura:
+                x, y = 0, y + altura_linha + self.ESPACO
+            botao.place(x=x, y=y)
+            x += w + self.ESPACO
+            altura_linha = max(altura_linha, h)
+        self.configure(height=max(1, y + altura_linha))
+
+    def _marcar(self):
+        try:
+            atual = self.nb.select()
+        except tk.TclError:
+            return
+        for aba, botao in self.botoes.items():       # só a cor muda: a largura (e o layout) fica igual
+            ativa = aba == atual
+            botao.configure(bg=self.ATIVA if ativa else self.NORMAL,
+                            highlightbackground='white' if ativa else self.BORDA)
+
+
 def _num(label):
     """'3 — Implementado' -> 3"""
     return int(str(label).split(' ')[0])
@@ -63,7 +124,8 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
     """Painel embutível no Tk raiz do S-Cyber PM."""
 
     def __init__(self, parent, original_root=None, embedded=False, on_back=None, db_path=None, key=None,
-                 actor=None, auto_collect=None, signer=None, trusted_thumbs=(), cert_thumb=None, role='usuario'):
+                 actor=None, auto_collect=None, signer=None, trusted_thumbs=(), cert_thumb=None, role='usuario',
+                 sei=True, produto='S-Cyber PM'):
         # key: chave de 32 bytes derivada do certificado (crypto.derive_key). Abre o banco
         # antes de criar a janela: se a chave não servir, nada fica pela metade.
         # actor: quem usa o painel (usuário do S-Cyber PM, Windows e certificado), para a auditoria.
@@ -71,6 +133,7 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
         # signer: assina bytes com o certificado do usuário (CMS); trusted_thumbs: certificados autorizados
         # do S-Cyber PM, usados para conferir os pacotes de consolidação recebidos.
         # role: papel do certificado ('administrador', 'revisor' ou 'usuario'): só revisor/admin encerra achados.
+        # sei: integração institucional SEI (só a modalidade S-Cyber PM); produto: nome exibido no cabeçalho.
         db_path = db_path or core.banco()
         db = core.connect(db_path, key)
         db.definir_sessao(actor or self._username(), role)
@@ -87,6 +150,8 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
         self.on_back = on_back
         self.sei = None
         self.sei_busy = False
+        self.sei_enabled = bool(sei)
+        self.produto = produto
         self._closed = False
         self._sub = None          # subcategoria selecionada na avaliação
         self._risk_id = None      # risco em edição
@@ -101,6 +166,8 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
         self._setup_style()
         self._make_header()
         self.tabs = nist_Notebook(self)
+        self.barra_abas = _BarraDeAbas(self, self.tabs)
+        self.barra_abas.pack(fill='x', padx=12, pady=(0, 6))
         self.tabs.pack(fill='both', expand=True, padx=12, pady=(0, 10))
         self.t_dash = self.add_tab('Painel')
         self.t_diag = self.add_tab('Diagnóstico')
@@ -112,14 +179,18 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
         self.t_inc = self.add_tab('Incidentes')
         self.t_ev = self.add_tab('Evidências e custódia')
         self.t_osint = self.add_tab('OSINT')
-        self.t_sei = self.add_tab('Consultas SEI')
+        self.t_sei = self.add_tab('Consultas SEI') if self.sei_enabled else None
         self.t_cons = self.add_tab('Consolidação')
         self.t_report = self.add_tab('Relatório')
         self.t_audit = self.add_tab('Auditoria')
         for build in (self.make_dashboard, self.make_diagnostico, self.make_achados, self.make_assessment, self.make_plan, self.make_collect,
                       self.make_risks, self.make_incidents, self.make_evidence, self.make_osint,
                       self.make_sei, self.make_consolidation, self.make_report, self.make_audit):
+            if build == self.make_sei and not self.sei_enabled:
+                continue              # Business: sem integrações institucionais
             build()
+        self.barra_abas.sincronizar()
+        self.tabs.enable_traversal()          # Ctrl+Tab / Ctrl+Shift+Tab trocam de aba
         self.refresh()
         self.bind('<Destroy>', self._on_destroy, add='+')
         # Coleta contínua: integrado ao S-Cyber PM, o painel refaz a coleta técnica sozinho
@@ -146,6 +217,7 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
         s.map('NIST.Treeview', background=[('selected', '#225b82')])
         s.configure('NIST.TNotebook', background=BG)
         s.configure('NIST.TNotebook.Tab', padding=(8, 4))
+        s.layout('NIST.TNotebook.Tab', [])     # abas nativas ocultas: quem desenha é a _BarraDeAbas
         s.configure('NIST.TEntry', padding=4)
         s.configure('NIST.TCombobox', padding=3)
         s.configure('NIST.TCheckbutton', background=BG, foreground=TEXT)
@@ -281,7 +353,7 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
         self.alert_list.pack(fill='both', expand=True)
         self.make_pending(right)
         if self.db.encrypted:
-            aviso = ('Textos do banco cifrados (AES-256-GCM) com chave derivada do certificado do S-Cyber PM. '
+            aviso = ('Textos do banco cifrados (AES-256-GCM) com chave derivada do certificado do S-Cyber. '
                      'Registre o necessário: quem tiver o certificado e a senha de acesso lê os dados.')
         else:
             aviso = 'MODO DE TESTE: banco temporário SEM criptografia. Não registre dados reais.'
@@ -618,9 +690,9 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
         self.title_label(f, 'Coleta técnica automática — este e outros computadores',
                          'Verificações SOMENTE DE LEITURA no Windows (antivírus, firewall, BitLocker, UAC, RDP, SMBv1, '
                          'atualizações, contas, política de senha, bloqueio de tela, logs, portas, certificado do '
-                         'S-Cyber PM). Cada resultado é ligado às subcategorias do CSF e gravado com o SHA-256 dos dados '
+                         'S-Cyber). Cada resultado é ligado às subcategorias do CSF e gravado com o SHA-256 dos dados '
                          'brutos. Execute como Administrador para obter BitLocker, SMB, Secure Boot e backup. '
-                         'Computadores sem o S-Cyber PM: salve o coletor avulso, rode-o lá e importe o .json aqui; '
+                         'Computadores sem o S-Cyber: salve o coletor avulso, rode-o lá e importe o .json aqui; '
                          'a avaliação considera a pior situação entre todos os computadores.')
         bar = nist_Frame(f)
         bar.pack(fill='x', padx=12)
@@ -935,6 +1007,8 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
                                    'CSF'),
                                {'ID': 45, 'Incidente': 300, 'Severidade': 80, 'Fase': 110, 'Conhecimento': 95,
                                 'ANPD': 220, 'Processo SEI': 170, 'CSF': 80}, height=6)
+        if not self.sei_enabled:
+            self.itree['displaycolumns'] = [c for c in self.itree['columns'] if c != 'Processo SEI']
         self.itree.bind('<<TreeviewSelect>>', self.pick_incident)
         nist_Label(f, text='Linha do tempo do incidente selecionado', style='NIST.Section.TLabel'
                    ).pack(anchor='w', padx=14)
@@ -950,7 +1024,8 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
         self.l_note.pack(side='left', padx=6, fill='x', expand=True)
         nist_Button(bar, text='Registrar', command=self.add_timeline).pack(side='left')
         nist_Button(bar, text='Comunicado à ANPD hoje', command=self.anpd_done).pack(side='left', padx=6)
-        nist_Button(bar, text='Processo SEI…', command=self.link_sei_manual).pack(side='left', padx=(0, 6))
+        if self.sei_enabled:
+            nist_Button(bar, text='Processo SEI…', command=self.link_sei_manual).pack(side='left', padx=(0, 6))
         nist_Button(bar, text='Verificar integridade', command=lambda: self.check_chain('incident_log')
                     ).pack(side='left')
 
@@ -1420,7 +1495,7 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
                          'Gere um pacote ASSINADO com o seu certificado e CIFRADO com uma senha combinada, leve-o à '
                          'unidade consolidadora e importe lá. Só vão dados minimizados (LGPD): maturidade por função, '
                          'riscos e incidentes sem textos, prazos ANPD e o resumo das coletas. Na importação, a '
-                         'assinatura é conferida e o certificado comparado com a lista de autorizados do S-Cyber PM.')
+                         'assinatura é conferida e o certificado comparado com a lista de autorizados do S-Cyber.')
         form = nist_Frame(f)
         form.pack(fill='x', padx=10)
         self.cons_unit = self.field(form, 'Nome desta unidade', 0, width=40)
@@ -1462,7 +1537,7 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
     def build_package(self):
         if self.signer is None:
             messagebox.showwarning('Consolidação', 'A assinatura do pacote usa o certificado validado no login: '
-                                   'abra o painel pelo S-Cyber PM.', parent=self)
+                                   'abra o painel pelo S-Cyber.', parent=self)
             return
         if self.cons_pass.get() != self.cons_pass2.get():
             messagebox.showwarning('Consolidação', 'As senhas não conferem.', parent=self)
@@ -1511,7 +1586,7 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
                 r = package.import_package(self.db, source, password, self.trusted_thumbs)
             except PermissionError as exc:
                 if not messagebox.askyesno('Certificado não autorizado', f'{exc}\n\nA assinatura é válida, mas o '
-                                           'certificado não está na lista do S-Cyber PM. Importar mesmo assim '
+                                           'certificado não está na lista do S-Cyber. Importar mesmo assim '
                                            '(fica marcado e registrado na auditoria)?', icon='warning', parent=self):
                     return
                 r = package.import_package(self.db, source, password, self.trusted_thumbs, allow_untrusted=True)
@@ -1540,7 +1615,7 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
         self.set_entry(self.rep_author, self._username())
         self.rep_sign = tk.BooleanVar(value=self.embedded)
         self.rep_encrypt = tk.BooleanVar(value=False)
-        nist_Checkbutton(form, text='Assinar com o certificado do S-Cyber PM', variable=self.rep_sign
+        nist_Checkbutton(form, text='Assinar com o certificado do S-Cyber', variable=self.rep_sign
                          ).grid(row=2, column=1, sticky='w', pady=2)
         nist_Checkbutton(form, text='Proteger com a senha de PDF das Opções (AES-256)', variable=self.rep_encrypt
                          ).grid(row=3, column=1, sticky='w', pady=2)
@@ -1559,7 +1634,7 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
         nist_Button(bar, text='Fazer backup…', command=self.do_backup).pack(side='left')
         nist_Button(bar, text='Restaurar backup…', command=self.do_restore).pack(side='left', padx=8)
         nist_Button(bar, text='Abrir pasta das cópias automáticas', command=self.open_backups).pack(side='left')
-        nist_Label(f, text=f'Cópia automática: uma por dia, ao entrar no S-Cyber PM, guardando as últimas '
+        nist_Label(f, text=f'Cópia automática: uma por dia, ao entrar no S-Cyber, guardando as últimas '
                    f'{core.AUTO_BACKUP_KEEP} (pasta backups ao lado do banco).', style='NIST.Info.TLabel'
                    ).pack(anchor='w', padx=16)
 
@@ -1589,7 +1664,8 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
         if not target:
             return
         try:
-            report.build(self.db, target, self.rep_org.get().strip(), self.rep_author.get().strip())
+            report.build(self.db, target, self.rep_org.get().strip(), self.rep_author.get().strip(),
+                         sei=self.sei_enabled)
             core.log_event(self.db, 'Relatório', 'Gerar PDF', '',
                            Path(target).name + (' (assinado)' if sign else '') + (' (cifrado)' if encrypt else ''))
         except Exception as exc:
@@ -1702,10 +1778,12 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
 
     # ================================================================ geral
     def refresh_header(self):
-        state = 'conectada' if self.sei is not None else 'desconectada'
-        mode = 'integrado ao S-Cyber PM' if self.embedded else 'MODO DE TESTE (dados temporários)'
+        mode = f'integrado ao {self.produto}' if self.embedded else 'MODO DE TESTE (dados temporários)'
         lock = 'banco cifrado' if self.db.encrypted else 'banco SEM criptografia'
-        self.header_status.set(f'v{core.VERSION}  •  {self.db.actor}  •  Conexão SEI: {state}  •  {lock}  •  {mode}')
+        partes = [f'v{core.VERSION}', self.db.actor]
+        if self.sei_enabled:
+            partes.append('Conexão SEI: ' + ('conectada' if self.sei is not None else 'desconectada'))
+        self.header_status.set('  •  '.join(partes + [lock, mode]))
 
     def refresh(self):
         for part in (self.refresh_assessment, self.refresh_plan, self.refresh_collect, self.refresh_risks,

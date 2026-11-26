@@ -234,7 +234,8 @@ class FormAbertura(tk.Toplevel):
             return
         titular = titular or self.lista.item(sel[0], "values")[2]
         pedido = modLicenca.pedido_credenciamento(sel[0], titular, modLicenca.instalacao())
-        depois = "Depois da resposta do suporte, clique em 'Verificar novamente'."
+        depois = ("Depois da resposta do suporte, clique em 'Verificar novamente'. A liberação pode "
+                  "levar até 5 minutos para chegar a este computador.")
         if so_copiar:
             _copiar(self, pedido, f"Pedido de credenciamento copiado. Envie ao suporte. {depois}")
         else:

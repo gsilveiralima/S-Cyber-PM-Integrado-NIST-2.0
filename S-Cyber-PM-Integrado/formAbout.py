@@ -74,7 +74,7 @@ from modRecursos import botao_fechar_cabecalho
 # ==========================================================
 
 APP_NOME = "S-Cyber PM"
-APP_VERSAO = "2.0.2"            # S-Cyber 2.0 (pré-lançamento): Windows recém-instalado (certificados e TLS)
+from versao import APP_VERSAO  # noqa: E402 — fonte única da versão (versao.py)
 APP_SUBTITULO = "Cryptography and Digital Certificate Framework"
 APP_DESCRICAO = (
     "Atividade para fins didáticos e de pesquisa, sem fins lucrativos. " \
@@ -669,7 +669,7 @@ class FormAbout(tk.Toplevel):
             escrever(f"PyInstaller {pyinstaller}\n", "ok")
 
         escrever("Antes de distribuir\n", "titulo")
-        escrever(f"• Nova versão: altere APP_VERSAO no formAbout.py (hoje {APP_VERSAO}) e "
+        escrever(f"• Nova versão: altere APP_VERSAO no versao.py (hoje {APP_VERSAO}) e "
                  "gere o executável de novo; a versão do arquivo .exe vem dali.\n")
         escrever("• Troque a senha padrão de acesso e a dos PDFs em Arquivo > Opções.\n")
         escrever(f"• Distribua SOMENTE o {EXE_NOME}; ele pode ficar em qualquer pasta, "

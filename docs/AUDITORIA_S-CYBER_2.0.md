@@ -585,7 +585,23 @@ O autor reinstalou tudo do zero. O computador dele ficou como administrador e ce
 
 **Versão:** 2.0.2, que junta as correções do lado do usuário final (PowerShell e TLS).
 
-## 21. Próximo passo proposto
+**Confirmação na prática (26/11/2026, 00h20–00h45, gravação do autor):** a 2.0.2, instalada pela Release na máquina virtual, aceitou o certificado AF625100… poucos minutos depois do credenciamento. Esse certificado só existe na lista publicada no GitHub, então as listas foram baixadas da internet: a correção do TLS funcionou. O mesmo teste cobriu o primeiro acesso (senhas fortes) e o Diagnóstico Inteligente: 14 de 17 verificações feitas (9 OK, 4 em atenção, 1 falha e 3 indisponíveis por falta de privilégio de administrador, sem contar como aprovadas).
+
+## 21. Versão 2.0.3: ajustes vistos no teste da máquina virtual (26/11/2026)
+
+| Visto no teste | Correção |
+|---|---|
+| "Conexão SEI: desconectada" no cabeçalho do S-Cyber **Business** | A modalidade vem da licença assinada até o painel NIST (`sei`, `produto`). Na Business somem: a aba Consultas SEI, o SEI no cabeçalho, a coluna e o botão do processo SEI nos incidentes, a coluna SEI do relatório em PDF, o item do menu, o botão da Ribbon, o atalho Ctrl+I, o comando do assistente e os 2 passos do Tour. A PM continua igual |
+| O painel mostrava "v1.3.0" (versão interna do módulo NIST) e o instalador, 2.0.2 | Versão única no novo `versao.py`, usada pelo `formAbout`, pelo instalador, pelo executável e pelo painel |
+| Abas cortadas ("Pain", "Diagnósti") em telas menores | As abas do painel quebram em várias linhas conforme a largura (`_BarraDeAbas`); o Notebook continua controlando as abas, e Ctrl+Tab passou a trocar de aba |
+| Certificado ainda "não autorizado" logo depois do credenciamento | Era o atraso de até 5 minutos do GitHub; as mensagens do usuário e do administrador agora avisam isso |
+| Textos do painel citavam "S-Cyber PM" também na Business | Passam a dizer "S-Cyber"; as consultas às fontes públicas deixaram de enviar "PMGO" no User-Agent |
+
+**Testes:** 218 no Linux (17 pulados, os de janela e os exclusivos do Windows), com 11 novos em `tests/test_v203.py`. Os testes de janela (Business sem SEI, abas em várias linhas, Tour) rodam no CI do Windows.
+
+**Ainda não feito:** a identidade visual da Business (nome na abertura, no Tour e nos textos da janela principal) continua com "S-Cyber PM" em vários pontos. Isso fica para a Fase 6, junto com as 5 áreas.
+
+## 22. Próximo passo proposto
 1. **Validar no Windows** (script de sempre, `validar_no_windows.ps1`):
    - testes, instalador e abertura da versão nova;
    - uma licença Business com `--organizacao`: os dados vão para `perfis\<empresa>`, e a instalação PM continua com os dados de sempre;

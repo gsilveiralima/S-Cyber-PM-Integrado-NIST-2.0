@@ -54,12 +54,28 @@ def _papel_em_uso():
     return app.PAPEL_EM_USO.get('papel', 'usuario')
 
 
+def _licenca_em_uso():
+    app = sys.modules.get('__main__')
+    if not hasattr(app, 'LICENCA_EM_USO'):
+        import appSCyberPM as app
+    return app.LICENCA_EM_USO
+
+
+def _modalidade_em_uso():
+    """(sei liberado?, nome do produto) da licença assinada em uso. Business: sem SEI."""
+    import modLicenca
+    licenca = _licenca_em_uso()
+    return modLicenca.recurso_liberado(licenca, "sei"), modLicenca.nome_produto(licenca)
+
+
 def criar_painel(parent, _base_dir, ao_voltar):
     # _base_dir: mantido só para compatibilidade com a chamada do appSCyberPM.py.
     thumb = _certificado_em_uso()
+    sei, produto = _modalidade_em_uso()
     return NISTPanel(parent, embedded=True, on_back=ao_voltar, key=_chave_do_certificado(),
                      actor=_quem_esta_usando(), signer=signing.windows_signer(thumb) if thumb else None,
-                     trusted_thumbs=_certificados_autorizados(), cert_thumb=thumb, role=_papel_em_uso())
+                     trusted_thumbs=_certificados_autorizados(), cert_thumb=thumb, role=_papel_em_uso(),
+                     sei=sei, produto=produto)
 
 
 def preparar_rotina_de_entrada(db_path=None):

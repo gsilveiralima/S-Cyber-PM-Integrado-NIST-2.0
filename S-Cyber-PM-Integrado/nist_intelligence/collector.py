@@ -91,14 +91,14 @@ $arquivo = Join-Path $pasta ('coleta_{0}_{1}.json' -f $env:COMPUTERNAME, (Get-Da
 [IO.File]::WriteAllText($arquivo, $saida, [Text.UTF8Encoding]::new($false))
 Write-Host ''
 Write-Host "Coleta gravada em: $arquivo"
-Write-Host 'Leve este arquivo ao computador com o S-Cyber PM (Coleta tecnica > Importar).'
+Write-Host 'Leve este arquivo ao computador com o S-Cyber (Coleta tecnica > Importar).'
 '''
 
 
 STANDALONE_BAT = (
     '@echo off\n'
     'REM Coletor avulso do S-Cyber NIST Intelligence (somente leitura) para computadores\n'
-    'REM sem o S-Cyber PM. Gera coleta_<COMPUTADOR>_<data>.json nesta pasta.\n'
+    'REM sem o S-Cyber. Gera coleta_<COMPUTADOR>_<data>.json nesta pasta.\n'
     'REM Para coleta completa: clique com o botao direito > Executar como administrador.\n'
     'cd /d "%~dp0"\n'
     'powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0coletor_nist.ps1"\n'
@@ -381,11 +381,11 @@ def evaluate(raw, today=None):
     subs = ['PR.AA-01', 'PR.AA-03']
     if v is not None:
         if _err(v):
-            out.append(_unavailable('appcert', 'Certificado do S-Cyber PM', v, subs))
+            out.append(_unavailable('appcert', 'Certificado do S-Cyber', v, subs))
         else:
             left = (date.fromisoformat(v['notafter']) - today).days
             status = 'Falha' if left < 0 or not v.get('privatekey') else 'Atenção' if left <= 60 else 'OK'
-            out.append(_r('appcert', 'Certificado do S-Cyber PM', status,
+            out.append(_r('appcert', 'Certificado do S-Cyber', status,
                           f"Válido até {v['notafter']} ({left} dia(s)); chave privada "
                           f"{'presente' if v.get('privatekey') else 'AUSENTE'}.", subs))
     return out

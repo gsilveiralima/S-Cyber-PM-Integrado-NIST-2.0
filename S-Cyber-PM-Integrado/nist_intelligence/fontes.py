@@ -34,7 +34,8 @@ from . import achados, core
 
 import modRede  # noqa: E402 — conexão HTTPS única (raízes do Windows + certifi)
 
-USER_AGENT = f'S-Cyber-PM-NIST/{core.VERSION} (PMGO)'
+# Sem nome de órgão: a modalidade Business também consulta estas fontes.
+USER_AGENT = f'S-Cyber/{core.VERSION}'
 KEV_URLS = ('https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json',
             'https://raw.githubusercontent.com/cisagov/kev-data/develop/known_exploited_vulnerabilities.json')
 HIBP = 'https://haveibeenpwned.com/api/v3'

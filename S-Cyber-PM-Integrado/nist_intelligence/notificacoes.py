@@ -43,8 +43,8 @@ def avisos(db, cert_not_after=None, today=None):
             out.append((f'INTEGRIDADE: {nome} adulterada', 'alto'))
     days = cert_days_left(cert_not_after, today)
     if days is not None and days <= CERT_WARN_DAYS:
-        texto = (f'Certificado do S-Cyber PM VENCIDO há {-days} dia(s)' if days < 0 else
-                 f'Certificado do S-Cyber PM vence em {days} dia(s) — providencie a renovação')
+        texto = (f'Certificado do S-Cyber VENCIDO há {-days} dia(s)' if days < 0 else
+                 f'Certificado do S-Cyber vence em {days} dia(s) — providencie a renovação')
         out.append((texto, 'alto' if days <= 15 else 'médio'))
     return out
 

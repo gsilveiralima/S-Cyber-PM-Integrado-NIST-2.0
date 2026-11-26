@@ -66,7 +66,20 @@ def _chart(maturity):
     return d
 
 
-def build(db, path, organization='', author=''):
+def incident_table(incs, sei=True):
+    """Linhas e larguras da tabela de incidentes. sei=False (S-Cyber Business): sem a coluna do
+    processo SEI, que é uma integração institucional da PM."""
+    rows = [['#', 'Incidente', 'Severidade', 'Fase', 'Conhecimento', 'ANPD (Res. CD/ANPD 15/2024)']
+            + (['SEI'] if sei else [])]
+    for inc in incs:
+        rows.append([inc['id'], inc['title'], inc['severity'], inc['phase'], core._br(inc['detected_on']),
+                     core.anpd_status(inc)] + ([inc.get('sei_process', '')] if sei else []))
+    widths = ([0.8 * cm, 4.2 * cm, 1.6 * cm, 2.1 * cm, 2.0 * cm, 3.9 * cm, 2.9 * cm] if sei else
+              [0.8 * cm, 6.2 * cm, 1.8 * cm, 2.3 * cm, 2.2 * cm, 4.2 * cm])
+    return rows, widths
+
+
+def build(db, path, organization='', author='', sei=True):
     st = _styles()
     story = []
     now = datetime.now().strftime('%d/%m/%Y %H:%M')
@@ -142,11 +155,8 @@ def build(db, path, organization='', author=''):
     story += [PageBreak(), Paragraph('4. Incidentes e comunicação LGPD/ANPD', st['Heading2'])]
     incs = core.incidents(db)
     if incs:
-        rows = [['#', 'Incidente', 'Severidade', 'Fase', 'Conhecimento', 'ANPD (Res. CD/ANPD 15/2024)', 'SEI']]
-        for inc in incs:
-            rows.append([inc['id'], inc['title'], inc['severity'], inc['phase'], core._br(inc['detected_on']),
-                         core.anpd_status(inc), inc.get('sei_process', '')])
-        story.append(_table(rows, [0.8 * cm, 4.2 * cm, 1.6 * cm, 2.1 * cm, 2.0 * cm, 3.9 * cm, 2.9 * cm], st))
+        rows, widths = incident_table(incs, sei)
+        story.append(_table(rows, widths, st))
     else:
         story.append(Paragraph('Nenhum incidente registrado.', st['Normal']))
     ok, bad = core.verify_chain(db, 'incident_log')
@@ -280,9 +290,9 @@ def protection_available():
         import formOpcoes
         import modPDFProtegido  # noqa: F401
     except ImportError:
-        return False, 'Módulo de proteção de PDF do S-Cyber PM indisponível.'
+        return False, 'Módulo de proteção de PDF do S-Cyber indisponível.'
     if not formOpcoes.iniciado():
-        return False, 'Assinatura e senha só funcionam dentro do S-Cyber PM, após a validação do certificado.'
+        return False, 'Assinatura e senha só funcionam dentro do S-Cyber, após a validação do certificado.'
     return True, ''
 
 
