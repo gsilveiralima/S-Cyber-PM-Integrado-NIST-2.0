@@ -26,7 +26,9 @@ class PowerShellTests(unittest.TestCase):
         with mock.patch.object(subprocess, "run", return_value=_Saida("\ufeffAção ok\nOK fim\n".encode())) as run:
             r = modPowerShell.executar("Write-Output 1", variaveis={"SCYBER_X": "valor"}, timeout=7)
         args, kw = run.call_args
-        self.assertEqual(args[0][:5], ["powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass"])
+        self.assertEqual(args[0][0], modPowerShell.executavel())     # caminho completo no Windows
+        self.assertTrue(args[0][0].lower().endswith(("powershell", "powershell.exe")))
+        self.assertEqual(args[0][1:5], ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass"])
         self.assertIn("UTF8Encoding", args[0][-1])
         self.assertTrue(args[0][-1].endswith("Write-Output 1"))
         self.assertEqual(kw["timeout"], 7)
