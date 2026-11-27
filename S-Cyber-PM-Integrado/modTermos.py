@@ -152,6 +152,10 @@ def mostrar(root, pedir_aceite=False) -> bool:
 
     janela.lift()
     janela.focus_force()
-    janela.grab_set()
+    try:
+        janela.wait_visibility()       # grab só depois de a janela aparecer (senão o Tk recusa)
+        janela.grab_set()
+    except tk.TclError:
+        pass
     janela.wait_window()
     return resultado["aceito"]
