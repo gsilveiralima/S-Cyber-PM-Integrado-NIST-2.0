@@ -9,11 +9,10 @@
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
-#                SGT Gabriel Silvieira Lima - PMGO
+#                SGT Gabriel Silveira Lima - PMGO
 #  Instituição : Polícia Militar do Estado de Goiás
 #  Contato     : leonidio.moraes@goias.gov.br
-#  Licença     : Uso interno da instituição. Proibida a redistribuição sem
-#                autorização.
+#  Licença     : Proprietária - todos os direitos reservados (ver LICENSE)
 #  Requisitos  : Python 3.11+ (64 bits), Windows 10/11
 #  Codificação : UTF-8
 # ------------------------------------------------------------------------------
@@ -1730,7 +1729,7 @@ class FormNavegador(tk.Toplevel):
 
     def __init__(self, parent, url=PAGINA_INICIAL):
         super().__init__(parent)
-        self.title("S-Cyber PM - Navegador seguro")
+        self.title("S-Cyber - Navegador seguro")
         self.minsize(900, 560)
 
         topo = tk.Canvas(self, height=56, bg="#101010", highlightthickness=0, bd=0)
@@ -1774,7 +1773,7 @@ class FormNavegador(tk.Toplevel):
 
     def atualizar_titulo(self, aba):
         if aba is self.aba_atual():
-            self.title(f"{aba.titulo[:80]} - S-Cyber PM Navegador seguro")
+            self.title(f"{aba.titulo[:80]} - S-Cyber Navegador seguro")
 
     def _ao_destruir(self, evento):
         if evento.widget is self:

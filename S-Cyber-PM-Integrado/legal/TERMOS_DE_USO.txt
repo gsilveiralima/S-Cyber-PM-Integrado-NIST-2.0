@@ -1,0 +1,71 @@
+﻿TERMOS DE USO DO S-CYBER
+Versão de 27/11/2026
+
+Leia com atenção. Ao instalar ou usar o S-Cyber, você concorda com estes termos. Se não
+concordar, não instale nem use o programa.
+
+1. QUEM SÃO AS PARTES
+   "S-Cyber" é o programa de diagnóstico e gestão de segurança cibernética nas modalidades
+   S-Cyber Business e S-Cyber PM. "Titulares" são os donos dos direitos do programa:
+   Leonídio Alves de Moraes Junior, Daniel Otavio de Lima Medrado e Gabriel Silveira Lima.
+   "Cliente" é a empresa ou instituição que recebeu a licença de ativação, e "Usuário" é a
+   pessoa que usa o programa em nome do Cliente.
+
+2. O QUE A LICENÇA PERMITE
+   Os Titulares concedem ao Cliente o direito de usar o S-Cyber, sem exclusividade e sem
+   direito de transferir a terceiros, na instalação, na modalidade e pelo prazo indicados na
+   licença de ativação assinada. O programa é licenciado, não vendido: o código, a marca e a
+   identidade visual continuam pertencendo aos Titulares.
+
+3. O QUE NÃO É PERMITIDO
+   Sem autorização escrita dos Titulares, não é permitido: copiar ou redistribuir o programa;
+   alterar, descompilar ou contornar a ativação, os certificados ou os controles de acesso;
+   revender, alugar ou oferecer o programa como serviço a terceiros; remover avisos de
+   autoria ou de licença.
+
+4. USO SOMENTE EM AMBIENTES AUTORIZADOS
+   O S-Cyber faz verificações defensivas, em modo somente leitura. O Usuário só pode
+   verificar computadores, contas, redes, domínios e serviços de nuvem do próprio Cliente ou
+   que tenha autorização expressa para avaliar. É proibido usar o programa para invadir,
+   monitorar pessoas sem base legal ou obter dados de terceiros.
+
+5. CORREÇÕES E DECISÕES SÃO DO CLIENTE
+   O programa aponta problemas e recomenda correções, mas não altera nada sozinho. Cabe ao
+   Cliente decidir se aplica cada correção, fazer cópia de segurança antes de mudanças
+   importantes e conferir o resultado. As recomendações não substituem o trabalho de um
+   profissional quando a situação exigir.
+
+6. DADOS DO CLIENTE
+   Os resultados, as evidências e os registros ficam no computador do Cliente, cifrados.
+   Os Titulares não recebem esses dados. Os detalhes estão na Política de Privacidade, que
+   faz parte destes termos.
+
+7. FIM DA LICENÇA
+   Quando a licença vence ou é revogada, as funções do programa deixam de ser liberadas, mas
+   os dados do Cliente não são apagados: continua possível recuperá-los e exportá-los, com o
+   certificado autorizado.
+
+8. LIMITES DE RESPONSABILIDADE
+   O S-Cyber ajuda a identificar e tratar riscos, mas nenhuma ferramenta garante a ausência
+   de falhas, ataques ou incidentes. O programa não declara conformidade com normas, com a
+   LGPD ou com o NIST CSF 2.0 e não é certificado pelo NIST. Na extensão permitida pela lei,
+   os Titulares não respondem por lucros cessantes, perda de dados ou danos indiretos. Os
+   direitos do consumidor previstos em lei continuam valendo quando aplicáveis.
+
+9. SUPORTE E ATUALIZAÇÕES
+   Suporte, prazos de atendimento e atualizações seguem o que for combinado na contratação.
+   Atualizações só são instaladas com autorização do Cliente.
+
+10. COMPONENTES DE TERCEIROS
+   O programa inclui bibliotecas de terceiros, cada uma com a sua licença, descritas em
+   AVISOS_DE_TERCEIROS.txt e LICENCAS_DE_TERCEIROS.txt.
+
+11. ALTERAÇÕES DESTES TERMOS
+   Novas versões destes termos serão mostradas no programa e só valerão depois de aceitas.
+
+12. LEI E FORO
+   Estes termos seguem as leis do Brasil, em especial a Lei nº 9.609/1998 (Lei do Software).
+   Fica eleito o foro da Comarca de Goiânia – GO, salvo quando a lei garantir ao Cliente o
+   foro do próprio domicílio.
+
+Contato: scybersuporte@gmail.com

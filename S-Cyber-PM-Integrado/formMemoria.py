@@ -8,11 +8,10 @@
 #  Revisão     : 2026-11-16
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
-#                SGT Gabriel Silvieira Lima - PMGO
+#                SGT Gabriel Silveira Lima - PMGO
 #  Instituição : Polícia Militar do Estado de Goiás
 #  Contato     : leonidio.moraes@goias.gov.br
-#  Licença     : Uso interno da instituição. Proibida a redistribuição sem
-#                autorização.
+#  Licença     : Proprietária - todos os direitos reservados (ver LICENSE)
 #  Requisitos  : Python 3.11+ (64 bits), Windows 10/11
 #  Codificação : UTF-8
 # ------------------------------------------------------------------------------
@@ -193,7 +192,7 @@ class FormMemoria(tk.Toplevel):
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.title("S-Cyber PM - Alocação de memória por recursão (didático)")
+        self.title("S-Cyber - Alocação de memória por recursão (didático)")
         self.geometry("820x600")
         self.minsize(720, 540)
         centralizar(self, parent, 820, 600)

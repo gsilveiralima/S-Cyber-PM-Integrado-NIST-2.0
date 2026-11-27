@@ -10,11 +10,10 @@
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
-#                SGT Gabriel Silvieira Lima - PMGO
+#                SGT Gabriel Silveira Lima - PMGO
 #  Instituição : Polícia Militar do Estado de Goiás
 #  Contato     : leonidio.moraes@goias.gov.br
-#  Licença     : Uso interno da instituição. Proibida a redistribuição sem
-#                autorização.
+#  Licença     : Proprietária - todos os direitos reservados (ver LICENSE)
 #  Requisitos  : Python 3.11+ (64 bits), Windows 10/11
 #  Codificação : UTF-8
 # ------------------------------------------------------------------------------
@@ -738,7 +737,12 @@ def main():
         return
     root = tk.Tk()
     root.withdraw()  # fica oculta até a validação passar
-    root.title("S-Cyber PM")
+    root.title("S-Cyber")
+    # Termos de Uso e Política de Privacidade: aceite da versão atual antes de qualquer outra tela
+    import modTermos
+    if not modTermos.garantir_aceite(root):
+        root.destroy()
+        return
     root.geometry("1000x650")
     # Corujinha como ícone de todas as janelas (default=True vale para as Toplevel)
     root._icone = foto_icone("coruja", 32, root)
@@ -757,7 +761,7 @@ def main():
     fundo = FundoWatermark(root, bg="#ffffff")
     fundo.pack(fill="both", expand=True)
 
-    titulo = fundo.create_text(0, 0, text="S-Cyber PM - aplicação principal",
+    titulo = fundo.create_text(0, 0, text="S-Cyber - aplicação principal",
                                font=("Arial", 20, "bold"), fill="#202020")
 
     menus = tk.Menu(root)
@@ -793,7 +797,7 @@ def main():
             "nist": nist.abrir,
             "nist_aba": nist.selecionar_aba,
             "nist_voltar": nist.voltar_se_aberto,
-            "sobre": lambda: FormAbout(root),
+            "sobre": abrir_sobre,
         }
         janelas["tour"] = FormTour(root, ribbon=ribbon, status=status, acoes=acoes,
                                    institucional=_sei_liberado())
@@ -895,6 +899,11 @@ def main():
         from formSpy import FormSpy
         _abrir_unica("espiao", lambda: FormSpy(root))
 
+    def abrir_sobre(_evento=None):
+        # "Sobre" com o nome, a descrição e o contato da modalidade da licença assinada
+        import modLicenca
+        FormAbout(root, modalidade=modLicenca.modalidade(LICENCA_EM_USO))
+
     def abrir_hash(_evento=None):
         from formHash import FormHash
         _abrir_unica("hash", lambda: FormHash(root))
@@ -991,53 +1000,66 @@ def main():
 
     # Barra de menus: Ajuda > Sobre (F1)
     menu_ajuda = tk.Menu(menus, tearoff=False)
-    menu_ajuda.add_command(label="Sobre o S-Cyber PM", accelerator="F1",
-                           command=lambda: FormAbout(root))
+    menu_ajuda.add_command(label="Termos de Uso e Privacidade...",
+                           command=lambda: __import__("modTermos").mostrar(root))
+    menu_ajuda.add_command(label="Sobre o S-Cyber", accelerator="F1",
+                           command=abrir_sobre)
     menus.add_cascade(label="Ajuda", menu=menu_ajuda)
     root.configure(menu=menus)
-    root.bind("<F1>", lambda e: FormAbout(root))
+    root.bind("<F1>", lambda e: abrir_sobre())
 
-    # Ribbon: uma aba para cada menu, com os mesmos comandos
-    aba = ribbon.aba("Arquivo")
-    aba.grupo("Configurações").botao("Opções", "opcoes", lambda: formOpcoes.FormOpcoes(root),
-                                     "Senha dos PDFs e dados de acesso (Ctrl+O)")
-    aba.grupo("Demonstração").botao("Tour\nnarrado", "tour", abrir_tour,
-                                    "Tour narrado: abre e explica cada formulário (F2)")
-    aba.grupo("Aplicação").botao("Sair", "sair", root.destroy,
-                                 "Fecha o S-Cyber PM")
+    # Ribbon em 5 áreas (S-Cyber 2.0, Fase 6): Visão geral, Operações, NIST Intelligence,
+    # Inteligência e Administração. Os comandos são os mesmos dos menus.
+    def aba_nist(nome):
+        return lambda: nist.selecionar_aba(nome)
 
-    aba = ribbon.aba("Certificados")
+    def verificar_dominio():
+        nist.abrir()
+        if nist.painel is not None and nist.painel.winfo_exists():
+            nist.painel.iniciar_dominio()
+
+    aba = ribbon.aba("Visão geral")
+    g = aba.grupo("Segurança da empresa")
+    g.botao("Diagnóstico\ninteligente", "nist", diagnostico_nist,
+            "Diagnóstico Inteligente S-Cyber: verifica este computador (somente leitura), "
+            "prioriza os problemas, recomenda a correção e compara com o anterior")
+    g.botao("Situação\natual", "pronto", aba_nist("Painel"),
+            "Situação da segurança: maturidade NIST, riscos, alertas e pendências")
+    g.botao("Evolução", "relogio", aba_nist("Evolução"),
+            "Como a segurança evoluiu entre os diagnósticos: falhas, correções comprovadas e riscos")
+    g = aba.grupo("Ajuda")
+    g.botao("Tour\nnarrado", "tour", abrir_tour,
+            "Tour narrado: abre e explica cada ferramenta (F2)")
+    aba.grupo("Aplicação").botao("Sair", "sair", root.destroy, "Fecha o S-Cyber")
+
+    aba = ribbon.aba("Operações")
     g = aba.grupo("Certificado digital")
     g.botao("Listar\ncertificados", "certificado", lambda: ListCerts(root),
             "Lista os certificados instalados no Windows")
     g.botao("Assinar\ndocumentos", "assinar",
             lambda: FormSign(root, thumbprint_padrao=_thumbprint_normalizado()),
             "Assina documentos com o certificado digital")
-    aba.grupo("Aplicação").botao("Sair", "sair", root.destroy,
-                                 "Fecha o S-Cyber PM")
-
-    aba = ribbon.aba("Ferramentas")
-    g = aba.grupo("Sistema")
-    g.botao("Usuários", "usuarios", abrir_gerenciador_usuarios,
-            "Gerenciador de usuários (Ctrl+U)")
-    g.botao("Corujinha", "coruja", abrir_corujinha,
-            "Corujinha: relatório do sistema")
     g = aba.grupo("Arquivos")
     g.botao("Pesquisar\narquivos", "pesquisar", abrir_pesquisa_arquivos,
             "Pesquisar arquivos (Ctrl+F)")
     g.botao("Hash\nSHA-256", "hash", abrir_hash,
-            "Hash de arquivos SHA-256 (Ctrl+H)")
+            "Integridade de arquivos: hash SHA-256 (Ctrl+H)")
     g.botao("Compactar\nem partes", "particionar", abrir_particionar,
             "Compactar arquivo em partes (Ctrl+P)")
     g.botao("Ferramentas\nde PDF", "dividir_pdf", abrir_dividir_pdf,
             "Dividir, extrair, remover páginas, juntar e comprimir PDFs (Ctrl+D)")
+    g = aba.grupo("Sistema")
+    g.botao("Usuários", "usuarios", abrir_gerenciador_usuarios,
+            "Gerenciador de usuários (Ctrl+U)")
+    g.botao("Corujinha", "coruja", abrir_corujinha,
+            "Corujinha: inventário e relatório do sistema (com consentimento)")
     g = aba.grupo("Web e comunicação")
     g.botao("Navegador\nseguro", "navegador", abrir_navegador,
             "Navegador seguro (Ctrl+B)")
     g.botao("Ponta a\nponta", "e2e", abrir_e2e,
             "Comunicação ponta a ponta - simulação (Ctrl+E)")
-    g.botao("Rádio\ndigital", "radio", abrir_radio,
-            "Radiocomunicação digital: DMR, P25 e TETRA - simulação (Ctrl+T)")
+    botao_radio = g.botao("Rádio\ndigital", "radio", abrir_radio,
+                          "Radiocomunicação digital: DMR, P25 e TETRA - simulação (Ctrl+T)")
     botao_sei = g.botao("SEI", "sei", abrir_sei,
                         "SEI - consulta pelo navegador (Ctrl+I)")
     g = aba.grupo("Didático")
@@ -1047,29 +1069,52 @@ def main():
             "Armazenamento em disco por recursão, com fsync e SHA-256 (Ctrl+K)")
     g.botao("Processador\n(carga)", "processador", abrir_processador,
             "Uso do processador: processos x threads e o GIL (Ctrl+R)")
-    g = aba.grupo("Segurança")
+    grupo_seguranca = g = aba.grupo("Segurança")
     g.botao("Espião\n(monitor)", "espiao", abrir_espiao,
             "Espião: processos, tela, memória, arquivos e rede do aplicativo (Ctrl+Y)")
-    aba.grupo("Aplicação").botao("Sair", "sair", root.destroy,
-                                 "Fecha o S-Cyber PM")
 
     aba = ribbon.aba("NIST Intelligence")
-    grupo_nist = aba.grupo("Governança cibernética")
-    grupo_nist.botao("Diagnóstico\ninteligente", "nist", diagnostico_nist,
-                     "Diagnóstico Inteligente S-Cyber: verifica este computador (somente leitura), "
-                     "prioriza os problemas, recomenda a correção e compara com o anterior")
-    grupo_nist.botao("Painel\nNIST CSF", "nist", abrir_nist,
-                     "Acessar o S-Cyber NIST Intelligence integrado (Ctrl+Shift+N)")
+    g = aba.grupo("Governança e riscos (NIST CSF 2.0)")
+    g.botao("Painel\nNIST CSF", "nist", abrir_nist,
+            "Acessar o S-Cyber NIST Intelligence integrado (Ctrl+Shift+N)")
+    g.botao("Avaliação\nCSF 2.0", "pronto", aba_nist("Avaliação CSF 2.0"),
+            "Perfil atual e desejado das 106 subcategorias e lacunas")
+    g.botao("Plano de\nação", "calendario", aba_nist("Plano de ação"),
+            "Ações priorizadas, responsáveis e prazos")
+    g.botao("Riscos", "nist", aba_nist("Riscos"), "Registro de riscos e mapa de calor")
+    g.botao("Incidentes", "relogio", aba_nist("Incidentes"),
+            "Resposta a incidentes e prazo de comunicação à ANPD")
+    g.botao("Evidências", "hash", aba_nist("Evidências e custódia"),
+            "Evidências com SHA-256 e cadeia de custódia")
+    g.botao("Relatório", "dividir_pdf", aba_nist("Relatório"),
+            "Relatório PDF de governança, assinável")
     aba.grupo("Navegação").botao(
         "Tela\ninicial", "sair", voltar_inicio_nist,
-        "Retornar à tela principal sem encerrar o S-Cyber PM")
+        "Retornar à tela principal sem encerrar o S-Cyber")
 
-    aba = ribbon.aba("Ajuda")
-    aba.grupo("Informações").botao("Sobre", "sobre", lambda: FormAbout(root),
-                                   "Sobre o S-Cyber PM (F1)")
-    aba.grupo("Aplicação").botao("Sair", "sair", root.destroy,
-                                 "Fecha o S-Cyber PM")
-    ribbon.selecionar("Ferramentas")
+    aba = ribbon.aba("Inteligência")
+    g = aba.grupo("Inteligência defensiva")
+    g.botao("Ativos e\nachados", "maquina", aba_nist("Ativos e achados"),
+            "Ativos autorizados, achados e o histórico de cada um")
+    g.botao("E-mail e\ndomínio", "rede", verificar_dominio,
+            "Verifica SPF, DMARC e DNSSEC do domínio da empresa (registros públicos, somente leitura)")
+    g.botao("OSINT e\nvulnerab.", "navegador", aba_nist("OSINT"),
+            "Vulnerabilidades exploradas (CISA KEV), dependências (OSV.dev) e senhas vazadas (k-anonimato)")
+
+    aba = ribbon.aba("Administração")
+    g = aba.grupo("Configurações")
+    g.botao("Opções", "opcoes", lambda: formOpcoes.FormOpcoes(root),
+            "Senha dos PDFs e dados de acesso (Ctrl+O)")
+    g.botao("Backup e\nrestauração", "disco", aba_nist("Relatório"),
+            "Backup e restauração do banco NIST (os dados continuam cifrados)")
+    g.botao("Auditoria", "nist", aba_nist("Auditoria"),
+            "Trilha de auditoria: quem alterou o quê, encadeada por hash")
+    g = aba.grupo("Informações")
+    g.botao("Termos e\nprivacidade", "assinar", lambda: __import__("modTermos").mostrar(root),
+            "Termos de Uso, Política de Privacidade e componentes de terceiros")
+    g.botao("Sobre", "sobre", abrir_sobre, "Sobre o S-Cyber (F1)")
+    aba.grupo("Aplicação").botao("Sair", "sair", root.destroy, "Fecha o S-Cyber")
+    ribbon.selecionar("Visão geral")
 
     # Assistente de comandos: um campo no centro que entende linguagem natural
     # (offline) e aciona as mesmas ferramentas dos menus e da Ribbon.
@@ -1081,6 +1126,8 @@ def main():
     for _nome, _desc, _aba, _palavras in (
             ("NIST: coleta técnica", "verifica a segurança deste computador e liga ao CSF", "Coleta técnica",
              ["coleta tecnica", "verificar seguranca", "checar computador", "firewall", "bitlocker", "defender"]),
+            ("Evolução da segurança", "o que melhorou entre os diagnósticos", "Evolução",
+             ["evolucao", "indicadores", "melhorou", "progresso", "historico", "comparar diagnosticos"]),
             ("NIST: avaliação CSF", "avalia a maturidade das 106 subcategorias", "Avaliação CSF 2.0",
              ["avaliacao", "maturidade", "subcategoria", "perfil alvo", "lacunas"]),
             ("NIST: riscos", "registro de riscos e mapa de calor", "Riscos",
@@ -1142,13 +1189,15 @@ def main():
     assistente.comando("Espião", "monitora processos, tela, memória, arquivos e rede",
                        abrir_espiao, ["espiao", "monitor", "monitorar", "seguranca", "vigiar",
                                       "observador", "linha do tempo"])
+    assistente.comando("Verificar e-mail e domínio", "SPF, DMARC e DNSSEC do domínio da empresa",
+                       verificar_dominio, ["dominio", "email", "e-mail", "spf", "dmarc", "dnssec", "dns"])
     assistente.comando("Tour narrado", "apresentação guiada do aplicativo", abrir_tour,
                        ["tour", "demonstracao", "apresentacao", "narrado", "guia", "demo"])
     assistente.comando("Opções", "senhas, Windows Hello e configurações",
                        lambda: formOpcoes.FormOpcoes(root),
                        ["opcoes", "configuracoes", "senha", "configurar", "ajustes", "hello",
                         "preferencias", "pin", "biometria"])
-    assistente.comando("Sobre o S-Cyber PM", "versão, autores e padrões", lambda: FormAbout(root),
+    assistente.comando("Sobre o S-Cyber", "versão, autores e padrões", abrir_sobre,
                        ["sobre", "versao", "informacoes", "autores", "about", "ajuda sobre"])
     assistente.comando("Sair", "fecha o aplicativo", root.destroy,
                        ["sair", "fechar", "encerrar", "quit", "exit"])
@@ -1166,12 +1215,54 @@ def main():
     item_dica = fundo.create_text(0, 0, fill="#606060", font=("Segoe UI", 11),
                                   text="Clique na coruja para o assistente de comandos")
 
+    # Primeiros passos (Fase 6): do aceite dos termos à primeira correção comprovada.
+    import modPrimeirosPassos
+
+    def obter_passos():
+        import modTermos
+        try:
+            from nist_intelligence import core as nist_core
+            banco = nist_core.banco()
+        except Exception:
+            banco = None
+        return modPrimeirosPassos.passos(modTermos.aceite() is not None, LICENCA_EM_USO,
+                                         _CERT_EM_USO.get("thumb"), banco)
+
+    cartao_passos = modPrimeirosPassos.criar_cartao(fundo, obter_passos, {
+        "diagnostico": diagnostico_nist, "correcao": aba_nist("Diagnóstico"),
+        "backup": aba_nist("Relatório"), "termos": lambda: __import__("modTermos").mostrar(root),
+        "evolucao": aba_nist("Evolução")})
+    item_passos = fundo.create_window(0, 0, window=cartao_passos, anchor="s", state="hidden")
+    passos_escondidos = {"pelo_usuario": False}
+
+    def mostrar_passos(_evento=None):
+        """Mostra o cartão enquanto houver passo a fazer (e o assistente estiver fechado)."""
+        try:
+            lista = cartao_passos.atualizar()
+        except Exception:
+            __import__("logging").getLogger(__name__).warning("Primeiros passos indisponíveis", exc_info=True)
+            return
+        assistente_aberto = fundo.itemcget(item_barra, "state") == "normal"
+        pendente = modPrimeirosPassos.proximo(lista) is not None
+        visivel = pendente and not assistente_aberto and not passos_escondidos["pelo_usuario"]
+        fundo.itemconfigure(item_passos, state="normal" if visivel else "hidden")
+
+    def esconder_passos(_evento=None):
+        passos_escondidos["pelo_usuario"] = True
+        fundo.itemconfigure(item_passos, state="hidden")
+
+    cartao_passos.fechar.bind("<Button-1>", esconder_passos)
+    fundo.bind("<Map>", mostrar_passos, add="+")          # ao voltar do painel NIST
+
     def alternar_assistente(_evento=None):
         escondido = fundo.itemcget(item_barra, "state") == "hidden"
         fundo.itemconfigure(item_barra, state="normal" if escondido else "hidden")
         fundo.itemconfigure(item_dica, state="hidden" if escondido else "normal")
         if escondido:
+            fundo.itemconfigure(item_passos, state="hidden")
             barra_comando.focar()
+        else:
+            mostrar_passos()
 
     for item in (item_coruja, item_dica):
         fundo.tag_bind(item, "<Button-1>", alternar_assistente)
@@ -1190,23 +1281,40 @@ def main():
         # card logo abaixo da coruja; sobe só o necessário para não passar da borda
         topo_card = min(base_coruja + 8, h - 300)
         fundo.coords(item_barra, w / 2, max(h * 0.10, topo_card))
+        fundo.coords(item_passos, w / 2, h - 12)
 
     fundo.bind("<Configure>", centralizar, add="+")
 
     def ocultar_integracoes_institucionais():
-        """S-Cyber Business: o SEI (integração institucional da PM) some do menu, da Ribbon, do
-        atalho Ctrl+I e do assistente, em vez de aparecer e depois recusar."""
-        if _sei_liberado():
-            return
-        for menu, rotulo in ((menu_ferramentas, "SEI - consulta pelo navegador..."),
-                             (menu_nist, "Consultas SEI")):
+        """S-Cyber Business: o que é só da PM (SEI, rádio DMR/P25/TETRA e Espião didático) some do
+        menu, da Ribbon, do atalho e do assistente, em vez de aparecer e depois recusar."""
+        import modLicenca
+        so_pm = {
+            "sei": ([(menu_ferramentas, "SEI - consulta pelo navegador..."), (menu_nist, "Consultas SEI")],
+                    "<Control-i>", botao_sei, abrir_sei),
+            "radio": ([(menu_ferramentas, "Radiocomunicação digital: DMR, P25 e TETRA (simulação)...")],
+                      "<Control-t>", botao_radio, abrir_radio),
+            "espiao": ([(menu_ferramentas, "Espião: o que um observador vê (didático)...")],
+                       "<Control-y>", grupo_seguranca, abrir_espiao),
+        }
+        for recurso, (itens, tecla, widget, acao) in so_pm.items():
+            if modLicenca.recurso_liberado(LICENCA_EM_USO, recurso):
+                continue
+            for menu, rotulo in itens:
+                try:
+                    menu.delete(menu.index(rotulo))
+                except tk.TclError:
+                    pass
+            root.unbind(tecla)
+            widget.pack_forget()
+            assistente.comandos[:] = [c for c in assistente.comandos if c.acao is not acao]
+        # Sem o último item, sobraria um separador solto no fim do menu
+        for menu in (menu_ferramentas, menu_nist):
             try:
-                menu.delete(menu.index(rotulo))
+                while menu.index("end") is not None and menu.type("end") == "separator":
+                    menu.delete("end")
             except tk.TclError:
                 pass
-        root.unbind("<Control-i>")
-        botao_sei.pack_forget()
-        assistente.comandos[:] = [c for c in assistente.comandos if c.acao is not abrir_sei]
 
     def mostrar_principal():
         # Modalidade da licença assinada: muda o nome do produto na janela (S-Cyber Business / PM)
@@ -1222,6 +1330,7 @@ def main():
         except Exception:
             __import__("logging").getLogger(__name__).warning("Falha ao ajustar os menus da modalidade",
                                                               exc_info=True)
+        root.after(400, mostrar_passos)
         root.deiconify()
         root.lift()
         root.focus_force()

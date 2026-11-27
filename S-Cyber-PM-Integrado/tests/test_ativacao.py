@@ -252,6 +252,12 @@ class OrganizacaoTests(Base):
         lic, chave = adm.emitir(self.pedido(), "Loja Exemplo", modalidade="business",
                                 organizacao="Empresa Fictícia Ltda")
         self.assertEqual(lic["organizacao"], "Empresa Fictícia Ltda")
+        # O nome do cliente não vai para o registro público (repositório); só para o privado.
+        publico = [str(L.abrir(x, L.ADMINISTRADORES_FIXOS)[0])
+                   for x in (self.pub_dir / "registro.jsonl").read_bytes().splitlines()]
+        self.assertFalse(any("Fictícia" in x for x in publico))
+        self.assertIn("Fictícia", str(L.abrir((self.pub_dir.parent / "registro_privado" / "registro_privado.jsonl")
+                                             .read_bytes().splitlines()[-1], L.ADMINISTRADORES_FIXOS)[0]))
         L.ativar(chave, self.inst_dir, self.pub())
         org = L.organizacao_da_instalacao(self.inst_dir, self.pub())
         self.assertEqual(org, "Empresa Fictícia Ltda")
@@ -327,7 +333,13 @@ class PublicacaoTests(Base):
         t, _ = COMUM
         pedido = L.pedido_credenciamento(t, "Policial", L.instalacao(self.inst_dir))
         adm.credenciar_pedido(pedido, "revisor")
-        self.assertEqual(L.credenciados(self.pub()), {t: {"titular": "Policial", "papel": "revisor"}})
+        # Lista pública sem o nome da pessoa (LGPD); o nome fica no registro privado do administrador.
+        self.assertEqual(L.credenciados(self.pub()), {t: {"titular": "", "papel": "revisor"}})
+        privado = (self.pub_dir.parent / "registro_privado" / "registro_privado.jsonl").read_bytes()
+        conteudo, _ = L.abrir(privado.splitlines()[-1], L.ADMINISTRADORES_FIXOS)
+        self.assertIn("titular Policial", conteudo["detalhes"])
+        for linha in (self.pub_dir / "registro.jsonl").read_bytes().splitlines():
+            self.assertNotIn("Policial", str(L.abrir(linha, L.ADMINISTRADORES_FIXOS)[0]))
         self.assertEqual(L.papel(t, self.pub()), "revisor")
         self.assertEqual(L.papel(GABRIEL[0], self.pub()), "administrador")
         adm.descredenciar(t, "saiu da unidade")

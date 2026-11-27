@@ -6,26 +6,26 @@ O núcleo é um só, com duas modalidades definidas pela licença assinada:
 
 | Modalidade | Para quem | Diferença |
 |---|---|---|
-| **S-Cyber Business** | Pequenas e médias empresas do comércio, serviços e turismo; INOVA Senac | Sem as integrações institucionais (SEI) |
+| **S-Cyber Business** | Pequenas e médias empresas do comércio, serviços e turismo; INOVA Senac | Sem as integrações institucionais (SEI), sem as simulações próprias do ensino na PM (rádio DMR/P25/TETRA e Espião) e sem textos da PMGO |
 | **S-Cyber PM** | Polícia Militar do Estado de Goiás, mediante autorização | Inclui as integrações institucionais |
 
-> **Situação (26/11/2026):** **pré-lançamento** do S-Cyber 2.0, versão 2.0.5. **Homologado apenas no Windows 10/11 (64 bits).** O que foi testado, e como, está no [relatório de auditoria e homologação](docs/AUDITORIA_S-CYBER_2.0.md). As versões para Linux e macOS não fazem parte desta entrega.
+> **Situação (27/11/2026):** **pré-lançamento** do S-Cyber 2.0, versão 2.0.6. **Homologado apenas no Windows 10/11 (64 bits).** O que foi testado, e como, está no [relatório de auditoria e homologação](docs/AUDITORIA_S-CYBER_2.0.md). As versões para Linux e macOS não fazem parte desta entrega.
 
 ## Instalação
 
-> **Versão estável x desenvolvimento:** instale sempre pela página **[Releases](https://github.com/gsilveiralima/S-Cyber-PM-Integrado-NIST-2.0/releases)**. A `main` é a versão em desenvolvimento e muda com frequência.
+> **Versão estável x desenvolvimento:** instale sempre pela página **Releases**: a partir da 2.0.6, a do repositório público de distribuição **[S-Cyber-Distribuicao](https://github.com/gsilveiralima/S-Cyber-Distribuicao/releases)** (até a 2.0.5, a [deste repositório](https://github.com/gsilveiralima/S-Cyber-PM-Integrado-NIST-2.0/releases)). A `main` é a versão em desenvolvimento e muda com frequência.
 
 ### Usuário final (sem Python e sem comandos)
 
-1. Abra a página **[Releases](https://github.com/gsilveiralima/S-Cyber-PM-Integrado-NIST-2.0/releases)** e baixe, da versão mais recente:
+1. Abra a página **[Releases da distribuição](https://github.com/gsilveiralima/S-Cyber-Distribuicao/releases)** e baixe, da versão mais recente:
    - o `SCyberPM-Setup-<versão>.exe`;
    - o `SHA256SUMS.txt`.
-2. Confira a integridade no PowerShell com `Get-FileHash .\SCyberPM-Setup-2.0.5.exe -Algorithm SHA256`. O resultado precisa ser igual ao do `SHA256SUMS.txt`.
-3. Dê dois cliques no instalador. Ele **não pede administrador**: o programa vai para `%LOCALAPPDATA%\Programs\S-Cyber PM` e cria os atalhos no menu Iniciar.
+2. Confira a integridade no PowerShell com `Get-FileHash .\SCyberPM-Setup-2.0.6.exe -Algorithm SHA256`. O resultado precisa ser igual ao do `SHA256SUMS.txt`.
+3. Dê dois cliques no instalador e **aceite os Termos de Uso** (a Política de Privacidade aparece antes da instalação). Ele **não pede administrador**: o programa vai para `%LOCALAPPDATA%\Programs\S-Cyber PM` e cria os atalhos **S-Cyber** no menu Iniciar.
    - O instalador ainda não é assinado. Se o Windows mostrar "O Windows protegeu o computador", clique em **Mais informações** e depois em **Executar assim mesmo**.
 4. **Ative a instalação.** Na primeira abertura, clique em **Enviar pedido por e-mail**: o pedido vai pronto para o suporte (`scybersuporte@gmail.com`). Quando a resposta chegar, cole a chave de ativação e clique em **Ativar**.
 5. **Certificado e senhas.** Escolha o seu certificado credenciado. Num perfil novo, crie as senhas: não existe senha de fábrica.
-6. **Primeiro diagnóstico.** Vá em **NIST Intelligence → Diagnóstico inteligente**. Se abrir o programa como administrador, ele verifica mais itens, como BitLocker, SMBv1 e Secure Boot.
+6. **Primeiro diagnóstico.** Na tela inicial, o cartão **Primeiros passos** mostra o próximo passo. Ou vá em **Visão geral → Diagnóstico inteligente**. Se abrir o programa como administrador, ele verifica mais itens, como BitLocker, SMBv1 e Secure Boot.
 
 O guia completo, com telas e solução de problemas, está em **[docs/GUIA_WINDOWS_INSTALADOR.md](docs/GUIA_WINDOWS_INSTALADOR.md)**.
 
@@ -79,7 +79,15 @@ O passo a passo antigo, com problemas encontrados e soluções, está em [docs/I
 - **E-mail da empresa (SPF, DMARC e DNSSEC).**
   - Lê o DNS público do domínio para ver se golpistas conseguem mandar e-mail em nome da empresa.
   - Usa o mesmo fluxo de achado, prioridade, NIST e recomendação.
-  - Por enquanto roda pela linha de comando (`python -m nist_intelligence.dominio empresa.com.br`); o botão na tela está no roadmap.
+  - Botão **Inteligência → E-mail e domínio** (ou, pela linha de comando, `python -m nist_intelligence.dominio empresa.com.br`).
+- **Interface em 5 áreas e primeiros passos.**
+  - Ribbon em **Visão geral, Operações, NIST Intelligence, Inteligência e Administração**.
+  - Cartão **Primeiros passos** na tela inicial: termos, licença, certificado, primeiro diagnóstico, correção comprovada e backup.
+- **Evolução da segurança** (aba **Evolução** do painel NIST).
+  - Diagnósticos em ordem de data, com falhas, atenções, indisponíveis e prioritárias de cada um.
+  - Comparação do mesmo ativo, correções comprovadas por nova verificação, riscos críticos e incidentes.
+  - Sem nota nem porcentagem de segurança: só contagens do que foi registrado, com a metodologia na tela.
+- **Termos de Uso e Política de Privacidade (LGPD).** Aceite no instalador e na abertura, registrado por versão com o SHA-256 dos textos. Ficam em **Administração → Termos e privacidade**, com os avisos de componentes de terceiros.
 - **Corujinha.** Gera um inventário detalhado, só com o consentimento do usuário. Câmera, captura de tela e internet vêm desligadas por padrão, e os processos aparecem com o PID.
 - **Licenças assinadas.**
   - Ativação offline e recusa de licença revogada.
@@ -103,7 +111,6 @@ Nada desta lista faz parte da versão atual.
 
 | Quando | O que |
 |---|---|
-| Depois do pitch do INOVA | Interface em 5 áreas, assistente de primeiro acesso, indicadores históricos e botão de verificação do domínio |
 | Fase 7 | Autoridade certificadora privada e offline para os certificados das empresas; autenticação própria da Business; duas assinaturas para remover um administrador; pontos de verificação assinados na auditoria |
 | Fase 8 | Instalador com assinatura de código, para sair o aviso "Editor desconhecido"; atualização segura, com backup e sem aceitar versão mais antiga; o programa fechar sozinho quando o instalador pedir |
 | Versão comercial da Business | Ativação online automática: o pedido vai sozinho, o administrador aprova na tela, e a licença chega sem copiar nada. A assinatura continua no computador do administrador |
@@ -201,11 +208,18 @@ docs/                            instalação, validação, segurança e changel
   Leonídio Alves De Moraes Junior, Daniel Otavio De Lima Medrado, Juliano Porto De Souza,
   Juliano Santos Borges e Gabriel Silveira Lima, com a docente Fabiana Fernandes Harami. Detalhes em [docs/INOVA_2026.md](docs/INOVA_2026.md).
 
-Todo o conteúdo deste repositório, inclusive os arquivos da aplicação original S-Cyber PM, é
-distribuído sob a **licença Apache 2.0** (arquivo `LICENSE`), com a concordância do MAJ Leonidio Alves
-de Moraes Junior, registrada em 22/11/2026.
+**Licença:** a partir da versão 2.0.6, o S-Cyber é **software proprietário, com todos os direitos
+reservados** aos titulares listados em [AUTORES.md](AUTORES.md) (arquivo [`LICENSE`](LICENSE)). O código
+fica visível aqui para avaliação técnica e acadêmica; copiar, alterar, redistribuir ou vender depende de
+autorização escrita. As versões publicadas **até a v2.0.5** foram distribuídas sob a licença Apache 2.0, e
+quem as recebeu mantém os direitos daquela licença sobre elas.
 
-O arquivo `S-Cyber-PM-Integrado/README.md` é o README da aplicação original, mantido sem alterações para conferência de
-integridade (SHA-256). Ele ainda traz a restrição de redistribuição do repositório original e
-descreve a versão anterior: o S-Cyber 2.0 está descrito neste README e em `docs/`. Neste
-repositório, essa restrição não se aplica: vale a Apache 2.0 descrita acima.
+O uso do programa instalado segue os [Termos de Uso](S-Cyber-PM-Integrado/legal/TERMOS_DE_USO.txt) e a
+[Política de Privacidade](S-Cyber-PM-Integrado/legal/POLITICA_DE_PRIVACIDADE.txt). Os componentes de
+terceiros e as licenças deles estão em
+[AVISOS_DE_TERCEIROS.txt](S-Cyber-PM-Integrado/legal/AVISOS_DE_TERCEIROS.txt); o texto completo de cada
+licença é gerado pelo CI junto com o instalador.
+
+O arquivo `S-Cyber-PM-Integrado/README.md` é o README da aplicação original, mantido sem alterações para
+conferência de integridade (SHA-256). Ele descreve a versão anterior; o S-Cyber 2.0 está descrito neste
+README e em `docs/`.

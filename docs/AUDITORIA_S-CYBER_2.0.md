@@ -643,18 +643,48 @@ A 2.0.4 também leva aos clientes as correções da seção 22 (validade e anti-
 
 **Ação do administrador:** descredenciar o 00507D3A… (não é de uma pessoa e não funciona no S-Cyber).
 
-## 25. Próximo passo proposto
-1. **Validar no Windows** (script de sempre, `validar_no_windows.ps1`):
-   - testes, instalador e abertura da versão nova;
-   - uma licença Business com `--organizacao`: os dados vão para `perfis\<empresa>`, e a instalação PM continua com os dados de sempre;
-   - `python -m nist_intelligence.dominio <domínio da empresa>`.
+## 25. Versão 2.0.6: produto comercial e Fase 6 (27/11/2026)
+
+**Pedido do autor:** corrigir e melhorar o código para que a ferramenta possa ser vendida a empresas reais.
+Decisão do autor: **licença proprietária** (os titulares confirmaram ter autorização).
+
+| Tema | O que mudou | Prova |
+|---|---|---|
+| Licença única | `LICENSE` proprietária ("todos os direitos reservados") e `AUTORES.md`; 33 cabeçalhos alinhados; versões até a v2.0.5 continuam Apache 2.0 | `test_produto_comercial.LicencaUnicaTests` |
+| Termos e privacidade | `legal/TERMOS_DE_USO.txt`, `POLITICA_DE_PRIVACIDADE.txt` (LGPD) e `AVISOS_DE_TERCEIROS.txt`; aceite no instalador (`LicenseFile`) e na abertura, registrado por versão com o SHA-256 dos textos (`aceite_termos.json`) | `test_produto_comercial.AceiteDosTermosTests`; CI do instalador |
+| Licenças de terceiros | O CI gera `LICENCAS_DE_TERCEIROS.txt` (texto completo) e **falha** se entrar dependência GPL/AGPL no executável | `instalador.yml` |
+| Dados de clientes | Nomes de clientes, unidades e pessoas saíram das listas públicas; vão para o registro privado do administrador | `test_ativacao` (credenciamento e organização) |
+| Business sem marca da PM | Sem rádio DMR/P25/TETRA, Espião didático e textos da PMGO (Sobre, Tour, títulos); instalador "S-Cyber", fabricante "Equipe S-Cyber" | `test_produto_comercial.BusinessSemMarcaDaPMTests`; `test_v203` |
+| Fase 6 — 5 áreas | Ribbon em Visão geral, Operações, NIST Intelligence, Inteligência e Administração | `test_primeiros_passos.CincoAreasTests` |
+| Fase 6 — primeiros passos | Cartão na tela inicial (termos, licença, certificado, 1º diagnóstico, correção comprovada, backup), lido do banco só com contagens | `test_primeiros_passos.PrimeirosPassosTests` |
+| Fase 6 — evolução | Aba **Evolução**: diagnósticos em ordem, comparação do mesmo ativo, correções comprovadas, riscos e incidentes; sem nota nem porcentagem (metodologia na tela) | `test_indicadores` |
+| Fase 6 — domínio | Botão **E-mail e domínio** (SPF, DMARC, DNSSEC) no mesmo fluxo do diagnóstico | `test_primeiros_passos.CincoAreasTests` |
+| Distribuição separada do código | Listas assinadas baixadas também de `S-Cyber-Distribuicao` (público, sem código), em paralelo, ficando a melhor cópia que confere; o CI espelha as listas e as Releases para lá (segredo `DIST_TOKEN`); nomes antigos de titulares saem da lista pública na próxima publicação; `logo.png` (foto de uma pessoa) removido | `test_distribuicao` |
+| Código | Nome "Silveira" corrigido em 35 lugares; análise automática (ruff: pyflakes, bugbear e segurança) sem defeito real novo | `ruff check --select E9,F` no CI |
+
+**Pendências que dependem dos titulares (não são de código):**
+- revisão jurídica dos Termos de Uso, da Política de Privacidade e da `LICENSE` antes da primeira venda;
+- CNPJ (ou outra forma jurídica) para vender e emitir nota fiscal; o contato comercial hoje é `scybersuporte@gmail.com`;
+- registro do software no INPI (opcional, reforça a prova de autoria);
+- deixar o repositório do código privado só depois que o espelho funcionar e todos os clientes estiverem na 2.0.6 ou mais nova (passo a passo em `docs/ADMINISTRACAO_LICENCAS.md`);
+- certificado de assinatura de código para o instalador (Fase 8);
+- custo de implantação e manutenção (item pendente do relatório do Projeto Integrador).
+
+**Ainda não homologado no Windows pelo autor:** a tela de aceite dos termos, o cartão de primeiros passos, a aba Evolução, o botão do domínio e a Ribbon em 5 áreas (o CI do Windows compila, instala e roda os testes, mas não olha as telas).
+
+## 26. Próximo passo proposto
+1. **Validar no Windows** (script de sempre, `validar_no_windows.ps1`), com atenção às telas novas da 2.0.6:
+   - aceite dos termos no instalador e na primeira abertura;
+   - Ribbon em 5 áreas e cartão de primeiros passos;
+   - aba Evolução depois de dois diagnósticos (antes e depois de uma correção);
+   - botão **E-mail e domínio** com o domínio da empresa;
+   - modalidade Business sem rádio, Espião e textos da PMGO.
 2. **Fechar o produto mínimo (§27), testes do usuário:**
    - registrar a correção pela tela;
-   - demonstrar "1 melhorou";
+   - demonstrar "1 melhorou" na aba Evolução;
    - fazer backup e restauração pela tela;
    - instalar numa máquina limpa.
-3. **Depois do pitch:**
-   - Fase 6 (5 áreas, assistente de primeiro acesso, indicadores históricos, botão do domínio);
+3. **Depois:**
    - Fase 7 (autoridade certificadora privada, autenticação da Business, duas assinaturas para remover administrador, pontos de verificação assinados);
    - Fase 8 (assinatura de código e atualização segura);
    - Fase 9 (homologação final).

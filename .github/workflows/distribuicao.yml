@@ -1,0 +1,50 @@
+name: Espelhar listas na distribuição
+
+# As listas assinadas (administradores, revogações, credenciamentos) são publicadas aqui pelos
+# administradores e copiadas para o repositório PÚBLICO de distribuição
+# (gsilveiralima/S-Cyber-Distribuicao), de onde os aplicativos instalados as baixam. Assim este
+# repositório, o do código, pode ficar privado sem quebrar a ativação dos clientes.
+# Só os arquivos .scsig vão (o registro das operações fica só aqui).
+# Precisa do segredo DIST_TOKEN: token com permissão "Contents: Read and write" SÓ no repositório
+# de distribuição. Sem o segredo, o passo avisa e não falha.
+
+on:
+  push:
+    branches: [main]
+    paths: ['S-Cyber-PM-Integrado/licencas/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: espelhar-listas
+
+jobs:
+  espelhar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Copiar as listas assinadas para S-Cyber-Distribuicao
+        env:
+          DIST_TOKEN: ${{ secrets.DIST_TOKEN }}
+          DESTINO: gsilveiralima/S-Cyber-Distribuicao
+        run: |
+          set -euo pipefail
+          if [ -z "${DIST_TOKEN}" ]; then
+            echo "::warning::Segredo DIST_TOKEN ausente: listas NÃO espelhadas em ${DESTINO} (ver docs/ADMINISTRACAO_LICENCAS.md)."
+            exit 0
+          fi
+          git clone --depth 1 "https://x-access-token:${DIST_TOKEN}@github.com/${DESTINO}.git" destino
+          mkdir -p destino/licencas
+          cp S-Cyber-PM-Integrado/licencas/*.scsig destino/licencas/
+          cd destino
+          git add licencas
+          if git diff --cached --quiet; then
+            echo "Listas já iguais em ${DESTINO}."
+            exit 0
+          fi
+          git -c user.name="S-Cyber CI" -c user.email="actions@users.noreply.github.com" \
+            commit -m "Listas assinadas: espelho de ${GITHUB_SHA::7}"
+          git push origin HEAD:main
+          echo "Listas espelhadas em ${DESTINO}."

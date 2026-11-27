@@ -8,11 +8,10 @@
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
-#                SGT Gabriel Silvieira Lima - PMGO
+#                SGT Gabriel Silveira Lima - PMGO
 #  Instituição : Polícia Militar do Estado de Goiás
 #  Contato     : leonidio.moraes@goias.gov.br
-#  Licença     : Uso interno da instituição. Proibida a redistribuição sem
-#                autorização.
+#  Licença     : Proprietária - todos os direitos reservados (ver LICENSE)
 #  Requisitos  : Python 3.11+ (64 bits), Windows 10/11
 #  Codificação : UTF-8
 # ------------------------------------------------------------------------------
@@ -701,7 +700,7 @@ class FormHash(tk.Toplevel):
 
     def __init__(self, parent, arquivos=()):
         super().__init__(parent)
-        self.title(f"S-Cyber PM - {NOME_APP}")
+        self.title(f"S-Cyber - {NOME_APP}")
         self.geometry(f"{self.LARGURA}x{self.ALTURA}")
         self.minsize(900, 620)
         centralizar(self, parent, self.LARGURA, self.ALTURA)
@@ -1360,7 +1359,7 @@ class FormHash(tk.Toplevel):
         tit = ttk.Frame(cab)
         tit.pack(side="left")
         tk.Label(tit, text=NOME_APP, fg=ACENTO, font=("Segoe UI", 15, "bold")).pack(anchor="w")
-        ttk.Label(tit, text="S-Cyber PM - versão em Python do rCalcHash").pack(anchor="w")
+        ttk.Label(tit, text="S-Cyber - versão em Python do rCalcHash").pack(anchor="w")
         ttk.Label(f, wraplength=400, justify="left",
                   text="Calcula e compara o hash de vários arquivos ao mesmo tempo, salvando o "
                        "resultado em um arquivo .txt na pasta de cada arquivo.").pack(anchor="w",

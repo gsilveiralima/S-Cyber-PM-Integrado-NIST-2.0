@@ -45,7 +45,14 @@ ADMINISTRADORES_FIXOS = {
 REPOSITORIO = "gsilveiralima/S-Cyber-PM-Integrado-NIST-2.0"
 # Para onde vão os pedidos de ativação e de credenciamento (botão "Enviar pedido por e-mail").
 EMAIL_SUPORTE = "scybersuporte@gmail.com"
+# Repositório PÚBLICO só de distribuição (instaladores e listas assinadas, sem código-fonte).
+# O repositório do código pode ficar privado: o CI espelha as listas para cá a cada publicação.
+REPOSITORIO_DISTRIBUICAO = "gsilveiralima/S-Cyber-Distribuicao"
 URL_PUBLICACAO = f"https://raw.githubusercontent.com/{REPOSITORIO}/main/S-Cyber-PM-Integrado/licencas/"
+# O aplicativo baixa dos dois (enquanto o do código for público) e fica com a cópia de MAIOR
+# sequência que confere: as listas são assinadas, então a origem não muda a confiança.
+URLS_PUBLICACAO = (f"https://raw.githubusercontent.com/{REPOSITORIO_DISTRIBUICAO}/main/licencas/",
+                   URL_PUBLICACAO)
 LISTAS = ("administradores", "revogacoes", "credenciamentos")
 VALIDADE_LISTA_DIAS = 30          # prazo máximo até uma revogação valer sem internet
 PRAZO_MAX_LICENCA_DIAS = 1100     # licença: no máximo ~3 anos a partir da data da assinatura
@@ -57,7 +64,9 @@ PAPEIS = ("usuario", "revisor")
 # S-Cyber 2.0: um produto, duas modalidades, definidas na licença ASSINADA (o usuário não troca).
 # Licenças antigas, sem o campo, continuam como "pm" (comportamento de antes).
 MODALIDADES = {"pm": "S-Cyber PM", "business": "S-Cyber Business"}
-EXCLUSIVO_PM = ("sei",)          # integrações institucionais que a modalidade Business não carrega
+# Só na modalidade PM: a integração institucional (SEI) e as simulações próprias do ensino
+# na PM (radiocomunicação DMR/P25/TETRA e o Espião didático). A Business não as mostra.
+EXCLUSIVO_PM = ("sei", "radio", "espiao")
 
 
 def modalidade(licenca):
@@ -284,12 +293,34 @@ def _hoje():
     return datetime.now(timezone.utc).date()
 
 
-def _baixar(nome, timeout=6):
-    req = urllib.request.Request(URL_PUBLICACAO + nome + ".scsig",
-                                 headers={"User-Agent": "S-Cyber-PM", "Cache-Control": "no-cache"})
+def _baixar_de(url_base, nome, timeout=6):
+    req = urllib.request.Request(url_base + nome + ".scsig",
+                                 headers={"User-Agent": "S-Cyber", "Cache-Control": "no-cache"})
     import modRede                     # raízes do Windows + certifi (Windows recém-instalado)
     with modRede.abrir(req, timeout) as resp:
         return resp.read(512 * 1024)
+
+
+def _baixar(nome, timeout=6):
+    """Cópias de `nome` em cada endereço de URLS_PUBLICACAO que respondeu (lista de bytes).
+    Endereço sem a lista (404, ou repositório privado) é ignorado; sem nenhuma cópia, repete o
+    erro: HTTPError se todos responderam sem a lista, erro de rede se nenhum respondeu."""
+    from concurrent.futures import ThreadPoolExecutor
+    copias, erro_http, erro_rede = [], None, None
+    # Em paralelo: sem internet, a espera continua sendo a de um endereço só.
+    with ThreadPoolExecutor(max_workers=len(URLS_PUBLICACAO)) as ex:
+        tarefas = [ex.submit(_baixar_de, base, nome, timeout) for base in URLS_PUBLICACAO]
+    for tarefa in tarefas:
+        try:
+            copias.append(tarefa.result())
+        except urllib.error.HTTPError as exc:
+            erro_http = exc
+            exc.close()
+        except (urllib.error.URLError, OSError, ValueError) as exc:
+            erro_rede = exc
+    if copias:
+        return copias
+    raise erro_http or erro_rede
 
 
 class Publicacao:
@@ -313,7 +344,9 @@ class Publicacao:
         out = []
         if self.online and not self.falha_rede:      # sem rede: não espera de novo a cada lista
             try:
-                out.append(("online", self.baixar(nome)))
+                baixado = self.baixar(nome)
+                for copia in (baixado if isinstance(baixado, list) else [baixado]):
+                    out.append(("online", copia))
             except urllib.error.HTTPError:
                 pass                                   # lista ainda não publicada (404): segue
             except (urllib.error.URLError, OSError, ValueError) as exc:

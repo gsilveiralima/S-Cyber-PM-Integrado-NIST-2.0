@@ -9,11 +9,10 @@
 #  Revisão     : 2026-11-16
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
-#                SGT Gabriel Silvieira Lima - PMGO
+#                SGT Gabriel Silveira Lima - PMGO
 #  Instituição : Polícia Militar do Estado de Goiás
 #  Contato     : leonidio.moraes@goias.gov.br
-#  Licença     : Uso interno da instituição. Proibida a redistribuição sem
-#                autorização.
+#  Licença     : Proprietária - todos os direitos reservados (ver LICENSE)
 #  Requisitos  : Python 3.11+ (64 bits), Windows 10/11, pywin32
 #  Codificação : UTF-8
 # ------------------------------------------------------------------------------
@@ -83,6 +82,7 @@ PALAVRAS_POR_SEGUNDO = 2.6              # tempo estimado das legendas sem voz
 # Como a narradora deve LER alguns termos (a legenda continua com a grafia normal)
 PRONUNCIA = [
     ("S-Cyber PM", "Ésse Sáiber, pê ême"),
+    ("S-Cyber Business", "Ésse Sáiber Bízness"),
     ("PMGO", "pê ême gê ó"),
     ("PDFs", "pê dê éfes"),
     ("PDF", "pê dê éfe"),
@@ -382,6 +382,13 @@ ROTEIRO = [
           "visão geral e saber onde estão as maiores lacunas. Lembre-se: subcategoria ainda não "
           "avaliada conta como zero, então o painel melhora conforme você avalia.",
           "Canvas do Tkinter · maturidade 0–4", acao="nist_aba:Painel"),
+    Passo("NIST: aba Evolução",
+          "A aba Evolução mostra como a segurança mudou de um diagnóstico para o outro: quantas "
+          "falhas e atenções havia, quantas verificações não puderam ser feitas e quantas correções "
+          "foram comprovadas por uma nova verificação. Não existe nota nem porcentagem de segurança: "
+          "cada número é uma contagem do que foi registrado, e sem avaliação não é o mesmo que sem "
+          "problema.",
+          "contagens registradas · comparação do mesmo ativo", acao="nist_aba:Evolução"),
     Passo("NIST: aba Avaliação CSF 2.0",
           "Aqui você faz o diagnóstico. À esquerda, a árvore com as funções, categorias e "
           "subcategorias do framework. Clique numa subcategoria, leia o texto oficial e "
@@ -486,15 +493,36 @@ ROTEIRO = [
 ]
 
 
+SO_PM = ("sei", "radio", "espiao")     # o mesmo que modLicenca.EXCLUSIVO_PM
+
+BOAS_VINDAS_BUSINESS = (
+    "Olá! Eu sou a narradora do Tour do S-Cyber Business, o diagnóstico de segurança "
+    "cibernética para pequenas e médias empresas. Nos próximos minutos, vou abrir cada "
+    "ferramenta e explicar, de forma simples, o que ela faz e como ajuda a proteger a sua "
+    "empresa. Você pode pausar, voltar ou avançar a qualquer momento, nos botões desta janela.")
+
+
 def _institucional(passo):
-    """Passo de integração exclusiva da modalidade S-Cyber PM (SEI)."""
+    """Passo de recurso exclusivo da modalidade S-Cyber PM (SEI, rádio e Espião didático)."""
     acao = passo.acao or ""
-    return passo.destaque == "sei" or acao == "sei" or acao.endswith("Consultas SEI")
+    return passo.destaque in SO_PM or acao in SO_PM or acao.endswith("Consultas SEI")
+
+
+def _para_business(passo):
+    """Mesmo passo com o nome do produto da Business e sem a apresentação institucional."""
+    from dataclasses import replace
+    if passo.titulo == "Boas-vindas":
+        return replace(passo, texto=BOAS_VINDAS_BUSINESS)
+    return replace(passo, titulo=passo.titulo.replace("S-Cyber PM", "S-Cyber"),
+                   texto=passo.texto.replace("S-Cyber PM", "S-Cyber Business")
+                   .replace("bons estudos", "bom trabalho"))
 
 
 def roteiro(institucional=True):
     """Passos do Tour para a modalidade em uso."""
-    return list(ROTEIRO) if institucional else [p for p in ROTEIRO if not _institucional(p)]
+    if institucional:
+        return list(ROTEIRO)
+    return [_para_business(p) for p in ROTEIRO if not _institucional(p)]
 
 
 # ==========================================================
@@ -510,7 +538,7 @@ class FormTour(tk.Toplevel):
         super().__init__(parent)
         # S-Cyber Business (institucional=False): sem os passos das integrações da PM (SEI).
         self.roteiro = roteiro(institucional)
-        self.title("S-Cyber PM - Tour")
+        self.title(("S-Cyber PM" if institucional else "S-Cyber Business") + " - Tour")
         self.resizable(False, False)
         self.attributes("-topmost", True)            # os formulários abrem por baixo dela
         self.raiz = parent

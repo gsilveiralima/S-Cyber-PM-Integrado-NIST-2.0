@@ -28,6 +28,22 @@ jobs:
           cache-dependency-path: S-Cyber-PM-Integrado/requirements.txt
       - name: Dependências e PyInstaller
         run: python -m pip install -r requirements.txt pyinstaller
+      - name: Licenças de terceiros (texto completo, das bibliotecas que vão no executável)
+        run: |
+          python -m pip install pip-licenses
+          # Ferramentas só de construção (não vão para o executável); o carregador do PyInstaller
+          # (GPL com exceção que permite produto fechado) está descrito em AVISOS_DE_TERCEIROS.txt.
+          $ignorar = @('pip-licenses', 'prettytable', 'wcwidth', 'pyinstaller', 'pyinstaller-hooks-contrib',
+                       'altgraph', 'pefile', 'pywin32-ctypes', 'setuptools', 'packaging')
+          $cab = "Licenças dos componentes de terceiros incluídos no S-Cyber (gerado no CI pelo pip-licenses).`r`nResumo: AVISOS_DE_TERCEIROS.txt`r`n`r`n"
+          $corpo = python -m piplicenses --from=mixed --with-license-file --no-license-path --with-urls --format=plain-vertical --ignore-packages @ignorar
+          if ($LASTEXITCODE) { throw 'pip-licenses falhou' }
+          [IO.File]::WriteAllText((Join-Path $PWD 'legal\LICENCAS_DE_TERCEIROS.txt'), $cab + ($corpo -join "`r`n"), (New-Object Text.UTF8Encoding $true))
+          $tabela = python -m piplicenses --from=mixed --format=csv --ignore-packages @ignorar
+          $tabela
+          # Licença que impediria vender um produto fechado não pode entrar no executável
+          $proibidas = $tabela | Select-String -Pattern 'AGPL|Affero|\bGPL|GNU General Public'
+          if ($proibidas) { $proibidas; throw 'Dependência com licença GPL/AGPL: revise antes de vender o produto' }
       - name: Executável (PyInstaller)
         run: python gerarExe.py
       - name: Instalador (Inno Setup)
@@ -50,7 +66,7 @@ jobs:
           if ($p.ExitCode) { throw "Instalação falhou ($($p.ExitCode))" }
           $exe = Join-Path $env:LOCALAPPDATA 'Programs\S-Cyber PM\SCyberPM.exe'
           if (-not (Test-Path $exe)) { throw "Executável não instalado em $exe" }
-          $lnk = Get-ChildItem "$env:APPDATA\Microsoft\Windows\Start Menu\Programs" -Recurse -Filter 'S-Cyber PM.lnk' | Select-Object -First 1
+          $lnk = Get-ChildItem "$env:APPDATA\Microsoft\Windows\Start Menu\Programs" -Recurse -Filter 'S-Cyber.lnk' | Select-Object -First 1
           if (-not $lnk) { throw 'Atalho do menu Iniciar não criado' }
           $sh = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk.FullName)
           if ($sh.TargetPath -ne $exe) { throw "Atalho aponta para $($sh.TargetPath)" }
@@ -127,4 +143,22 @@ jobs:
           else
             gh release create "$GITHUB_REF_NAME" SCyberPM-Setup-*.exe SHA256SUMS.txt \
               --repo "$GITHUB_REPOSITORY" --title "S-Cyber $GITHUB_REF_NAME" --notes-file notas.md --prerelease
+          fi
+      - name: Copiar a Release para o repositório público de distribuição
+        env:
+          DIST_TOKEN: ${{ secrets.DIST_TOKEN }}
+          DESTINO: gsilveiralima/S-Cyber-Distribuicao
+        run: |
+          set -e
+          if [ -z "${DIST_TOKEN}" ]; then
+            echo "::warning::Segredo DIST_TOKEN ausente: Release NÃO copiada para ${DESTINO}."
+            exit 0
+          fi
+          export GH_TOKEN="${DIST_TOKEN}"
+          cd artefatos/*/
+          if gh release view "$GITHUB_REF_NAME" --repo "$DESTINO" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" SCyberPM-Setup-*.exe SHA256SUMS.txt --repo "$DESTINO" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" SCyberPM-Setup-*.exe SHA256SUMS.txt --repo "$DESTINO" \
+              --title "S-Cyber $GITHUB_REF_NAME" --notes-file notas.md --prerelease
           fi

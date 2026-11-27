@@ -35,6 +35,13 @@ import modLicenca as L
 PASTA = Path(__file__).resolve().parent / "licencas"
 
 
+def pasta_privada_padrao():
+    """Registro PRIVADO do administrador (fora do repositório público): nomes de clientes, de
+    pessoas e de unidades ficam só aqui."""
+    import modCaminhos
+    return modCaminhos.pasta_administrador()
+
+
 def _agora():
     return datetime.now().isoformat(timespec="seconds")
 
@@ -42,8 +49,16 @@ def _agora():
 class Admin:
     """Operações; `assinador` e `thumb` vêm do certificado administrativo do Windows."""
 
-    def __init__(self, pasta=PASTA, assinador=None, thumb=None, hoje=None):
+    def __init__(self, pasta=PASTA, assinador=None, thumb=None, hoje=None, pasta_privada=None):
         self.pasta = Path(pasta)
+        # Pasta pública = repositório (GitHub). Pasta privada = só no computador do administrador.
+        # (pasta pública fora do repositório, como nos testes: a privada fica ao lado dela)
+        if pasta_privada:
+            self.pasta_privada = Path(pasta_privada)
+        elif self.pasta.resolve() == PASTA.resolve():
+            self.pasta_privada = pasta_privada_padrao()
+        else:
+            self.pasta_privada = self.pasta.parent / "registro_privado"
         self.hoje = hoje or L.hoje_data()
         self.pub = L.Publicacao(pasta_cache=self.pasta / "_nao_usado", pasta_pacote=self.pasta, online=False,
                                 lembrar=False)
@@ -76,6 +91,8 @@ class Admin:
         return base
 
     def _publicar(self, nome, doc):
+        if nome == "credenciamentos":
+            doc = self._sem_nomes(doc)
         doc = dict(doc, tipo=nome, sequencia=int(doc.get("sequencia", 0)) + 1, emitida_em=_agora(),
                    emitida_por=self.nome,
                    valida_ate=(self.hoje + timedelta(days=L.VALIDADE_LISTA_DIAS)).isoformat())
@@ -86,13 +103,36 @@ class Admin:
             self.pub._admins = None
         return doc
 
-    def _registrar(self, operacao, licenca_id="", instalacao="", detalhes=""):
-        linha = L.empacotar({"tipo": "registro", "operacao": operacao, "quando": _agora(),
-                             "administrador": self.nome, "certificado": self.thumb, "licenca_id": licenca_id,
-                             "instalacao": instalacao, "detalhes": detalhes}, self.assinador)
+    def _sem_nomes(self, doc):
+        """Listas publicadas antes da 2.0.6 tinham o nome do titular de cada certificado. Na próxima
+        publicação os nomes saem da lista pública e ficam no registro privado (LGPD, minimização)."""
+        certs, retirados = [], []
+        for c in doc.get("certificados") or []:
+            if c.get("titular"):
+                retirados.append(f"{c.get('thumbprint', '')[:8]}… titular {c['titular']}")
+                c = dict(c, titular="")
+            certs.append(c)
+        if retirados:
+            self._registrar("minimizar", detalhes=f"{len(retirados)} nome(s) retirado(s) da lista pública",
+                            privado="; ".join(retirados))
+        return dict(doc, certificados=certs)
+
+    def _registrar(self, operacao, licenca_id="", instalacao="", detalhes="", privado=""):
+        """Registro público (repositório): só identificadores, sem nomes de clientes nem de pessoas
+        (LGPD, minimização). `privado`: nomes e unidades, gravados só no registro privado local."""
+        base = {"tipo": "registro", "operacao": operacao, "quando": _agora(), "administrador": self.nome,
+                "certificado": self.thumb, "licenca_id": licenca_id, "instalacao": instalacao}
+        linha = L.empacotar(dict(base, detalhes=detalhes), self.assinador)
         self.pasta.mkdir(parents=True, exist_ok=True)
         with open(self.pasta / "registro.jsonl", "ab") as f:
             f.write(linha + b"\n")
+        if privado:
+            try:
+                self.pasta_privada.mkdir(parents=True, exist_ok=True)
+                with open(self.pasta_privada / "registro_privado.jsonl", "ab") as f:
+                    f.write(L.empacotar(dict(base, detalhes=f"{detalhes}; {privado}"), self.assinador) + b"\n")
+            except OSError as e:
+                print(f"Aviso: registro privado não gravado ({e}).", file=sys.stderr)
 
     # -------------------------------------------------- operações
     def iniciar(self):
@@ -121,9 +161,11 @@ class Admin:
             lic["organizacao"] = (organizacao or unidade or "").strip() or "empresa"
         chave = L.para_chave(L.empacotar(lic, self.assinador))
         self._registrar(operacao, lic["licenca_id"], instalacao,
-                        f"{L.MODALIDADES[modalidade]}; unidade {unidade}; até {lic['valida_ate']}"
+                        f"{L.MODALIDADES[modalidade]}; até {lic['valida_ate']}"
+                        + (f"; substitui {origem}" if origem else ""),
+                        privado=f"unidade {unidade}"
                         + (f"; organização {lic['organizacao']}" if lic.get("organizacao") else "")
-                        + (f"; substitui {origem}" if origem else ""))
+                        + (f"; titular {titular}" if titular else ""))
         return lic, chave
 
     def emitir(self, pedido, unidade, titular="", dias=365, modalidade="pm", organizacao=""):
@@ -167,11 +209,13 @@ class Admin:
             raise L.ErroLicenca("invalida", f"Papel deve ser um de: {', '.join(L.PAPEIS)}.")
         doc = self._lista("credenciamentos")
         certs = [c for c in doc.get("certificados", []) if c["thumbprint"] != thumbprint]
-        certs.append({"thumbprint": thumbprint, "titular": titular, "papel": papel, "desde": _agora()})
+        # Lista pública: sem o nome da pessoa (o aplicativo só precisa do thumbprint e do papel).
+        certs.append({"thumbprint": thumbprint, "titular": "", "papel": papel, "desde": _agora()})
         doc["certificados"] = certs
         doc["revogados"] = [t for t in doc.get("revogados", []) if t != thumbprint]
         self._publicar("credenciamentos", doc)
-        self._registrar("credenciar", "", instalacao, f"{thumbprint[:8]}… papel {papel}")
+        self._registrar("credenciar", "", instalacao, f"{thumbprint[:8]}… papel {papel}",
+                        privado=f"titular {titular}" if titular else "")
 
     def credenciar_pedido(self, pedido, papel="usuario"):
         p = L.ler_pedido(pedido)

@@ -86,3 +86,9 @@ def pasta_nist(criar=False):
 def pasta_instalacao():
     base = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
     return Path(base) / NOME if base else _base("XDG_DATA_HOME", ".local/share")
+
+
+def pasta_administrador():
+    """Registro PRIVADO das ferramentas dos administradores (%LOCALAPPDATA%\\SCyberAdmin):
+    nomes de clientes e de pessoas que não vão para o repositório público."""
+    return pasta_instalacao().parent / "SCyberAdmin"

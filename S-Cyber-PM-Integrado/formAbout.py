@@ -9,11 +9,10 @@
 #  Revisão     : 2026-11-16
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
-#                SGT Gabriel Silvieira Lima - PMGO
+#                SGT Gabriel Silveira Lima - PMGO
 #  Instituição : Polícia Militar do Estado de Goiás
 #  Contato     : leonidio.moraes@goias.gov.br
-#  Licença     : Uso interno da instituição. Proibida a redistribuição sem
-#                autorização.
+#  Licença     : Proprietária - todos os direitos reservados (ver LICENSE)
 #  Requisitos  : Python 3.11+ (64 bits), Windows 10/11
 #  Codificação : UTF-8
 # ------------------------------------------------------------------------------
@@ -73,15 +72,11 @@ from modRecursos import botao_fechar_cabecalho
 # INFORMAÇÕES DO APLICATIVO  (edite aqui)
 # ==========================================================
 
-APP_NOME = "S-Cyber PM"
+APP_NOME = "S-Cyber"   # nome neutro (executável e instalador servem às duas modalidades)
 from versao import APP_VERSAO  # noqa: E402 — fonte única da versão (versao.py)
 APP_SUBTITULO = "Cryptography and Digital Certificate Framework"
-APP_DESCRICAO = (
+_DESCRICAO_PM = (
     "Atividade para fins didáticos e de pesquisa, sem fins lucrativos. " \
-    "MAJ Daniel Medrado, PMGO, 2026. " \
-    "MAJ Leonidio Alves de Moraes Junior, PMGO, 2026. " \
-    "SGT Gabriel Silvieira Lima, PMGO, 2026. " \
-    "" \
     "Aplicativo de gestão de certificados digitais: controla o acesso por "
     "certificado e por login com senha (e, opcionalmente, pelo Windows Hello - PIN ou "
     "biometria - cadastrado após o primeiro login), lista os certificados instalados no "
@@ -131,11 +126,49 @@ APP_DESCRICAO = (
     "Todos os relatórios em PDF levam a corujinha no cabeçalho."
 )
 
-# Preencha com os dados reais antes de distribuir.
-APP_AUTOR = "Polícia Militar do Estado de Goiás"
-APP_COPYRIGHT = "Copyright © 2026 " + APP_AUTOR
-APP_LICENCA = "Software de uso interno da instituição. Proibida a redistribuição sem autorização."
-APP_CONTATO = "leonidio.moraes@goias.gov.br"
+_DESCRICAO_BUSINESS = (
+    "Diagnóstico de segurança cibernética para pequenas e médias empresas. Em um clique, "
+    "verifica o computador (antivírus, firewall, criptografia do disco, atualizações, contas, "
+    "senhas, portas abertas e backup) e, opcionalmente, a nuvem Microsoft Azure, sempre em modo "
+    "somente leitura. Cada problema vem explicado em linguagem simples, com a prioridade, o "
+    "passo a passo da correção e a forma de confirmar que deu certo; a nova verificação compara "
+    "os resultados e comprova a melhoria. As evidências ficam organizadas conforme o NIST CSF 2.0, "
+    "protegidas por SHA-256 e registradas numa trilha de auditoria. Inclui ainda criptografia e "
+    "assinatura de documentos, gestão de certificados digitais, verificação da integridade de "
+    "arquivos e consulta a bases públicas de vulnerabilidades. "
+    "O S-Cyber apoia a gestão de riscos e a LGPD, mas não garante a ausência de incidentes, "
+    "não substitui uma auditoria completa e não é certificado pelo NIST."
+)
+
+# Titulares dos direitos (LICENSE e AUTORES.md, na raiz do repositório)
+APP_TITULARES = ("Leonídio Alves de Moraes Junior, Daniel Otavio de Lima Medrado "
+                 "e Gabriel Silveira Lima")
+APP_AUTOR = "Equipe S-Cyber"          # nome do fabricante no executável e no instalador
+APP_COPYRIGHT = "Copyright © 2026 " + APP_TITULARES
+APP_LICENCA = "Software proprietário. Uso conforme os Termos de Uso e a licença de ativação."
+from modLicenca import EMAIL_SUPORTE as APP_CONTATO  # noqa: E402 — um só endereço
+
+# O que muda na tela "Sobre" conforme a modalidade da licença assinada (pm ou business).
+IDENTIDADES = {
+    "pm": {
+        "nome": "S-Cyber PM", "marca": "PM", "descricao": _DESCRICAO_PM,
+        "autor": ("MAJ Leonídio Alves de Moraes Junior, MAJ Daniel Medrado e "
+                  "SGT Gabriel Silveira Lima - PMGO"),
+        "contato": "leonidio.moraes@goias.gov.br",
+    },
+    "business": {
+        "nome": "S-Cyber Business", "marca": "Business", "descricao": _DESCRICAO_BUSINESS,
+        "autor": APP_AUTOR, "contato": APP_CONTATO,
+    },
+}
+
+
+def identidade(modalidade="pm"):
+    """Nome, descrição, autoria e contato mostrados na modalidade (desconhecida: PM)."""
+    return IDENTIDADES.get(modalidade, IDENTIDADES["pm"])
+
+
+APP_DESCRICAO = _DESCRICAO_PM          # compatibilidade
 
 # Padrões de mercado seguidos: (padrão, referência, onde o aplicativo o usa)
 PADROES = [
@@ -400,10 +433,11 @@ def situacao_sistema_atual():
     return "Windows 10 (64 bits)", COMPATIVEL
 
 
-def texto_informacoes():
+def texto_informacoes(modalidade="pm"):
     """Tudo em texto puro, para colar num chamado de suporte."""
-    linhas = [f"{APP_NOME} {APP_VERSAO} - {APP_SUBTITULO}", APP_COPYRIGHT,
-              f"Licença: {APP_LICENCA}", f"Contato: {APP_CONTATO}", "",
+    ident = identidade(modalidade)
+    linhas = [f"{ident['nome']} {APP_VERSAO} - {APP_SUBTITULO}", APP_COPYRIGHT,
+              f"Licença: {APP_LICENCA}", f"Contato: {ident['contato']}", "",
               "Componentes:"]
     linhas += [f"  {nome}: {versao}" for nome, versao in componentes()]
     sistema, situacao = situacao_sistema_atual()
@@ -424,9 +458,11 @@ class FormAbout(tk.Toplevel):
 
     LARGURA, ALTURA = 900, 600
 
-    def __init__(self, parent):
+    def __init__(self, parent, modalidade="pm"):
         super().__init__(parent)
-        self.title(f"Sobre o {APP_NOME}")
+        self.modalidade = modalidade
+        self.ident = identidade(modalidade)
+        self.title(f"Sobre o {self.ident['nome']}")
         self.resizable(False, False)
 
         self._criar_interface()
@@ -445,14 +481,14 @@ class FormAbout(tk.Toplevel):
     # ------------------------------------------------------
 
     def _criar_interface(self):
-        # Faixa do topo, no mesmo visual da splash: "S-Cyber " branco + "PM" vermelho
+        # Faixa do topo, no mesmo visual da splash: "S-Cyber " branco + modalidade em vermelho
         topo = tk.Canvas(self, width=self.LARGURA, height=96, bg="#101010",
                          highlightthickness=0, bd=0)
         topo.pack(fill="x")
         botao_fechar_cabecalho(self, self.destroy)
         t1 = topo.create_text(24, 36, text="S-Cyber ", fill="white",
                               font=("Arial", 24, "bold"), anchor="w")
-        topo.create_text(topo.bbox(t1)[2], 36, text="PM", fill="#ff0000",
+        topo.create_text(topo.bbox(t1)[2], 36, text=self.ident["marca"], fill="#ff0000",
                          font=("Arial", 24, "bold"), anchor="w")
         topo.create_text(26, 70, text=APP_SUBTITULO, fill="#d0d0d0",
                          font=("Arial", 10), anchor="w")
@@ -480,17 +516,17 @@ class FormAbout(tk.Toplevel):
 
     def _aba_sobre(self, pai):
         aba = ttk.Frame(pai, padding=18)
-        ttk.Label(aba, text=f"{APP_NOME}  {APP_VERSAO}",
+        ttk.Label(aba, text=f"{self.ident['nome']}  {APP_VERSAO}",
                   font=("Segoe UI", 14, "bold")).pack(anchor="w")
-        ttk.Label(aba, text=APP_DESCRICAO, wraplength=self.LARGURA - 80,
+        ttk.Label(aba, text=self.ident["descricao"], wraplength=self.LARGURA - 80,
                   justify="left").pack(anchor="w", pady=(8, 16))
 
         grade = ttk.Frame(aba)
         grade.pack(anchor="w")
         for linha, (rotulo, valor) in enumerate([
-                ("Desenvolvido por:", APP_AUTOR),
+                ("Desenvolvido por:", self.ident["autor"]),
                 ("Licença:", APP_LICENCA),
-                ("Contato:", APP_CONTATO)]):
+                ("Contato:", self.ident["contato"])]):
             ttk.Label(grade, text=rotulo, font=("Segoe UI", 9, "bold")).grid(
                 row=linha, column=0, sticky="w", padx=(0, 12), pady=2)
             ttk.Label(grade, text=valor).grid(row=linha, column=1, sticky="w", pady=2)
@@ -739,7 +775,7 @@ class FormAbout(tk.Toplevel):
 
     def copiar(self):
         self.clipboard_clear()
-        self.clipboard_append(texto_informacoes())
+        self.clipboard_append(texto_informacoes(self.modalidade))
         self.aviso.configure(text="Informações copiadas.")
         self.after(2500, lambda: self.aviso.winfo_exists() and self.aviso.configure(text=""))
 

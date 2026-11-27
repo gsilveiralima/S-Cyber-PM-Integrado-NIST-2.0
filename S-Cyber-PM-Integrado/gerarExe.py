@@ -9,11 +9,10 @@
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
-#                SGT Gabriel Silvieira Lima - PMGO
+#                SGT Gabriel Silveira Lima - PMGO
 #  Instituição : Polícia Militar do Estado de Goiás
 #  Contato     : leonidio.moraes@goias.gov.br
-#  Licença     : Uso interno da instituição. Proibida a redistribuição sem
-#                autorização.
+#  Licença     : Proprietária - todos os direitos reservados (ver LICENSE)
 #  Requisitos  : Python 3.11+ (64 bits), Windows 10/11, PyInstaller 6+
 #  Codificação : UTF-8
 # ------------------------------------------------------------------------------
@@ -131,6 +130,9 @@ def main():
         # Listas assinadas pelos administradores (cópia inicial; o aplicativo atualiza on-line).
         # As ferramentas dos administradores (admin_licencas.py e a tela) NÃO vão no executável.
         "--add-data", f"{PASTA / 'licencas'}{';' if sys.platform == 'win32' else ':'}licencas",
+        # Termos de Uso, Política de Privacidade e avisos/licenças de terceiros (tela "Termos")
+        "--add-data", f"{PASTA / 'legal'}{';' if sys.platform == 'win32' else ':'}legal",
+        "--hidden-import", "modTermos",
         "--exclude-module", "admin_licencas",
         "--exclude-module", "admin_licencas_tela",
         "--collect-submodules", "nist_intelligence",
