@@ -253,3 +253,37 @@ uma versão nova do aplicativo, com as impressões digitais novas em `ADMINISTRA
 - As credenciais das fontes (token do GitHub, chave do HIBP) ficam cifradas no banco do usuário que
   as configurou. A recomendação institucional é guardá-las num serviço da PMGO, que confira a sessão
   e faça as consultas em nome do usuário.
+
+## Repositório de distribuição e repositório do código privado (2.0.6)
+
+Os aplicativos instalados baixam as listas assinadas de **dois** lugares e ficam com a melhor cópia que
+confere:
+1. `gsilveiralima/S-Cyber-Distribuicao` (público, **sem código**: só `licencas/*.scsig` e as Releases);
+2. este repositório, enquanto ele for público.
+
+Vocês continuam publicando **aqui**, do mesmo jeito (tela do administrador ou `admin_licencas.py`). O
+workflow **Espelhar listas na distribuição** copia os `.scsig` para o repositório de distribuição a cada
+publicação, e o workflow do instalador copia cada Release para lá. Os dois precisam do segredo
+`DIST_TOKEN`.
+
+**Criar o `DIST_TOKEN` (uma vez):**
+1. GitHub → foto → **Settings → Developer settings → Personal access tokens → Fine-grained tokens →
+   Generate new token**.
+2. **Repository access:** *Only select repositories* → `S-Cyber-Distribuicao` (só ele).
+3. **Permissions → Repository permissions → Contents: Read and write** (nada mais).
+4. Validade de até 1 ano; anote a data para renovar.
+5. Copie o token e, neste repositório, vá em **Settings → Secrets and variables → Actions → New
+   repository secret**: nome `DIST_TOKEN`, valor = o token.
+6. Em **Actions → Espelhar listas na distribuição → Run workflow**, rode uma vez e confira os
+   `.scsig` no repositório de distribuição.
+
+**Deixar este repositório privado, só depois de:**
+1. o espelho estar funcionando (passo 6 acima);
+2. a 2.0.6 (ou mais nova) estar publicada na distribuição e instalada em **todos** os clientes:
+   versões até a 2.0.5 só sabem baixar as listas deste repositório e perderiam o acesso às listas novas
+   (continuariam só com o cache, que vence em até 30 dias);
+3. então: **Settings → General → Danger Zone → Change repository visibility → Make private**.
+
+Num repositório privado, o plano gratuito do GitHub tem limite mensal de minutos de Actions, e as
+máquinas Windows gastam esse limite mais rápido: acompanhe em **Settings → Billing**.
+

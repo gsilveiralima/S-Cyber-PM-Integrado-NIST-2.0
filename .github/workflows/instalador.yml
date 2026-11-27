@@ -144,3 +144,21 @@ jobs:
             gh release create "$GITHUB_REF_NAME" SCyberPM-Setup-*.exe SHA256SUMS.txt \
               --repo "$GITHUB_REPOSITORY" --title "S-Cyber $GITHUB_REF_NAME" --notes-file notas.md --prerelease
           fi
+      - name: Copiar a Release para o repositório público de distribuição
+        env:
+          DIST_TOKEN: ${{ secrets.DIST_TOKEN }}
+          DESTINO: gsilveiralima/S-Cyber-Distribuicao
+        run: |
+          set -e
+          if [ -z "${DIST_TOKEN}" ]; then
+            echo "::warning::Segredo DIST_TOKEN ausente: Release NÃO copiada para ${DESTINO}."
+            exit 0
+          fi
+          export GH_TOKEN="${DIST_TOKEN}"
+          cd artefatos/*/
+          if gh release view "$GITHUB_REF_NAME" --repo "$DESTINO" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" SCyberPM-Setup-*.exe SHA256SUMS.txt --repo "$DESTINO" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" SCyberPM-Setup-*.exe SHA256SUMS.txt --repo "$DESTINO" \
+              --title "S-Cyber $GITHUB_REF_NAME" --notes-file notas.md --prerelease
+          fi

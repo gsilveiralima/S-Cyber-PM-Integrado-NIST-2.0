@@ -91,6 +91,8 @@ class Admin:
         return base
 
     def _publicar(self, nome, doc):
+        if nome == "credenciamentos":
+            doc = self._sem_nomes(doc)
         doc = dict(doc, tipo=nome, sequencia=int(doc.get("sequencia", 0)) + 1, emitida_em=_agora(),
                    emitida_por=self.nome,
                    valida_ate=(self.hoje + timedelta(days=L.VALIDADE_LISTA_DIAS)).isoformat())
@@ -100,6 +102,20 @@ class Admin:
         if nome == "administradores":
             self.pub._admins = None
         return doc
+
+    def _sem_nomes(self, doc):
+        """Listas publicadas antes da 2.0.6 tinham o nome do titular de cada certificado. Na próxima
+        publicação os nomes saem da lista pública e ficam no registro privado (LGPD, minimização)."""
+        certs, retirados = [], []
+        for c in doc.get("certificados") or []:
+            if c.get("titular"):
+                retirados.append(f"{c.get('thumbprint', '')[:8]}… titular {c['titular']}")
+                c = dict(c, titular="")
+            certs.append(c)
+        if retirados:
+            self._registrar("minimizar", detalhes=f"{len(retirados)} nome(s) retirado(s) da lista pública",
+                            privado="; ".join(retirados))
+        return dict(doc, certificados=certs)
 
     def _registrar(self, operacao, licenca_id="", instalacao="", detalhes="", privado=""):
         """Registro público (repositório): só identificadores, sem nomes de clientes nem de pessoas

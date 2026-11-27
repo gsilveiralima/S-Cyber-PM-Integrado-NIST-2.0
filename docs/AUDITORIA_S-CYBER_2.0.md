@@ -659,13 +659,14 @@ Decisão do autor: **licença proprietária** (os titulares confirmaram ter auto
 | Fase 6 — primeiros passos | Cartão na tela inicial (termos, licença, certificado, 1º diagnóstico, correção comprovada, backup), lido do banco só com contagens | `test_primeiros_passos.PrimeirosPassosTests` |
 | Fase 6 — evolução | Aba **Evolução**: diagnósticos em ordem, comparação do mesmo ativo, correções comprovadas, riscos e incidentes; sem nota nem porcentagem (metodologia na tela) | `test_indicadores` |
 | Fase 6 — domínio | Botão **E-mail e domínio** (SPF, DMARC, DNSSEC) no mesmo fluxo do diagnóstico | `test_primeiros_passos.CincoAreasTests` |
+| Distribuição separada do código | Listas assinadas baixadas também de `S-Cyber-Distribuicao` (público, sem código), em paralelo, ficando a melhor cópia que confere; o CI espelha as listas e as Releases para lá (segredo `DIST_TOKEN`); nomes antigos de titulares saem da lista pública na próxima publicação; `logo.png` (foto de uma pessoa) removido | `test_distribuicao` |
 | Código | Nome "Silveira" corrigido em 35 lugares; análise automática (ruff: pyflakes, bugbear e segurança) sem defeito real novo | `ruff check --select E9,F` no CI |
 
 **Pendências que dependem dos titulares (não são de código):**
 - revisão jurídica dos Termos de Uso, da Política de Privacidade e da `LICENSE` antes da primeira venda;
 - CNPJ (ou outra forma jurídica) para vender e emitir nota fiscal; o contato comercial hoje é `scybersuporte@gmail.com`;
 - registro do software no INPI (opcional, reforça a prova de autoria);
-- decidir se o repositório continua público (o código proprietário continua visível para qualquer pessoa);
+- deixar o repositório do código privado só depois que o espelho funcionar e todos os clientes estiverem na 2.0.6 ou mais nova (passo a passo em `docs/ADMINISTRACAO_LICENCAS.md`);
 - certificado de assinatura de código para o instalador (Fase 8);
 - custo de implantação e manutenção (item pendente do relatório do Projeto Integrador).
 

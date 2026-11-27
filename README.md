@@ -13,11 +13,11 @@ O núcleo é um só, com duas modalidades definidas pela licença assinada:
 
 ## Instalação
 
-> **Versão estável x desenvolvimento:** instale sempre pela página **[Releases](https://github.com/gsilveiralima/S-Cyber-PM-Integrado-NIST-2.0/releases)**. A `main` é a versão em desenvolvimento e muda com frequência.
+> **Versão estável x desenvolvimento:** instale sempre pela página **Releases**: a partir da 2.0.6, a do repositório público de distribuição **[S-Cyber-Distribuicao](https://github.com/gsilveiralima/S-Cyber-Distribuicao/releases)** (até a 2.0.5, a [deste repositório](https://github.com/gsilveiralima/S-Cyber-PM-Integrado-NIST-2.0/releases)). A `main` é a versão em desenvolvimento e muda com frequência.
 
 ### Usuário final (sem Python e sem comandos)
 
-1. Abra a página **[Releases](https://github.com/gsilveiralima/S-Cyber-PM-Integrado-NIST-2.0/releases)** e baixe, da versão mais recente:
+1. Abra a página **[Releases da distribuição](https://github.com/gsilveiralima/S-Cyber-Distribuicao/releases)** e baixe, da versão mais recente:
    - o `SCyberPM-Setup-<versão>.exe`;
    - o `SHA256SUMS.txt`.
 2. Confira a integridade no PowerShell com `Get-FileHash .\SCyberPM-Setup-2.0.6.exe -Algorithm SHA256`. O resultado precisa ser igual ao do `SHA256SUMS.txt`.
