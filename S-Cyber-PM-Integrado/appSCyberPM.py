@@ -1104,7 +1104,7 @@ def main():
     aba = ribbon.aba("Administração")
     g = aba.grupo("Configurações")
     g.botao("Opções", "opcoes", lambda: formOpcoes.FormOpcoes(root),
-            "Senha dos PDFs, dados de acesso e cópia de segurança (Ctrl+O)")
+            "Senha dos PDFs e dados de acesso (Ctrl+O)")
     g.botao("Backup e\nrestauração", "disco", aba_nist("Relatório"),
             "Backup e restauração do banco NIST (os dados continuam cifrados)")
     g.botao("Auditoria", "nist", aba_nist("Auditoria"),

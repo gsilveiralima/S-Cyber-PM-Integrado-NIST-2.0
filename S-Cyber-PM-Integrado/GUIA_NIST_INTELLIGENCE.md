@@ -8,10 +8,10 @@ cifrado e trilha de auditoria. Formas de abrir:
 | Direto no painel | `appSCyberPM.py --nist`, ou dois cliques em `iniciar_nist_windows.bat` (no `.exe`: `SCyberPM.exe --nist`) |
 | Atalho | **Ctrl+Shift+N** |
 | Menu **NIST Intelligence** | painel ou uma aba específica (Coleta técnica, Riscos, Incidentes, Relatório, Auditoria…) |
-| Ribbon | aba **NIST Intelligence** |
+| Ribbon | áreas **Visão geral** (Diagnóstico, Situação, Evolução), **NIST Intelligence** (cada aba), **Inteligência** (Ativos, E-mail e domínio, OSINT) e **Administração** (Backup, Auditoria) |
 | Assistente (campo central) | escreva, por exemplo, "coleta técnica", "incidentes", "relatório nist" ou "auditoria" |
 
-**Tour narrado:** em *Arquivo > Tour* (ou `F2`), a narradora abre o painel e explica cada aba.
+**Tour narrado:** em *Visão geral > Tour narrado* (ou `F2`), a narradora abre o painel e explica cada aba.
 
 **Ao entrar no S-Cyber PM** (depois do login), sem atrasar a abertura:
 - é feita uma **cópia de segurança diária** do banco NIST na pasta `backups`, guardando as últimas 7;
@@ -21,6 +21,13 @@ cifrado e trilha de auditoria. Formas de abrir:
 
 > `teste_painel_nist.py` **não** é o painel de uso real: abre só a interface, com banco temporário e
 > sem criptografia, para desenvolvimento (exige `SCYBER_NIST_DEV=1`).
+
+## Aba Evolução (2.0.6)
+Mostra como a segurança mudou entre os diagnósticos: falhas, atenções, verificações indisponíveis e
+prioritárias de cada diagnóstico, a comparação do mesmo ativo, as correções comprovadas por nova
+verificação, os riscos críticos e os incidentes abertos. **Não há nota nem porcentagem**: cada número é
+uma contagem do que foi registrado. No modo avançado aparecem a tabela completa e a metodologia.
+Sem avaliação não é o mesmo que sem problema, e verificação indisponível nunca conta como aprovada.
 
 ## Fluxo de trabalho recomendado
 1. **Coleta técnica.** Integrado ao S-Cyber PM, o painel refaz a coleta **sozinho** quando a última

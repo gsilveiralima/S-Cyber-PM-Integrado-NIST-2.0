@@ -4,4 +4,4 @@
 #  executável. Sem dependências: o núcleo NIST importa daqui sem carregar a interface.
 # ==========================================================
 
-APP_VERSAO = "2.0.5"   # certificado que não serve (não RSA / da organização) bloqueado no pedido
+APP_VERSAO = "2.0.6"   # produto comercial: licença, termos, privacidade, Business e Fase 6

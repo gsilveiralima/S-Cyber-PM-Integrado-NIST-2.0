@@ -208,6 +208,12 @@ O arquivo `licencas/registro.jsonl` tem uma linha **assinada** por operação, c
 data, a instalação, a operação e o identificador da licença. O comando `verificar` e o CI acusam
 qualquer linha alterada.
 
+**Desde a 2.0.6 (LGPD, minimização):** o registro público e a lista pública de credenciamentos não
+levam mais **nomes de clientes, de unidades nem de pessoas**. Esses nomes ficam só no **registro
+privado** do administrador, no próprio computador dele:
+`%LOCALAPPDATA%\SCyberAdmin\registro_privado.jsonl` (também assinado, uma linha por operação).
+Guarde essa pasta no seu backup pessoal: ela é a única lista de quem recebeu cada licença.
+
 ## Recuperar uma conta administrativa
 Se um de vocês perder o certificado (computador formatado, por exemplo), o outro autoriza o
 certificado novo e retira o perdido:
