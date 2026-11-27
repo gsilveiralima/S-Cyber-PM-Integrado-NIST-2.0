@@ -382,6 +382,13 @@ ROTEIRO = [
           "visão geral e saber onde estão as maiores lacunas. Lembre-se: subcategoria ainda não "
           "avaliada conta como zero, então o painel melhora conforme você avalia.",
           "Canvas do Tkinter · maturidade 0–4", acao="nist_aba:Painel"),
+    Passo("NIST: aba Evolução",
+          "A aba Evolução mostra como a segurança mudou de um diagnóstico para o outro: quantas "
+          "falhas e atenções havia, quantas verificações não puderam ser feitas e quantas correções "
+          "foram comprovadas por uma nova verificação. Não existe nota nem porcentagem de segurança: "
+          "cada número é uma contagem do que foi registrado, e sem avaliação não é o mesmo que sem "
+          "problema.",
+          "contagens registradas · comparação do mesmo ativo", acao="nist_aba:Evolução"),
     Passo("NIST: aba Avaliação CSF 2.0",
           "Aqui você faz o diagnóstico. À esquerda, a árvore com as funções, categorias e "
           "subcategorias do framework. Clique numa subcategoria, leia o texto oficial e "

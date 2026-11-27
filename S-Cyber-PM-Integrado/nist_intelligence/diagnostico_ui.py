@@ -11,10 +11,11 @@ from __future__ import annotations
 
 import threading
 import tkinter as tk
-from tkinter import messagebox, ttk
+from tkinter import messagebox, simpledialog, ttk
 
 from . import achados as A
 from . import collector, core
+from . import dominio as dm
 from . import diagnostico as D
 from . import nuvem
 
@@ -44,6 +45,9 @@ class DiagnosticoMixin:
         self.diag_nuvem = ttk.Button(bar, text='☁  Verificar nuvem (Azure)…', style='NIST.TButton',
                                      command=self.iniciar_nuvem)
         self.diag_nuvem.pack(side='left')
+        self.diag_dominio = ttk.Button(bar, text='✉  Verificar e-mail e domínio…', style='NIST.TButton',
+                                       command=self.iniciar_dominio)
+        self.diag_dominio.pack(side='left', padx=(8, 0))
         self.diag_avancado = tk.BooleanVar(value=False)
         ttk.Checkbutton(bar, text='Modo avançado (evidências e detalhes técnicos)', variable=self.diag_avancado,
                         style='NIST.TCheckbutton', command=self._diag_trocar_modo).pack(side='left', padx=12)
@@ -143,6 +147,38 @@ class DiagnosticoMixin:
         else:
             self._diag_coletado(nuvem.ambiente_simulado(), None, cancelar, nuvem=True)
 
+    def iniciar_dominio(self, dominio=None):
+        """E-mail e domínio da empresa (SPF, DMARC e DNSSEC) pelo DNS público: só registros públicos,
+        nada é alterado. Mesmo fluxo do diagnóstico (achados, NIST, recomendação e comparação)."""
+        if self._diag_cancelar is not None:
+            return
+        if dominio is None:
+            dominio = simpledialog.askstring(
+                'Verificar e-mail e domínio',
+                'Domínio do e-mail da empresa (ex.: empresa.com.br):\n\n'
+                'Consulta só registros PÚBLICOS (SPF, DMARC, DNSSEC e MX) no Google Public DNS, pela internet. '
+                'Verifique apenas domínios da sua empresa ou que você está autorizado a avaliar.', parent=self)
+        if not dominio:
+            return
+        try:
+            dominio = dm.normalizar(dominio)
+        except ValueError as exc:
+            self._error('Verificar e-mail e domínio', exc)
+            return
+        self.tabs.select(self.t_diag)
+        cancelar = threading.Event()
+        self._diag_cancelar = cancelar
+        for botao in (self.diag_botao, self.diag_nuvem, self.diag_dominio):
+            botao.state(['disabled'])
+        self.diag_cancelar.state(['!disabled'])
+        self._diag_progresso(0, D.ETAPAS[0])
+
+        def coletar():
+            self._after_safe(lambda: self._diag_progresso(1, f'Consultando o DNS público de {dominio}'))
+            return dm.coletar(dominio)
+
+        self._thread(coletar, lambda raw, erro: self._diag_coletado(raw, erro, cancelar, dominio=True))
+
     def cancelar_diagnostico(self):
         if self._diag_cancelar is not None:
             self._diag_cancelar.set()
@@ -154,10 +190,11 @@ class DiagnosticoMixin:
         self.diag_etapa.set(f'Etapa {n + 1} de {len(D.ETAPAS)}: {etapa}…')
         self.update_idletasks()
 
-    def _diag_coletado(self, raw, erro, cancelar, nuvem=False):
+    def _diag_coletado(self, raw, erro, cancelar, nuvem=False, dominio=False):
         self._diag_cancelar = None
         self.diag_botao.state(['!disabled'])
         self.diag_nuvem.state(['!disabled'])
+        self.diag_dominio.state(['!disabled'])
         self.diag_cancelar.state(['disabled'])
         if cancelar.is_set():
             self.diag_barra['value'] = 0
@@ -169,7 +206,8 @@ class DiagnosticoMixin:
             self._error('Diagnóstico Inteligente', erro)
             return
         try:
-            self._diag = D.registrar(self.db, raw, self._evid_dir(), self._diag_progresso, nuvem=nuvem)
+            self._diag = D.registrar(self.db, raw, self._evid_dir(), self._diag_progresso, nuvem=nuvem,
+                                     dominio=dominio)
         except Exception as exc:  # noqa: BLE001 — mostra o motivo, nada some calado
             self.diag_etapa.set(f'Falha ao registrar o diagnóstico: {exc}')
             self._error('Diagnóstico Inteligente', exc)

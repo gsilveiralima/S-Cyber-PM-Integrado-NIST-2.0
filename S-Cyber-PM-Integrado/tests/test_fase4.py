@@ -218,7 +218,7 @@ class InterfaceTests(unittest.TestCase):
 
     def test_ligacoes(self):
         main = (BASE / 'nist_intelligence' / 'main.py').read_text(encoding='utf-8')
-        self.assertIn('class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame)', main)
+        self.assertIn('class NISTPanel(DiagnosticoMixin, EvolucaoMixin, AchadosMixin, ttk.Frame)', main)
         self.assertIn("self.t_diag = self.add_tab('Diagnóstico')", main)
         self.assertIn('command=self.iniciar_diagnostico', main)          # botão na visão geral
         ui = (BASE / 'nist_intelligence' / 'diagnostico_ui.py').read_text(encoding='utf-8')
@@ -227,7 +227,9 @@ class InterfaceTests(unittest.TestCase):
         self.assertIn('Confirma a verificação DESTE computador?', ui)   # escopo confirmado antes
         self.assertIn('Diagnóstico cancelado: nada foi gravado.', ui)
         app = (BASE / 'appSCyberPM.py').read_text(encoding='utf-8')
-        self.assertIn('grupo_nist.botao("Diagnóstico\\ninteligente", "nist", diagnostico_nist', app)
+        # Fase 6: o botão fica na primeira área da Ribbon ("Visão geral")
+        visao = app.split('ribbon.aba("Visão geral")', 1)[1].split('ribbon.aba(', 1)[0]
+        self.assertIn('g.botao("Diagnóstico\\ninteligente", "nist", diagnostico_nist', visao)
         self.assertIn('command=diagnostico_nist', app)
         self.assertIn('self.painel.iniciar_diagnostico()', (BASE / 'modNist.py').read_text(encoding='utf-8'))
 

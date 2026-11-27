@@ -12,6 +12,7 @@ from . import achados as ach
 from . import collector, core, package, report
 from .achados_ui import AchadosMixin
 from .diagnostico_ui import DiagnosticoMixin
+from .evolucao_ui import EvolucaoMixin
 from .bridge import ReadOnlySEIBridge
 from .catalog import CATEGORIES, FUNCTIONS, MATURITY, SUB_BY_CATEGORY, TIERS, function_of
 
@@ -120,7 +121,7 @@ def _br(iso):
     return f'{iso[8:10]}/{iso[5:7]}/{iso[:4]}' if iso and len(iso) >= 10 else ''
 
 
-class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
+class NISTPanel(DiagnosticoMixin, EvolucaoMixin, AchadosMixin, ttk.Frame):
     """Painel embutível no Tk raiz do S-Cyber PM."""
 
     def __init__(self, parent, original_root=None, embedded=False, on_back=None, db_path=None, key=None,
@@ -170,6 +171,7 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
         self.barra_abas.pack(fill='x', padx=12, pady=(0, 6))
         self.tabs.pack(fill='both', expand=True, padx=12, pady=(0, 10))
         self.t_dash = self.add_tab('Painel')
+        self.t_evol = self.add_tab('Evolução')
         self.t_diag = self.add_tab('Diagnóstico')
         self.t_achados = self.add_tab('Ativos e achados')
         self.t_assess = self.add_tab('Avaliação CSF 2.0')
@@ -183,7 +185,7 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
         self.t_cons = self.add_tab('Consolidação')
         self.t_report = self.add_tab('Relatório')
         self.t_audit = self.add_tab('Auditoria')
-        for build in (self.make_dashboard, self.make_diagnostico, self.make_achados, self.make_assessment, self.make_plan, self.make_collect,
+        for build in (self.make_dashboard, self.make_evolucao, self.make_diagnostico, self.make_achados, self.make_assessment, self.make_plan, self.make_collect,
                       self.make_risks, self.make_incidents, self.make_evidence, self.make_osint,
                       self.make_sei, self.make_consolidation, self.make_report, self.make_audit):
             if build == self.make_sei and not self.sei_enabled:
@@ -1789,7 +1791,7 @@ class NISTPanel(DiagnosticoMixin, AchadosMixin, ttk.Frame):
         for part in (self.refresh_assessment, self.refresh_plan, self.refresh_collect, self.refresh_risks,
                      self.refresh_incidents, self.refresh_evidence, self.refresh_osint, self.refresh_consolidation,
                      self.refresh_audit, self.refresh_achados, self.refresh_pending, self.refresh_dashboard,
-                     self.refresh_diagnostico):
+                     self.refresh_diagnostico, self.refresh_evolucao):
             part()
         self.refresh_header()
 
