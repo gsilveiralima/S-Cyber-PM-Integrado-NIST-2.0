@@ -8,11 +8,10 @@
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
-#                SGT Gabriel Silvieira Lima - PMGO
+#                SGT Gabriel Silveira Lima - PMGO
 #  Instituição : Polícia Militar do Estado de Goiás
 #  Contato     : leonidio.moraes@goias.gov.br
-#  Licença     : Uso interno da instituição. Proibida a redistribuição sem
-#                autorização.
+#  Licença     : Proprietária - todos os direitos reservados (ver LICENSE)
 #  Requisitos  : Python 3.11+ (64 bits), Windows 10/11
 #  Codificação : UTF-8
 # ------------------------------------------------------------------------------
@@ -456,6 +455,13 @@ class GrupoRibbon(tk.Frame):
         tk.Label(self, text=titulo, font=("Segoe UI", 8), fg=COR_GRUPO,
                  bg=COR_PAINEL).pack(side="bottom", pady=(0, 2))
 
+    def pack_forget(self):
+        """Esconde o grupo e a linha que o separa do próximo (modalidade sem o recurso)."""
+        super().pack_forget()
+        separador = getattr(self, "separador", None)
+        if separador is not None:
+            separador.pack_forget()
+
     def botao(self, texto, icone, comando, dica=""):
         b = _BotaoRibbon(self.botoes, texto, icone, comando, dica, self._ao_dica)
         b.pack(side="left", fill="y", padx=1)
@@ -473,7 +479,8 @@ class AbaRibbon(tk.Frame):
     def grupo(self, titulo):
         g = GrupoRibbon(self, titulo, self._ao_dica, self._registrar)
         g.pack(side="left", fill="y")
-        tk.Frame(self, bg=COR_BORDA, width=1).pack(side="left", fill="y", pady=6)
+        g.separador = tk.Frame(self, bg=COR_BORDA, width=1)
+        g.separador.pack(side="left", fill="y", pady=6)
         return g
 
 

@@ -8,11 +8,10 @@
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
-#                SGT Gabriel Silvieira Lima - PMGO
+#                SGT Gabriel Silveira Lima - PMGO
 #  Instituição : Polícia Militar do Estado de Goiás
 #  Contato     : leonidio.moraes@goias.gov.br
-#  Licença     : Uso interno da instituição. Proibida a redistribuição sem
-#                autorização.
+#  Licença     : Proprietária - todos os direitos reservados (ver LICENSE)
 #  Requisitos  : Python 3.11+ (64 bits), Windows 10/11
 #  Codificação : UTF-8
 # ------------------------------------------------------------------------------
@@ -2228,7 +2227,7 @@ class VisualizadorRelatorio(tk.Frame):
 
 def build_main_form(root):
     """Monta o formulário do relatório SEM mostrá-lo (ele aparece quando a coruja sai)."""
-    root.title("S-Cyber PM - Corujinha: relatório do sistema")
+    root.title("S-Cyber - Corujinha: relatório do sistema")
     root.geometry("1100x650")
     visualizador = VisualizadorRelatorio(root)
     visualizador.pack(fill="both", expand=True)

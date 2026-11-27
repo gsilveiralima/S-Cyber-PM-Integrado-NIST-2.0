@@ -79,8 +79,11 @@ class BusinessSemSeiTests(unittest.TestCase):
         corpo = app.split('def mostrar_principal():', 1)[1]
         self.assertIn('ocultar_integracoes_institucionais()', corpo)
         funcao = app.split('def ocultar_integracoes_institucionais():', 1)[1].split('\n    def ', 1)[0]
-        for item in ('"SEI - consulta pelo navegador..."', '"Consultas SEI"', 'root.unbind("<Control-i>")',
-                     'botao_sei.pack_forget()', 'assistente.comandos'):
+        # 2.0.6: a mesma rotina esconde também o rádio (DMR/P25/TETRA) e o Espião didático
+        for item in ('"SEI - consulta pelo navegador..."', '"Consultas SEI"', '"<Control-i>"', 'botao_sei',
+                     '"<Control-t>"', 'botao_radio', '"<Control-y>"', 'grupo_seguranca',
+                     'widget.pack_forget()', 'root.unbind(tecla)', 'assistente.comandos',
+                     'recurso_liberado(LICENCA_EM_USO, recurso)'):
             self.assertIn(item, funcao)
         self.assertIn('institucional=_sei_liberado()', app)              # Tour sem os passos do SEI
 
@@ -97,7 +100,8 @@ class BusinessSemSeiTests(unittest.TestCase):
         completo, business = formTour.roteiro(), formTour.roteiro(institucional=False)
         self.assertTrue(any('SEI' in p.titulo for p in completo))
         self.assertFalse(any('SEI' in p.titulo or p.destaque == 'sei' for p in business))
-        self.assertEqual(len(completo) - len(business), 2)
+        self.assertEqual(len(completo) - len(business), 3)          # SEI, Consultas SEI e Espião
+        self.assertFalse(any('S-Cyber PM' in p.texto or 'Polícia Militar' in p.texto for p in business))
 
 
 class PainelNistTelaTests(unittest.TestCase):

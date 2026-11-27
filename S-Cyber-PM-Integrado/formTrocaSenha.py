@@ -26,7 +26,7 @@ class FormTrocaSenha(tk.Toplevel):
 
     def __init__(self, parent, ao_concluir, ao_desistir):
         super().__init__(parent)
-        self.title("S-Cyber PM - Definir senhas")
+        self.title("S-Cyber - Definir senhas")
         self.resizable(False, False)
         self._ao_concluir = ao_concluir
         self._ao_desistir = ao_desistir

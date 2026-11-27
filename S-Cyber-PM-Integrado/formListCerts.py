@@ -9,11 +9,10 @@
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
-#                SGT Gabriel Silvieira Lima - PMGO
+#                SGT Gabriel Silveira Lima - PMGO
 #  Instituição : Polícia Militar do Estado de Goiás
 #  Contato     : leonidio.moraes@goias.gov.br
-#  Licença     : Uso interno da instituição. Proibida a redistribuição sem
-#                autorização.
+#  Licença     : Proprietária - todos os direitos reservados (ver LICENSE)
 #  Requisitos  : Python 3.11+ (64 bits), Windows 10/11
 #  Codificação : UTF-8
 # ------------------------------------------------------------------------------
@@ -781,7 +780,7 @@ class ListCerts(tk.Toplevel):
 
     def __init__(self, parent):
         super().__init__(parent)
-        self.title("S-Cyber PM - Certificados instalados")
+        self.title("S-Cyber - Certificados instalados")
         largura = min(1400, int(self.winfo_screenwidth() * 0.95))
         self.geometry(f"{largura}x660")
         self.minsize(900, 420)

@@ -50,7 +50,7 @@ class FormAbertura(tk.Toplevel):
     """etapa: 'licenca' | 'certificado' | 'opcoes'. ao_tentar(): refaz a validação;
     ao_sair(): encerra o aplicativo."""
 
-    TITULOS = {"licenca": "Ativação do S-Cyber PM", "certificado": "Certificado digital",
+    TITULOS = {"licenca": "Ativação do S-Cyber", "certificado": "Certificado digital",
                "opcoes": "Perfil cifrado com outro certificado"}
 
     def __init__(self, master, etapa, mensagem, ao_tentar, ao_sair, versao, programa, autorizados,
@@ -61,7 +61,7 @@ class FormAbertura(tk.Toplevel):
         self.etapa, self.ao_tentar, self.ao_sair = etapa, ao_tentar, ao_sair
         self.versao, self.programa, self.autorizados = versao, programa, autorizados
         self.thumb_atual = thumb_atual
-        self.title(self.TITULOS.get(etapa, "S-Cyber PM"))
+        self.title(self.TITULOS.get(etapa, "S-Cyber"))
         self.configure(bg=FUNDO)
         self.geometry("760x560")
         self.protocol("WM_DELETE_WINDOW", self.sair)
@@ -307,7 +307,7 @@ class FormPerfil(tk.Toplevel):
     def __init__(self, master, thumb_atual, ao_concluir=None, actor=""):
         super().__init__(master)
         self.thumb_atual, self.ao_concluir, self.actor = thumb_atual, ao_concluir, actor
-        self.title("Assistente de perfil — S-Cyber PM")
+        self.title("Assistente de perfil — S-Cyber")
         self.geometry("900x480")
         self.configure(bg=FUNDO)
         ttk.Label(self, text="Arquivos cifrados deste perfil", font=("Segoe UI", 13, "bold")).pack(anchor="w",

@@ -1,0 +1,66 @@
+﻿POLÍTICA DE PRIVACIDADE DO S-CYBER
+Versão de 27/11/2026
+
+Esta política explica, em linguagem simples, quais dados o S-Cyber usa, onde eles ficam e
+quando o programa se conecta à internet. Ela segue a Lei Geral de Proteção de Dados (LGPD,
+Lei nº 13.709/2018).
+
+1. QUEM É RESPONSÁVEL PELOS DADOS
+   O S-Cyber funciona no computador do Cliente. A empresa ou instituição que usa o programa
+   é a controladora dos dados que ele trata no ambiente dela. Os Titulares do S-Cyber não
+   recebem os resultados dos diagnósticos nem os documentos do Cliente.
+
+2. QUE DADOS O PROGRAMA TRATA
+   - Configurações de segurança do computador: sistema operacional, atualizações, antivírus,
+     firewall, criptografia do disco, contas locais, portas, serviços e cópias de segurança.
+   - O que o Usuário registra: ativos, riscos, incidentes, planos de ação e evidências.
+   - Identificação da instalação (código INST-...), nome do computador e da conta do Windows,
+     usados na ativação e na trilha de auditoria.
+   - Certificado digital do Usuário (apenas a parte pública e a impressão digital).
+   O programa não lê senhas. O inventário detalhado da Corujinha só roda com consentimento,
+   e câmera, captura de tela e internet ficam desligadas por padrão nesse módulo.
+
+3. ONDE OS DADOS FICAM
+   No próprio computador, na pasta do usuário do Windows (%APPDATA%\SCyberPM), em banco de
+   dados cifrado (AES-256-GCM). Na modalidade Business, cada empresa tem uma pasta separada.
+   As evidências recebem resumo SHA-256 e as operações ficam numa trilha de auditoria.
+
+4. QUANDO O PROGRAMA USA A INTERNET
+   O núcleo funciona sem internet. O programa só se conecta para:
+   - baixar as listas assinadas de licenças, revogações e certificados (GitHub);
+   - consultar catálogos públicos de vulnerabilidades (CISA KEV e OSV.dev), enviando apenas
+     nomes e versões de programas;
+   - verificar se uma senha já vazou (Pwned Passwords), enviando só os 5 primeiros
+     caracteres do resumo SHA-1 da senha, nunca a senha nem o resumo completo;
+   - consultar registros públicos do domínio da empresa (Google Public DNS), quando o
+     Usuário pede a verificação do e-mail e do domínio;
+   - serviços opcionais que o Cliente configurar com as próprias credenciais, como Microsoft
+     Azure (somente leitura), Have I Been Pwned e GitHub.
+   O S-Cyber não envia telemetria, estatísticas de uso nem os resultados dos diagnósticos
+   para os Titulares.
+
+5. ATIVAÇÃO E SUPORTE
+   O pedido de ativação ou de credenciamento é enviado pelo próprio Usuário, por e-mail. Ele
+   contém o código da instalação, o nome do computador, a conta do Windows e, no
+   credenciamento, o nome do titular e a impressão digital do certificado. Os
+   administradores usam esses dados só para emitir e controlar licenças. Nomes de clientes e
+   de pessoas não são publicados nas listas públicas de licenças.
+
+6. QUANTO TEMPO OS DADOS FICAM
+   Os dados ficam no computador do Cliente até que ele os apague. A desinstalação mantém os
+   dados, para não haver perda acidental; o Cliente pode apagá-los manualmente.
+
+7. DIREITOS DAS PESSOAS
+   Como os dados ficam com o Cliente, os pedidos de acesso, correção ou exclusão (art. 18 da
+   LGPD) devem ser feitos à empresa ou instituição que usa o programa. Sobre os dados de
+   ativação e suporte, fale com scybersuporte@gmail.com.
+
+8. SEGURANÇA
+   Acesso por certificado digital com desafio e resposta, banco cifrado, PDFs assinados,
+   evidências com SHA-256 e trilha de auditoria. Nenhuma medida elimina todos os riscos:
+   mantenha o Windows atualizado e proteja o acesso ao computador.
+
+9. ALTERAÇÕES
+   Novas versões desta política serão mostradas no programa.
+
+Contato: scybersuporte@gmail.com

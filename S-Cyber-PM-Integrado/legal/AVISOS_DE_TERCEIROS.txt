@@ -1,0 +1,30 @@
+﻿AVISOS DE COMPONENTES DE TERCEIROS DO S-CYBER
+
+O S-Cyber é software proprietário (ver LICENSE). Ele inclui os componentes abaixo, cada um
+sob a sua própria licença, que continua valendo para o respectivo componente. O texto
+completo de cada licença está em LICENCAS_DE_TERCEIROS.txt, gerado automaticamente na
+construção do instalador.
+
+Componente                 Licença
+-------------------------  ---------------------------------------------------------------
+Python (interpretador)     Python Software Foundation License (PSF-2.0)
+Tcl/Tk (Tkinter)           Licença estilo BSD (Tcl/Tk License)
+PyInstaller (carregador)   GPL-2.0 com exceção que permite distribuir programas fechados
+cryptography               Apache-2.0 ou BSD-3-Clause (inclui OpenSSL, Apache-2.0)
+Pillow                     MIT-CMU (HPND)
+matplotlib                 Matplotlib License (baseada na PSF)
+NumPy                      BSD-3-Clause (e licenças permissivas de partes incluídas)
+ReportLab                  BSD
+pywin32                    PSF-2.0
+pywebview                  BSD-3-Clause
+pythonnet                  MIT
+requests                   Apache-2.0
+urllib3                    MIT
+certifi                    MPL-2.0 (código-fonte disponível em github.com/certifi/python-certifi)
+selenium (opcional)        Apache-2.0
+pypdfium2 (opcional)       Apache-2.0 ou BSD-3-Clause (inclui PDFium, BSD-3-Clause)
+
+O nome "NIST" e o "NIST Cybersecurity Framework" pertencem ao National Institute of
+Standards and Technology (EUA). O S-Cyber usa o CSF 2.0 como referência e não é
+certificado nem endossado pelo NIST. Windows, Microsoft Azure e Edge são marcas da
+Microsoft Corporation.

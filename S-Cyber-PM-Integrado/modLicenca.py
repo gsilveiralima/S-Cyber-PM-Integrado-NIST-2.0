@@ -57,7 +57,9 @@ PAPEIS = ("usuario", "revisor")
 # S-Cyber 2.0: um produto, duas modalidades, definidas na licença ASSINADA (o usuário não troca).
 # Licenças antigas, sem o campo, continuam como "pm" (comportamento de antes).
 MODALIDADES = {"pm": "S-Cyber PM", "business": "S-Cyber Business"}
-EXCLUSIVO_PM = ("sei",)          # integrações institucionais que a modalidade Business não carrega
+# Só na modalidade PM: a integração institucional (SEI) e as simulações próprias do ensino
+# na PM (radiocomunicação DMR/P25/TETRA e o Espião didático). A Business não as mostra.
+EXCLUSIVO_PM = ("sei", "radio", "espiao")
 
 
 def modalidade(licenca):

@@ -10,11 +10,10 @@
 #  Revisão     : 2026-11-15
 #  Autores     : MAJ Daniel Medrado - PMGO
 #                MAJ Leonidio Alves de Moraes Junior - PMGO
-#                SGT Gabriel Silvieira Lima - PMGO
+#                SGT Gabriel Silveira Lima - PMGO
 #  Instituição : Polícia Militar do Estado de Goiás
 #  Contato     : leonidio.moraes@goias.gov.br
-#  Licença     : Uso interno da instituição. Proibida a redistribuição sem
-#                autorização.
+#  Licença     : Proprietária - todos os direitos reservados (ver LICENSE)
 #  Requisitos  : Python 3.11+ (64 bits), Windows 10/11
 #  Codificação : UTF-8
 # ------------------------------------------------------------------------------
@@ -738,7 +737,12 @@ def main():
         return
     root = tk.Tk()
     root.withdraw()  # fica oculta até a validação passar
-    root.title("S-Cyber PM")
+    root.title("S-Cyber")
+    # Termos de Uso e Política de Privacidade: aceite da versão atual antes de qualquer outra tela
+    import modTermos
+    if not modTermos.garantir_aceite(root):
+        root.destroy()
+        return
     root.geometry("1000x650")
     # Corujinha como ícone de todas as janelas (default=True vale para as Toplevel)
     root._icone = foto_icone("coruja", 32, root)
@@ -757,7 +761,7 @@ def main():
     fundo = FundoWatermark(root, bg="#ffffff")
     fundo.pack(fill="both", expand=True)
 
-    titulo = fundo.create_text(0, 0, text="S-Cyber PM - aplicação principal",
+    titulo = fundo.create_text(0, 0, text="S-Cyber - aplicação principal",
                                font=("Arial", 20, "bold"), fill="#202020")
 
     menus = tk.Menu(root)
@@ -793,7 +797,7 @@ def main():
             "nist": nist.abrir,
             "nist_aba": nist.selecionar_aba,
             "nist_voltar": nist.voltar_se_aberto,
-            "sobre": lambda: FormAbout(root),
+            "sobre": abrir_sobre,
         }
         janelas["tour"] = FormTour(root, ribbon=ribbon, status=status, acoes=acoes,
                                    institucional=_sei_liberado())
@@ -895,6 +899,11 @@ def main():
         from formSpy import FormSpy
         _abrir_unica("espiao", lambda: FormSpy(root))
 
+    def abrir_sobre(_evento=None):
+        # "Sobre" com o nome, a descrição e o contato da modalidade da licença assinada
+        import modLicenca
+        FormAbout(root, modalidade=modLicenca.modalidade(LICENCA_EM_USO))
+
     def abrir_hash(_evento=None):
         from formHash import FormHash
         _abrir_unica("hash", lambda: FormHash(root))
@@ -991,11 +1000,13 @@ def main():
 
     # Barra de menus: Ajuda > Sobre (F1)
     menu_ajuda = tk.Menu(menus, tearoff=False)
-    menu_ajuda.add_command(label="Sobre o S-Cyber PM", accelerator="F1",
-                           command=lambda: FormAbout(root))
+    menu_ajuda.add_command(label="Termos de Uso e Privacidade...",
+                           command=lambda: __import__("modTermos").mostrar(root))
+    menu_ajuda.add_command(label="Sobre o S-Cyber", accelerator="F1",
+                           command=abrir_sobre)
     menus.add_cascade(label="Ajuda", menu=menu_ajuda)
     root.configure(menu=menus)
-    root.bind("<F1>", lambda e: FormAbout(root))
+    root.bind("<F1>", lambda e: abrir_sobre())
 
     # Ribbon: uma aba para cada menu, com os mesmos comandos
     aba = ribbon.aba("Arquivo")
@@ -1036,7 +1047,7 @@ def main():
             "Navegador seguro (Ctrl+B)")
     g.botao("Ponta a\nponta", "e2e", abrir_e2e,
             "Comunicação ponta a ponta - simulação (Ctrl+E)")
-    g.botao("Rádio\ndigital", "radio", abrir_radio,
+    botao_radio = g.botao("Rádio\ndigital", "radio", abrir_radio,
             "Radiocomunicação digital: DMR, P25 e TETRA - simulação (Ctrl+T)")
     botao_sei = g.botao("SEI", "sei", abrir_sei,
                         "SEI - consulta pelo navegador (Ctrl+I)")
@@ -1047,7 +1058,7 @@ def main():
             "Armazenamento em disco por recursão, com fsync e SHA-256 (Ctrl+K)")
     g.botao("Processador\n(carga)", "processador", abrir_processador,
             "Uso do processador: processos x threads e o GIL (Ctrl+R)")
-    g = aba.grupo("Segurança")
+    grupo_seguranca = g = aba.grupo("Segurança")
     g.botao("Espião\n(monitor)", "espiao", abrir_espiao,
             "Espião: processos, tela, memória, arquivos e rede do aplicativo (Ctrl+Y)")
     aba.grupo("Aplicação").botao("Sair", "sair", root.destroy,
@@ -1065,7 +1076,7 @@ def main():
         "Retornar à tela principal sem encerrar o S-Cyber PM")
 
     aba = ribbon.aba("Ajuda")
-    aba.grupo("Informações").botao("Sobre", "sobre", lambda: FormAbout(root),
+    aba.grupo("Informações").botao("Sobre", "sobre", abrir_sobre,
                                    "Sobre o S-Cyber PM (F1)")
     aba.grupo("Aplicação").botao("Sair", "sair", root.destroy,
                                  "Fecha o S-Cyber PM")
@@ -1148,7 +1159,7 @@ def main():
                        lambda: formOpcoes.FormOpcoes(root),
                        ["opcoes", "configuracoes", "senha", "configurar", "ajustes", "hello",
                         "preferencias", "pin", "biometria"])
-    assistente.comando("Sobre o S-Cyber PM", "versão, autores e padrões", lambda: FormAbout(root),
+    assistente.comando("Sobre o S-Cyber", "versão, autores e padrões", abrir_sobre,
                        ["sobre", "versao", "informacoes", "autores", "about", "ajuda sobre"])
     assistente.comando("Sair", "fecha o aplicativo", root.destroy,
                        ["sair", "fechar", "encerrar", "quit", "exit"])
@@ -1194,19 +1205,35 @@ def main():
     fundo.bind("<Configure>", centralizar, add="+")
 
     def ocultar_integracoes_institucionais():
-        """S-Cyber Business: o SEI (integração institucional da PM) some do menu, da Ribbon, do
-        atalho Ctrl+I e do assistente, em vez de aparecer e depois recusar."""
-        if _sei_liberado():
-            return
-        for menu, rotulo in ((menu_ferramentas, "SEI - consulta pelo navegador..."),
-                             (menu_nist, "Consultas SEI")):
+        """S-Cyber Business: o que é só da PM (SEI, rádio DMR/P25/TETRA e Espião didático) some do
+        menu, da Ribbon, do atalho e do assistente, em vez de aparecer e depois recusar."""
+        import modLicenca
+        so_pm = {
+            "sei": ([(menu_ferramentas, "SEI - consulta pelo navegador..."), (menu_nist, "Consultas SEI")],
+                    "<Control-i>", botao_sei, abrir_sei),
+            "radio": ([(menu_ferramentas, "Radiocomunicação digital: DMR, P25 e TETRA (simulação)...")],
+                      "<Control-t>", botao_radio, abrir_radio),
+            "espiao": ([(menu_ferramentas, "Espião: o que um observador vê (didático)...")],
+                       "<Control-y>", grupo_seguranca, abrir_espiao),
+        }
+        for recurso, (itens, tecla, widget, acao) in so_pm.items():
+            if modLicenca.recurso_liberado(LICENCA_EM_USO, recurso):
+                continue
+            for menu, rotulo in itens:
+                try:
+                    menu.delete(menu.index(rotulo))
+                except tk.TclError:
+                    pass
+            root.unbind(tecla)
+            widget.pack_forget()
+            assistente.comandos[:] = [c for c in assistente.comandos if c.acao is not acao]
+        # Sem o último item, sobraria um separador solto no fim do menu
+        for menu in (menu_ferramentas, menu_nist):
             try:
-                menu.delete(menu.index(rotulo))
+                while menu.index("end") is not None and menu.type("end") == "separator":
+                    menu.delete("end")
             except tk.TclError:
                 pass
-        root.unbind("<Control-i>")
-        botao_sei.pack_forget()
-        assistente.comandos[:] = [c for c in assistente.comandos if c.acao is not abrir_sei]
 
     def mostrar_principal():
         # Modalidade da licença assinada: muda o nome do produto na janela (S-Cyber Business / PM)
